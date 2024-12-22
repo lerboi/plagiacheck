@@ -1,101 +1,179 @@
-import Image from "next/image";
+'use client'
+import { useState } from 'react'
+import { Nav } from "@/components/nav"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@/components/ui/card"
+import { Upload, Loader2 } from 'lucide-react'
+import { PlagiarismResults } from "@/components/plagiarism-results"
+import { useTokenStore } from "@/lib/store"
+import { useRouter } from 'next/navigation'
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [text, setText] = useState('')
+  const [isChecking, setIsChecking] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState<any>(null)
+  const { remainingWords, decrementWords } = useTokenStore()
+  const router = useRouter()
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const calculateRequiredTokens = (text: string) => {
+    return Math.ceil(text.length / 6)
+  }
+
+  const handlePlagiarismCheck = async () => {
+    if (!text.trim()) return
+
+    const requiredTokens = calculateRequiredTokens(text)
+    if (requiredTokens > remainingWords) {
+      router.push('/pricing')
+      return
+    }
+
+    setIsChecking(true)
+    setProgress(0)
+    setResult(null)
+
+    try {
+      const response = await fetch('/api/check-plagiarism', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to check plagiarism')
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      while (true) {
+        const { done, value } = await reader!.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(5))
+            
+            if (data.progress !== undefined) {
+              setProgress(data.progress)
+            }
+
+            if (data.result) {
+              setResult(data.result)
+              decrementWords(requiredTokens) // Deduct tokens after successful check
+            }
+
+            if (data.error) {
+              throw new Error(data.error)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking plagiarism:', error)
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-background px-5 md:px-10">
+      <Nav />
+      <main className="container py-12">
+        <div className="text-center space-y-4 mb-12">
+          <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
+            Plagiarism Checker
+          </h1>
+          <p className="mx-auto max-w-[700px] text-muted-foreground">
+            Ensure every word is your own with Plagiacheck's plagiarism checker, which detects plagiarism in your
+            text and checks for other writing issues.
+          </p>
+        </div>
+        <div className="grid md:grid-cols-[2fr,1fr] gap-8 items-start">
+          <div className="space-y-4">
+            <Card className="p-6">
+              <Textarea
+                placeholder="Enter text or upload file to check for plagiarism and writing errors."
+                className="min-h-[300px] resize-none"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+              <div className="mt-4 flex gap-4">
+                <Button 
+                  className="bg-blue-400 hover:bg-blue-500 flex-1"
+                  onClick={handlePlagiarismCheck}
+                  disabled={isChecking || !text.trim() || calculateRequiredTokens(text) > remainingWords}
+                >
+                  {isChecking ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    `Check for plagiarism (${calculateRequiredTokens(text)} words)`
+                  )}
+                </Button>
+                <Button variant="outline" className="flex-1">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload a file
+                </Button>
+              </div>
+              {calculateRequiredTokens(text) > remainingWords && (
+                <p className="mt-2 text-sm text-red-500">
+                  Not enough words remaining. Please upgrade your plan.
+                </p>
+              )}
+            </Card>
+            <PlagiarismResults 
+              isChecking={isChecking}
+              progress={progress}
+              result={result}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-bold">Let's get started.</h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <p className="font-semibold">Step 1:</p>
+                    <p className="text-muted-foreground">Add your text or upload a file.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Step 2:</p>
+                    <p className="text-muted-foreground">Click to scan for plagiarism.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Step 3:</p>
+                    <p className="text-muted-foreground">
+                      Review the results for instances of potential plagiarism, plus additional writing issues.
+                    </p>
+                  </div>
+                </div>
+                <Button className="w-full bg-blue-400 hover:bg-blue-500">
+                  Get Plagiacheck
+                </Button>
+                <div className="text-center text-sm text-muted-foreground">
+                  Already have an account?{" "}
+                  <a href="/signin" className="text-blue-300 hover:underline">
+                    Log in
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
-  );
+  )
 }
+
