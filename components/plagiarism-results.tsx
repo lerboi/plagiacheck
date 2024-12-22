@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { ReactElement, JSXElementConstructor, ReactNode, ReactPortal, Key } from "react"
 
 interface PlagiarismMatch {
   text: string
@@ -14,7 +15,7 @@ interface PlagiarismResult {
 interface PlagiarismResultsProps {
   isChecking: boolean
   progress: number
-  result: PlagiarismResult | null
+  result: any
 }
 
 export function PlagiarismResults({ isChecking, progress, result }: PlagiarismResultsProps) {
@@ -55,7 +56,7 @@ export function PlagiarismResults({ isChecking, progress, result }: PlagiarismRe
               <div className="space-y-2">
                 <h4 className="font-medium">Potential matches:</h4>
                 <div className="space-y-2">
-                  {result.matches.map((match, index) => (
+                  {result.matches.map((match: { text: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; similarity: number }, index: Key | null | undefined) => (
                     <div key={index} className="p-3 bg-muted rounded-lg">
                       <p className="text-sm">{match.text}</p>
                       <p className="text-xs text-muted-foreground mt-1">

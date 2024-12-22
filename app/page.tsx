@@ -1,38 +1,45 @@
 'use client'
-import { useState } from 'react'
-import { Nav } from "@/components/nav"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Upload, Loader2 } from 'lucide-react'
-import { PlagiarismResults } from "@/components/plagiarism-results"
-import { useTokenStore } from "@/lib/store"
-import { useRouter } from 'next/navigation'
+
+import { useState } from 'react';
+import { Nav } from '@/components/nav';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
+import { Upload, Loader2 } from 'lucide-react';
+import { PlagiarismResults } from '@/components/plagiarism-results';
+import { useTokenStore } from '@/lib/store';
+import { useRouter } from 'next/navigation';
+
+type PlagiarismResult = {
+  matches: string[];
+  percentage: number;
+  plagiarismPercentage: number
+} | null;
 
 export default function Home() {
-  const [text, setText] = useState('')
-  const [isChecking, setIsChecking] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [result, setResult] = useState<any>(null)
-  const { remainingWords, decrementWords } = useTokenStore()
-  const router = useRouter()
+  const [text, setText] = useState('');
+  const [isChecking, setIsChecking] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [result, setResult] = useState<PlagiarismResult>(null); // Typed `result`
+  const { remainingWords, decrementWords } = useTokenStore();
+  const router = useRouter();
 
   const calculateRequiredTokens = (text: string) => {
-    return Math.ceil(text.length / 6)
-  }
+    return Math.ceil(text.length / 6);
+  };
 
   const handlePlagiarismCheck = async () => {
-    if (!text.trim()) return
+    if (!text.trim()) return;
 
-    const requiredTokens = calculateRequiredTokens(text)
+    const requiredTokens = calculateRequiredTokens(text);
     if (requiredTokens > remainingWords) {
-      router.push('/pricing')
-      return
+      router.push('/pricing');
+      return;
     }
 
-    setIsChecking(true)
-    setProgress(0)
-    setResult(null)
+    setIsChecking(true);
+    setProgress(0);
+    setResult(null);
 
     try {
       const response = await fetch('/api/check-plagiarism', {
@@ -41,47 +48,51 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to check plagiarism')
+        throw new Error('Failed to check plagiarism');
       }
 
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
       while (true) {
-        const { done, value } = await reader!.read()
-        if (done) break
+        const { done, value } = await reader!.read();
+        if (done) break;
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(5))
-            
+            const data = JSON.parse(line.slice(5));
+
             if (data.progress !== undefined) {
-              setProgress(data.progress)
+              setProgress(data.progress);
             }
 
             if (data.result) {
-              setResult(data.result)
-              decrementWords(requiredTokens) // Deduct tokens after successful check
+              setResult({
+                matches: data.result.matches,
+                percentage: data.result.percentage,
+                plagiarismPercentage: data.result.percentage, // Map `percentage` to `plagiarismPercentage`
+              });
+              decrementWords(requiredTokens); // Deduct tokens after successful check
             }
 
             if (data.error) {
-              throw new Error(data.error)
+              throw new Error(data.error); // Now properly throwing the error
             }
           }
         }
       }
-    } catch (error) {
-      console.error('Error checking plagiarism:', error)
+    } catch (err) {
+      console.error('Error checking plagiarism:', err); // Use `err` to avoid shadowing
     } finally {
-      setIsChecking(false)
+      setIsChecking(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background px-5 md:px-10">
@@ -174,6 +185,5 @@ export default function Home() {
         </div>
       </main>
     </div>
-  )
+  );
 }
-
