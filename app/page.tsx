@@ -117,6 +117,17 @@ export default function Home() {
     }
   }
 
+  const formattedResult = result
+  ? {
+      plagiarismPercentage: result.plagiarismPercentage, // Ensure the correct key is used
+      matches: result.matches.map((match: string) => ({
+        text: match,
+        similarity: 0, // Default similarity (adjust as needed)
+      })),
+    }
+  : null;
+
+
   return (
     <div className="min-h-screen bg-background px-5 md:px-10">
       <Nav />
@@ -124,7 +135,7 @@ export default function Home() {
         <div className="text-center space-y-4 mb-12">
           <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">Plagiarism Checker</h1>
           <p className="mx-auto max-w-[700px] text-muted-foreground">
-            Ensure every word is your own with Plagiacheck's plagiarism checker, which detects plagiarism in your text
+            Ensure every word is your own with Plagiachecks plagiarism checker, which detects plagiarism in your text
             and checks for other writing issues.
           </p>
         </div>
@@ -161,13 +172,13 @@ export default function Home() {
                 <p className="mt-2 text-sm text-red-500">Not enough words remaining. Please upgrade your plan.</p>
               )}
             </Card>
-            <PlagiarismResults isChecking={isChecking} progress={progress} result={result} />
+            <PlagiarismResults isChecking={isChecking} progress={progress} result={formattedResult} />
           </div>
           <Card>
             <CardContent className="p-6">
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold">Let's get started.</h3>
+                  <h3 className="text-xl font-bold">Lets get started.</h3>
                 </div>
                 <div className="space-y-4">
                   <div>

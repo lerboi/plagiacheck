@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Nav } from "@/components/nav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {SupabaseClient} from '@supabase/auth-helpers-nextjs';
-import {Router} from 'next/router';
 
 function TabComponent({
   email,
