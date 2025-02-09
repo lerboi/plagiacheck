@@ -27,8 +27,8 @@ export async function POST(req: Request) {
         },
       ],
       mode: "subscription",
-      success_url: `https://anione.me/en/Redirects/success-packages`,
-      cancel_url: `https://anione.me/en/Pricing`,
+      success_url: 'https://plagiacheck.vercel.app/api/success_payment',
+      cancel_url: 'https://plagiacheck.vercel.app/api/canceled_payment',
     })
     console.log(session.id)
 
