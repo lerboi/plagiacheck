@@ -87,6 +87,7 @@ function TabComponent({
 
       setError('Registration successful! Please check your email to confirm your account.');
     } catch (error) {
+      console.log(error)
       setError('Error during registration. Please try again.');
     }
   };

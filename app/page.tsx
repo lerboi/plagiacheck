@@ -1,75 +1,98 @@
-'use client'
-
-import { useState } from 'react';
-import { Nav } from '@/components/nav';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { Upload, Loader2 } from 'lucide-react';
-import { PlagiarismResults } from '@/components/plagiarism-results';
-import { useTokenStore } from '@/lib/store';
-import { useRouter } from 'next/navigation';
+"use client"
+import { useState, useEffect } from "react"
+import { Nav } from "@/components/nav"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent } from "@/components/ui/card"
+import { Upload, Loader2 } from "lucide-react"
+import { PlagiarismResults } from "@/components/plagiarism-results"
+import { useTokenStore } from "@/lib/store"
+import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
+import Link from "next/link"
 
 type PlagiarismResult = {
-  matches: string[];
-  percentage: number;
+  matches: string[]
+  percentage: number
   plagiarismPercentage: number
-} | null;
+} | null
 
 export default function Home() {
-  const [text, setText] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<PlagiarismResult>(null); // Typed `result`
-  const { remainingWords, decrementWords } = useTokenStore();
-  const router = useRouter();
+  const [text, setText] = useState("")
+  const [isChecking, setIsChecking] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [result, setResult] = useState<PlagiarismResult>(null) // Typed `result`
+  const { remainingWords, decrementWords } = useTokenStore()
+  const router = useRouter()
+  const supabase = createClientComponentClient()
+  const [user, setUser] = useState<User | null>(null)
 
-  const calculateRequiredTokens = (text: string) => {
-    return Math.ceil(text.length / 6);
-  };
-
-  const handlePlagiarismCheck = async () => {
-    if (!text.trim()) return;
-
-    const requiredTokens = calculateRequiredTokens(text);
-    if (requiredTokens > remainingWords) {
-      router.push('/pricing');
-      return;
+  useEffect(() => {
+    const checkSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setUser(session?.user || null)
     }
 
-    setIsChecking(true);
-    setProgress(0);
-    setResult(null);
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [supabase.auth])
+
+  const calculateRequiredTokens = (text: string) => {
+    return Math.ceil(text.length / 6)
+  }
+
+  const handlePlagiarismCheck = async () => {
+    if (!text.trim()) return
+
+    const requiredTokens = calculateRequiredTokens(text)
+    if (requiredTokens > remainingWords) {
+      router.push("/pricing")
+      return
+    }
+
+    setIsChecking(true)
+    setProgress(0)
+    setResult(null)
 
     try {
-      const response = await fetch('/api/check-plagiarism', {
-        method: 'POST',
+      const response = await fetch("/api/check-plagiarism", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ text }),
-      });
+      })
 
       if (!response.ok) {
-        throw new Error('Failed to check plagiarism');
+        throw new Error("Failed to check plagiarism")
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
 
       while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
+        const { done, value } = await reader!.read()
+        if (done) break
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        const chunk = decoder.decode(value)
+        const lines = chunk.split("\n")
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(5));
+          if (line.startsWith("data: ")) {
+            const data = JSON.parse(line.slice(5))
 
             if (data.progress !== undefined) {
-              setProgress(data.progress);
+              setProgress(data.progress)
             }
 
             if (data.result) {
@@ -77,34 +100,32 @@ export default function Home() {
                 matches: data.result.matches,
                 percentage: data.result.percentage,
                 plagiarismPercentage: data.result.percentage, // Map `percentage` to `plagiarismPercentage`
-              });
-              decrementWords(requiredTokens); // Deduct tokens after successful check
+              })
+              decrementWords(requiredTokens) // Deduct tokens after successful check
             }
 
             if (data.error) {
-              throw new Error(data.error); // Now properly throwing the error
+              throw new Error(data.error) // Now properly throwing the error
             }
           }
         }
       }
     } catch (err) {
-      console.error('Error checking plagiarism:', err); // Use `err` to avoid shadowing
+      console.error("Error checking plagiarism:", err) // Use `err` to avoid shadowing
     } finally {
-      setIsChecking(false);
+      setIsChecking(false)
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-background px-5 md:px-10">
       <Nav />
       <main className="container py-12">
         <div className="text-center space-y-4 mb-12">
-          <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">
-            Plagiarism Checker
-          </h1>
+          <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">Plagiarism Checker</h1>
           <p className="mx-auto max-w-[700px] text-muted-foreground">
-            Ensure every word is your own with Plagiacheck's plagiarism checker, which detects plagiarism in your
-            text and checks for other writing issues.
+            Ensure every word is your own with Plagiacheck's plagiarism checker, which detects plagiarism in your text
+            and checks for other writing issues.
           </p>
         </div>
         <div className="grid md:grid-cols-[2fr,1fr] gap-8 items-start">
@@ -117,7 +138,7 @@ export default function Home() {
                 onChange={(e) => setText(e.target.value)}
               />
               <div className="mt-4 flex gap-4">
-                <Button 
+                <Button
                   className="bg-blue-400 hover:bg-blue-500 flex-1"
                   onClick={handlePlagiarismCheck}
                   disabled={isChecking || !text.trim() || calculateRequiredTokens(text) > remainingWords}
@@ -137,16 +158,10 @@ export default function Home() {
                 </Button>
               </div>
               {calculateRequiredTokens(text) > remainingWords && (
-                <p className="mt-2 text-sm text-red-500">
-                  Not enough words remaining. Please upgrade your plan.
-                </p>
+                <p className="mt-2 text-sm text-red-500">Not enough words remaining. Please upgrade your plan.</p>
               )}
             </Card>
-            <PlagiarismResults 
-              isChecking={isChecking}
-              progress={progress}
-              result={result}
-            />
+            <PlagiarismResults isChecking={isChecking} progress={progress} result={result} />
           </div>
           <Card>
             <CardContent className="p-6">
@@ -170,20 +185,21 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <Button className="w-full bg-blue-400 hover:bg-blue-500">
-                  Get Plagiacheck
-                </Button>
-                <div className="text-center text-sm text-muted-foreground">
-                  Already have an account?{" "}
-                  <a href="/signin" className="text-blue-300 hover:underline">
-                    Log in
-                  </a>
-                </div>
+                <Button className="w-full bg-blue-400 hover:bg-blue-500">Get Plagiacheck</Button>
+                {!user && (
+                  <div className="text-center text-sm text-muted-foreground">
+                    Already have an account?{" "}
+                    <Link href="/signin" className="text-blue-300 hover:underline">
+                      Log in
+                    </Link>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
       </main>
     </div>
-  );
+  )
 }
+
