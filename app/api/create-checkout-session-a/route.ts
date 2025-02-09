@@ -27,9 +27,10 @@ export async function POST(req: Request) {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/api/handle-subscription-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/pricing`,
+      success_url: `https://anione.me/en/Redirects/success-packages`,
+      cancel_url: `https://anione.me/en/Pricing`,
     })
+    console.log(session.id)
 
     return NextResponse.json({ sessionId: session.id })
   } catch (error) {
