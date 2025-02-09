@@ -1,0 +1,1 @@
+make canceled_payment and successpayment api have user data in url to prevent bot crawling. Check in APi route if its valid, then only redirect
