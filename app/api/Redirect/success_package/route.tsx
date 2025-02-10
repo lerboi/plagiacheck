@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createId } from "@paralleldrive/cuid2";
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -16,6 +19,9 @@ export async function GET(req: Request) {
     const token_amount = searchParams.get("token_amount")
     const userId = searchParams.get('userId')
     const paymentId = createId();
+    const sessionId = searchParams.get("session_id"); 
+    const session = await stripe.checkout.sessions.retrieve(sessionId!);
+    const subscriptionId = session.subscription as string;
 
     //Create Payment entry first
     const { error: paymentError } = await supabase
@@ -35,7 +41,7 @@ export async function GET(req: Request) {
     }
 
     // Construct the dynamic redirect URL
-    const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}`;
+    const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}`;
 
     // Redirect to the localized success page
     return NextResponse.redirect(redirectUrl, {

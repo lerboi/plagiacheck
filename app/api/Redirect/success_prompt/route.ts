@@ -10,7 +10,7 @@ const url = process.env.url
 export async function GET(req: Request) {
     // Get URL query parameters
     const { searchParams } = new URL(req.url);
-    const locale = searchParams.get("locale") || "en"; // Default to "en" if locale is missing
+    const locale = searchParams.get("locale") || "en"; 
     const amount = searchParams.get("amount")
     const token_type = searchParams.get("token_type")
     const token_amount = searchParams.get("token_amount")
