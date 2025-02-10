@@ -18,6 +18,7 @@ export async function POST(req: Request) {
   const { priceId, email, locale } = await req.json()
 
   try {
+    console.log("Endpoint received..")
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
       line_items: [
