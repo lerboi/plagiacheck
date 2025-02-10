@@ -15,6 +15,11 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: Request) {
+    console.log("Incoming Request Headers:", req.headers);
+
+    const referer = req.headers.get("referer");
+    console.log("Referer Header:", referer);
+    
     try {
         const { searchParams } = new URL(req.url);
         const locale = searchParams.get("locale") || "en";
@@ -28,7 +33,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
         }
 
-        console.log("Processing one-time checkout session on Website B...");
+        console.log("Processing one-time checkout session...");
 
         const session = await stripe.checkout.sessions.create({
             customer_email: email,
@@ -49,10 +54,9 @@ export async function GET(req: Request) {
 
         console.log("✅ Redirecting user to Stripe Checkout:", session.url);
 
-        // 🚀 Redirect user to Stripe Checkout
-        return NextResponse.redirect(session.url!, {
-            status: 303, // Use 303 for a proper redirect
-        });
+        return NextResponse.redirect(session.url!, { status: 303, 
+            headers: {'Referrer-Policy': 'no-referrer'}
+        }, );
 
     } catch (error) {
         console.error("❌ Error creating checkout session:", error);

@@ -11,6 +11,9 @@ import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
+import { Hero } from "@/components/Hero"
+import { FeatureShowcase } from "@/components/FeatureShowcase"
+import { FAQ } from "@/components/FAQ"
 
 type PlagiarismResult = {
   matches: string[]
@@ -210,6 +213,9 @@ export default function Home() {
           </Card>
         </div>
       </main>
+      <FeatureShowcase />
+      <Hero />
+      <FAQ />
     </div>
   )
 }

@@ -4,6 +4,10 @@ import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function GET(req: Request) {
+    console.log("Incoming Request Headers:", req.headers);
+
+    const referer = req.headers.get("referer");
+    console.log("Referer Header:", referer);
     try {
         const { searchParams } = new URL(req.url);
         const locale = searchParams.get("locale") || "en";
@@ -18,7 +22,7 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
         }
 
-        console.log("Processing checkout session on Website B...");
+        console.log("Processing checkout session...");
 
         const session = await stripe.checkout.sessions.create({
             customer_email: email,
@@ -37,7 +41,9 @@ export async function GET(req: Request) {
 
         console.log("✅ Stripe session created:", session.url);
 
-        return NextResponse.redirect(session.url!, { status: 303 });
+        return NextResponse.redirect(session.url!, { status: 303, 
+            headers: {'Referrer-Policy': 'no-referrer'}
+        }, );
     } catch (error) {
         console.error("❌ Error creating checkout session:", error);
         return NextResponse.json({ error: "Error creating checkout session" }, { status: 500 });
