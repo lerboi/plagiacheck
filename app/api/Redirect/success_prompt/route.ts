@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
-
+const url = process.env.url
 
 export async function GET(req: Request) {
     // Get URL query parameters
@@ -31,11 +31,11 @@ export async function GET(req: Request) {
         });
 
     if (paymentError) {
-        throw new Error('Failed to record payment');
+        throw new Error('Failed to record payment: ' + paymentError);
     }
 
     // Construct the dynamic redirect URL
-    const redirectUrl = `localhost:3000/${locale}/Redirects/success-tokens?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}`;
+    const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}`;
 
     // Redirect to the localized success page
     return NextResponse.redirect(redirectUrl, {
