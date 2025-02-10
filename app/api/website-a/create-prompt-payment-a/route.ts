@@ -20,6 +20,10 @@ export async function GET(req: Request) {
         const locale = searchParams.get("locale") || "en";
         const price = searchParams.get("price");
         const email = searchParams.get("email");
+        const tokenAmount = searchParams.get("tokenAmount")
+        const tokenPrice = searchParams.get("tokenPrice")
+        const tokenType = searchParams.get('tokenType')
+        const userId = searchParams.get('userId')
 
         if (!price || !email) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
@@ -33,15 +37,15 @@ export async function GET(req: Request) {
                 price_data: {
                     currency: "usd",
                     product_data: {
-                        name: "Custom One-Time Purchase",
+                        name: "One-Time Purchase",
                     },
                     unit_amount: parseInt(price) * 100, // Convert price to cents
                 },
                 quantity: 1,
             }],
             mode: "payment",
-            success_url: `https://plagiacheck.online/api/Redirect/success_payment?locale=${locale}`,
-            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
+            success_url: `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}`,
+            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}`,
         });
 
         console.log("✅ Redirecting user to Stripe Checkout:", session.url);

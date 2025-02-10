@@ -9,6 +9,10 @@ export async function GET(req: Request) {
         const locale = searchParams.get("locale") || "en";
         const priceId = searchParams.get("priceId");
         const email = searchParams.get("email");
+        const tokenAmount = searchParams.get("tokenAmount")
+        const tokenPrice = searchParams.get("tokenPrice")
+        const tokenType = searchParams.get('tokenType')
+        const userId = searchParams.get('userId')
 
         if (!priceId || !email) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
@@ -20,8 +24,8 @@ export async function GET(req: Request) {
             customer_email: email,
             line_items: [{ price: priceId, quantity: 1 }],
             mode: "subscription",
-            success_url: `https://plagiacheck.online/api/Redirect/success_payment?locale=${locale}`,
-            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
+            success_url: `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}`,
+            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}`,
         });
 
         console.log("✅ Stripe session created:", session.url);
