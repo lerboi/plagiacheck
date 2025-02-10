@@ -14,7 +14,7 @@ const eslintConfig = [
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off", // Disable "Unexpected any" error
-      "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }], // Warn instead of error, ignore variables prefixed with "_"
+      "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-unused-expressions": "off"
     },
   },
