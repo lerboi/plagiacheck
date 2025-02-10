@@ -21,7 +21,6 @@ export async function GET(req: Request) {
         const price = searchParams.get("price");
         const email = searchParams.get("email");
         const tokenAmount = searchParams.get("tokenAmount")
-        const tokenPrice = searchParams.get("tokenPrice")
         const tokenType = searchParams.get('tokenType')
         const userId = searchParams.get('userId')
 
@@ -44,7 +43,7 @@ export async function GET(req: Request) {
                 quantity: 1,
             }],
             mode: "payment",
-            success_url: `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}`,
+            success_url: `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${price}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}`,
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}`,
         });
 
