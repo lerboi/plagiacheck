@@ -34,8 +34,23 @@ export async function GET(req: Request) {
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
         })
 
-        // Perform the redirect
-        return NextResponse.redirect(session.url!, 303)
+        // Create response with explicit headers
+        const response = new NextResponse(null, {
+            status: 303,
+            headers: {
+                'Location': session.url!,
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Expose-Headers': 'Location'  // Important for CORS
+            }
+        })
+
+        // Log the headers for debugging
+        console.log("Redirect URL:", session.url)
+        console.log("Response headers:", Object.fromEntries(response.headers.entries()))
+
+        return response
 
     } catch (error) {
         console.error("Error creating checkout session:", error)
@@ -44,16 +59,4 @@ export async function GET(req: Request) {
             { status: 500 }
         )
     }
-}
-
-// Handle OPTIONS for CORS preflight
-export async function OPTIONS(req: Request) {
-    return new NextResponse(null, {
-        status: 200,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-        },
-    })
 }
