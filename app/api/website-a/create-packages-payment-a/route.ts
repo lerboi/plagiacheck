@@ -31,10 +31,12 @@ export async function POST(req: Request) {
       success_url: `https://plagiacheck.online/api/Redirect/success_payment?locale=${locale}`,
       cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
     })
-    console.log(session.id)
 
-    return NextResponse.json({ sessionId: session.id })
-  } catch (error) {
+    return NextResponse.redirect(session.url!, {
+        status: 303, // Use 303 for a GET redirect
+    });  } 
+    
+    catch (error) {
     console.error("Error creating checkout session:", error)
     return NextResponse.json({ error: "Error creating checkout session" }, { status: 500 })
   }
