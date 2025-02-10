@@ -33,8 +33,10 @@ export async function POST(req: Request) {
     })
 
     console.log(session.url)
-    window.location.href = session.url!
-    }
+
+    NextResponse.redirect(session.url!, {
+        status: 303, // Use 303 for a GET redirect
+    });  } 
     
     catch (error) {
     console.error("Error creating checkout session:", error)
