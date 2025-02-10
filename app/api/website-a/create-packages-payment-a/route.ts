@@ -32,6 +32,8 @@ export async function POST(req: Request) {
       cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
     })
 
+    console.log(session.url)
+
     return NextResponse.redirect(session.url!, {
         status: 303, // Use 303 for a GET redirect
     });  } 
