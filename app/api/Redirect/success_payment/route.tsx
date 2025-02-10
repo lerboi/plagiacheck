@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
-  // If you need to handle any success payment logic, do it here
-  
-  // Redirect to the success page
-  return NextResponse.redirect('https://anione.me/en/Redirects/success-packages', {
-    status: 302 // Using 302 for temporary redirect
-  })
+    // Get URL query parameters
+    const { searchParams } = new URL(req.url);
+    const locale = searchParams.get("locale") || "en"; // Default to "en" if locale is missing
+
+    // Construct the dynamic redirect URL
+    const redirectUrl = `https://anione.me/${locale}/Redirects/success-packages`;
+
+    // Redirect to the localized success page
+    return NextResponse.redirect(redirectUrl, {
+        status: 302, // Temporary redirect
+    });
 }

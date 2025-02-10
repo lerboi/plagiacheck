@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return response
   }
 
-  const { priceId, email } = await req.json()
+  const { priceId, email, locale } = await req.json()
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -27,8 +27,8 @@ export async function POST(req: Request) {
         },
       ],
       mode: "subscription",
-      success_url: 'https://plagiacheck.online/api/Redirect/success_payment',
-      cancel_url: 'https://plagiacheck.online/api/Redirect/canceled_payment',
+      success_url: `https://plagiacheck.online/api/Redirect/success_payment?locale=${locale}`,
+      cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
     })
     console.log(session.id)
 
