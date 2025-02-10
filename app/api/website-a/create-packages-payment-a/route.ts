@@ -3,17 +3,6 @@ import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-// Handle preflight requests for CORS
-export async function OPTIONS() {
-    return NextResponse.json(null, {
-        headers: {
-            "Access-Control-Allow-Origin": "*", // Allow all origins (Change for security)
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        },
-    });
-}
-
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
@@ -35,12 +24,10 @@ export async function GET(req: Request) {
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_payment?locale=${locale}`,
         });
 
-        console.log("✅ Redirecting user to Stripe Checkout:", session.url);
+        console.log("✅ Stripe session created:", session.url);
 
-        // 🚀 Redirect user to Stripe Checkout
-        return NextResponse.redirect(session.url!, {
-            status: 303, // Use 303 for a proper redirect
-        });
+        // 🚀 Redirect user directly to Stripe Checkout
+        return NextResponse.redirect(session.url!, { status: 303 });
 
     } catch (error) {
         console.error("❌ Error creating checkout session:", error);
