@@ -30,7 +30,7 @@ export async function GET(req: Request) {
         });
 
     if (paymentError) {
-        throw new Error('Failed to record payment');
+        throw new Error('Failed to record payment: ' + paymentError);
     }
 
     // Construct the dynamic redirect URL
