@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { generateCheckoutToken } from "@/utils/generateCheckoutToken"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -8,6 +9,8 @@ export async function GET(req: Request) {
 
     const referer = req.headers.get("referer");
     console.log("Referer Header:", referer);
+
+    const allowedOrigin = process.env.ALLOWED_ORIGIN;
     try {
         const { searchParams } = new URL(req.url);
         const locale = searchParams.get("locale") || "en";
@@ -18,17 +21,24 @@ export async function GET(req: Request) {
         const tokenType = searchParams.get('tokenType')
         const userId = searchParams.get('userId')
 
-        if (!priceId || !email) {
+        if (!userId || !priceId || !email) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
         }
 
+        if (!referer?.startsWith(allowedOrigin!)) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+
         console.log("Processing checkout session...");
+
+        const timestamp = Date.now();
+        const verificationToken = generateCheckoutToken(userId, timestamp);
 
         const session = await stripe.checkout.sessions.create({
             customer_email: email,
             line_items: [{ price: priceId, quantity: 1 }],
             mode: "subscription",
-            success_url: `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}`,
+            success_url: `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}&token=${verificationToken}&timestamp=${timestamp}`,
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}`,
             subscription_data: {
                 metadata: {

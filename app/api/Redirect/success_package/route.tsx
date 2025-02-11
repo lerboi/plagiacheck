@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createId } from "@paralleldrive/cuid2";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { generateCheckoutToken } from "@/utils/generateCheckoutToken";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -22,6 +23,25 @@ export async function GET(req: Request) {
     const sessionId = searchParams.get("session_id"); 
     const session = await stripe.checkout.sessions.retrieve(sessionId!);
     const subscriptionId = session.subscription as string;
+    const token = searchParams.get("token");
+    const timestamp = searchParams.get("timestamp");
+
+    // Verify the request is legitimate
+    if (!userId || !amount || !timestamp || !token) {
+        return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
+    }
+
+    // Check if the timestamp is within a reasonable window (e.g., 1 hour)
+    const timestampNum = parseInt(timestamp);
+    if (Date.now() - timestampNum > 360000) { // 1 hour in milliseconds
+        return NextResponse.json({ error: "Link expired" }, { status: 400 });
+    }
+
+    // Regenerate the token and verify it matches
+    const expectedToken = generateCheckoutToken(userId, timestampNum);
+    if (token !== expectedToken) {
+        return NextResponse.json({ error: "Invalid verification token" }, { status: 403 });
+    }
 
     //Create Payment entry first
     const { error: paymentError } = await supabase
