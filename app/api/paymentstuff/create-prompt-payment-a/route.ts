@@ -69,7 +69,7 @@ export async function GET(req: Request) {
             }],
             mode: "payment",
             success_url: `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${price}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&token=${verificationToken}&timestamp=${timestamp}`,
-            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}`,
+            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
         });
 
         console.log("✅ Redirecting user to Stripe Checkout:", session.url);

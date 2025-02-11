@@ -48,7 +48,7 @@ export async function GET(req: Request) {
             line_items: [{ price: priceId, quantity: 1 }],
             mode: "subscription",
             success_url: `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}&token=${verificationToken}&timestamp=${timestamp}`,
-            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}`,
+            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
             subscription_data: {
                 metadata: {
                     userId: userId,

@@ -26,12 +26,6 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Link expired" }, { status: 400 });
         }
     
-        // Regenerate the token and verify it matches
-        const expectedToken = generateCheckoutToken(userId, timestampNum);
-        if (token !== expectedToken) {
-            return NextResponse.redirect('https://www.plagiacheck.online');
-        }
-    
          // Check if the token exists and is not used
          const { data, error } = await supabase
          .from("OneTimeToken")

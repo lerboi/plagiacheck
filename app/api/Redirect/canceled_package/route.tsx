@@ -27,19 +27,13 @@ export async function GET(req: Request) {
             return NextResponse.redirect('https://www.plagiacheck.online');
         }
     
-        // Regenerate the token and verify it matches
-        const expectedToken = generateCheckoutToken(userId, timestampNum);
-        if (token !== expectedToken) {
-            return NextResponse.redirect('https://www.plagiacheck.online');
-        }
-    
-            // Check if the token exists and is not used
-            const { data, error } = await supabase
-            .from("OneTimeToken")
-            .select("*")
-            .eq("token", token)
-            .eq("used", false)
-            .single();
+        // Check if the token exists and is not used
+        const { data, error } = await supabase
+        .from("OneTimeToken")
+        .select("*")
+        .eq("token", token)
+        .eq("used", false)
+        .single();
     
         if (error || !data) {
             return NextResponse.redirect('https://www.plagiacheck.online');
