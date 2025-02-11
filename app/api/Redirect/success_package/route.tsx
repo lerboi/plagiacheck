@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     }
 
     // Construct the dynamic redirect URL
-    const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}`;
+    const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}&userId=${userId}`;
 
     // Redirect to the localized success page
     return NextResponse.redirect(redirectUrl, {
