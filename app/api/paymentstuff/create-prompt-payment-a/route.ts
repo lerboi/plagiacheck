@@ -63,7 +63,7 @@ export async function GET(req: Request) {
                     product_data: {
                         name: "One-Time Purchase",
                     },
-                    unit_amount: parseFloat(price), 
+                    unit_amount: parseInt(price), 
                 },
                 quantity: 1,
             }],
