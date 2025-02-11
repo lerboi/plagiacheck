@@ -28,13 +28,13 @@ export async function GET(req: Request) {
     // Check if the timestamp is within a reasonable window (e.g., 1 hour)
     const timestampNum = parseInt(timestamp);
     if (Date.now() - timestampNum > 360000) { // 1 hour in milliseconds
-        return NextResponse.json({ error: "Link expired" }, { status: 400 });
+        return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
     // Regenerate the token and verify it matches
     const expectedToken = generateCheckoutToken(userId, timestampNum);
     if (token !== expectedToken) {
-        return NextResponse.json({ error: "Invalid verification token" }, { status: 403 });
+        return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
      // Check if the token exists and is not used
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
      .single();
 
     if (error || !data) {
-        return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 });
+        return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
     // Mark token as used
