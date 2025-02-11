@@ -43,6 +43,24 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Invalid verification token" }, { status: 403 });
     }
 
+    // Check if the token exists and is not used
+         const { data, error } = await supabase
+         .from("OneTimeToken")
+         .select("*")
+         .eq("token", token)
+         .eq("used", false)
+         .single();
+    
+        if (error || !data) {
+            return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 });
+        }
+    
+        // Mark token as used
+        await supabase
+        .from("OneTimeToken")
+        .update({ used: true })
+        .eq("token", token);
+
     //Create Payment entry first
     const { error: paymentError } = await supabase
         .from('Payment')

@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { generateCheckoutToken } from "@/utils/generateCheckoutToken"
+import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 
 export async function GET(req: Request) {
     console.log("Incoming Request Headers:", req.headers);
@@ -33,6 +37,11 @@ export async function GET(req: Request) {
 
         const timestamp = Date.now();
         const verificationToken = generateCheckoutToken(userId, timestamp);
+
+        //create one time token
+        const { error } = await supabase.from("OneTimeToken").insert([
+            { token: verificationToken, user_id: userId }
+        ]);
 
         const session = await stripe.checkout.sessions.create({
             customer_email: email,
