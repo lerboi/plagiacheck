@@ -63,7 +63,7 @@ export async function GET(req: Request) {
                     product_data: {
                         name: "One-Time Purchase",
                     },
-                    unit_amount: parseInt(price), 
+                    unit_amount: parseInt(price)*100, 
                 },
                 quantity: 1,
             }],
