@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import "./globals.css"
 import { Footer } from "@/components/footer"
 import type React from "react"
-import { ThemeProvider } from "@/components/theme-provider" // Added import for ThemeProvider
+import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 

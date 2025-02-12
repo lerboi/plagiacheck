@@ -17,7 +17,6 @@ import { FAQ } from "@/components/FAQ"
 
 type PlagiarismResult = {
   matches: string[]
-  percentage: number
   plagiarismPercentage: number
 } | null
 
@@ -30,6 +29,7 @@ export default function Home() {
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -55,18 +55,25 @@ export default function Home() {
   }
 
   const handlePlagiarismCheck = async () => {
-    if (!text.trim()) return
+    if (!user) {
+      // Redirect to signin page if there is no user session
+      router.push("/signin")
+      return
+    }
 
+    if (!text.trim()) return
+  
     const requiredTokens = calculateRequiredTokens(text)
     if (requiredTokens > remainingWords) {
       router.push("/pricing")
       return
     }
-
+  
     setIsChecking(true)
     setProgress(0)
     setResult(null)
-
+    setError(null)
+  
     try {
       const response = await fetch("/api/check-plagiarism", {
         method: "POST",
@@ -75,46 +82,50 @@ export default function Home() {
         },
         body: JSON.stringify({ text }),
       })
-
+  
       if (!response.ok) {
         throw new Error("Failed to check plagiarism")
       }
-
+  
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
-
+  
       while (true) {
         const { done, value } = await reader!.read()
         if (done) break
-
+  
         const chunk = decoder.decode(value)
         const lines = chunk.split("\n")
-
+  
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = JSON.parse(line.slice(5))
-
+  
             if (data.progress !== undefined) {
               setProgress(data.progress)
             }
-
+  
             if (data.result) {
+              // Only set the plagiarism percentage and handle matches conditionally
               setResult({
-                matches: data.result.matches,
-                percentage: data.result.percentage,
-                plagiarismPercentage: data.result.percentage, // Map `percentage` to `plagiarismPercentage`
-              })
-              decrementWords(requiredTokens) // Deduct tokens after successful check
-            }
+                matches: Array.isArray(data.result.matches) ? data.result.matches : [],  // Ensure matches is always an array
+                plagiarismPercentage: data.result.plagiarismPercentage || 0,  // Ensure it's never undefined
+              });
 
+              await decrementWords(requiredTokens) // Deduct tokens from Supabase
+            }
+  
             if (data.error) {
-              throw new Error(data.error) // Now properly throwing the error
+              setError(data.error)
+              throw new Error(data.error)
             }
           }
         }
       }
     } catch (err) {
-      console.error("Error checking plagiarism:", err) // Use `err` to avoid shadowing
+      console.error("Error checking plagiarism:", err)
+      const errorMessage = err instanceof Error ? err.message : "Failed to check"
+      setError(errorMessage)
     } finally {
       setIsChecking(false)
     }
@@ -122,14 +133,10 @@ export default function Home() {
 
   const formattedResult = result
   ? {
-      plagiarismPercentage: result.plagiarismPercentage, // Ensure the correct key is used
-      matches: result.matches.map((match: string) => ({
-        text: match,
-        similarity: 0, // Default similarity (adjust as needed)
-      })),
+      plagiarismPercentage: result.plagiarismPercentage || 0, // Default to 0 if undefined
+      matches: [], // Ignore matches to avoid hydration issues
     }
   : null;
-
 
   return (
     <div className="min-h-screen bg-background px-5 md:px-10">
@@ -151,6 +158,9 @@ export default function Home() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
               />
+              {error && (
+                <p className="mt-2 text-sm text-red-500">{error}</p>
+              )}
               <div className="mt-4 flex gap-4">
                 <Button
                   className="bg-blue-400 hover:bg-blue-500 flex-1"
@@ -219,4 +229,3 @@ export default function Home() {
     </div>
   )
 }
-

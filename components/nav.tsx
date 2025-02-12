@@ -1,5 +1,6 @@
 "use client"
 
+import { PiLetterCircleP } from "react-icons/pi"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useTokenStore } from "@/lib/store"
@@ -10,7 +11,7 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ThemeToggle } from "./theme-toggle"
 
 export function Nav() {
-  const { remainingWords } = useTokenStore()
+  const { remainingWords, fetchRemainingWords } = useTokenStore()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
 
@@ -20,18 +21,25 @@ export function Nav() {
         data: { session },
       } = await supabase.auth.getSession()
       setUser(session?.user || null)
+
+      if (session?.user) {
+        await fetchRemainingWords(session.user.id)
+      }
     }
 
     checkSession()
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null)
+      if (session?.user) {
+        fetchRemainingWords(session.user.id)
+      }
     })
 
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, [supabase.auth])
+  }, [supabase.auth, fetchRemainingWords])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -42,21 +50,20 @@ export function Nav() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6 md:gap-10">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-blue-400"></div>
+            <div className="h-8 w-8 rounded-full text-blue-300 scale-[170%] items-center justify-center flex">
+              <PiLetterCircleP />
+            </div>
             <span className="font-bold">plagiacheck</span>
           </Link>
           <Link href="/pricing" className="text-sm font-medium transition-colors hover:text-primary">
             Pricing
-          </Link>
-          <Link href="#" className="text-sm font-medium transition-colors hover:text-primary">
-            Resources
           </Link>
           <ThemeToggle />
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-400/10 text-blue-050">
             <MessageCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">{remainingWords} words</span>
+            <span className="text-sm font-medium">{user ? String(remainingWords) : "1000" } words</span>
           </div>
 
           {user ? (
@@ -69,12 +76,15 @@ export function Nav() {
             </Button>
           )}
 
+          {user ? 
+          <></>
+          : 
           <Button className="bg-blue-400 text-sm hover:bg-blue-500" asChild>
             <Link href="/pricing">Get Plagiacheck</Link>
           </Button>
+          }
         </div>
       </div>
     </nav>
   )
 }
-
