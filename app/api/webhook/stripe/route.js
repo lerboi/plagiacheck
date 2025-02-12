@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { endOfMonth, isSameDay, addMonths, isBefore } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+const tokenExpiryDate = addMonths(new Date(), 1);
 
 // Add logging utility
 const logSuccess = async (operation, details) => {
@@ -21,7 +23,6 @@ const logSuccess = async (operation, details) => {
     if (error) console.error('Logging error:', error);
 };
 
-// Add new helper function for handling failed subscriptions
 async function handleFailedSubscription(subscription) {
     console.log('Handling failed subscription:', subscription.id);
     
@@ -53,7 +54,69 @@ async function handleFailedSubscription(subscription) {
     }
 }
 
-// Token allocation handler
+async function handleFailedPayment(invoice) {
+    // We don't immediately cancel anything on payment failure
+    // Instead, log the failure and check subscription status
+    const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+    
+    // First check for subscription
+    const { data: subData } = await supabase
+        .from('Subscription')
+        .select('*')
+        .eq('stripeSubscriptionId', subscription.id)
+        .single();
+
+    if (subData) {
+        // Only update local status to reflect Stripe status
+        const { error: updateError } = await supabase
+            .from('Subscription')
+            .update({ 
+                status: subscription.status.toUpperCase(),
+                // Don't set isActive to false unless Stripe has marked it as canceled
+                isActive: subscription.status !== 'canceled'
+            })
+            .eq('id', subData.id);
+
+        if (updateError) throw updateError;
+
+        await logSuccess('payment_failed', {
+            subscriptionId: subData.id,
+            invoiceId: invoice.id,
+            stripeStatus: subscription.status,
+            attemptCount: invoice.attempt_count,
+            nextPaymentAttempt: invoice.next_payment_attempt
+        });
+        
+        return;
+    }
+
+    // Handle package similarly
+    const { data: packageData } = await supabase
+        .from('Package')
+        .select('*')
+        .eq('stripeSubscriptionId', subscription.id)
+        .single();
+
+    if (packageData) {
+        const { error: updateError } = await supabase
+            .from('Package')
+            .update({ 
+                status: subscription.status.toUpperCase(),
+            })
+            .eq('id', packageData.id);
+
+        if (updateError) throw updateError;
+
+        await logSuccess('package_payment_failed', {
+            packageId: packageData.id,
+            invoiceId: invoice.id,
+            stripeStatus: subscription.status,
+            attemptCount: invoice.attempt_count,
+            nextPaymentAttempt: invoice.next_payment_attempt
+        });
+    }
+}
+
 async function handleTokenAllocation(userId, tier, action = 'add') {
     const textTokens = tier === 'PLUS' ? 1000 : 4000;
     const imageTokens = tier === 'PLUS' ? 100 : 400;
@@ -126,7 +189,7 @@ export async function GET(req) {
                             .update({
                                 textTokens: tokenAllocation.textTokens,
                                 imageTokens: tokenAllocation.imageTokens,
-                                expiryDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString()
+                                expiryDate: tokenExpiryDate.toISOString()
                             })
                             .eq('id', token.id);
 
@@ -163,6 +226,8 @@ export async function GET(req) {
             }
         }
 
+        const today = format(new Date(), 'yyyy-MM-dd')
+
         // 2. Check for package renewals
         const { data: packagesData, error: packagesFetchError } = await supabase
             .from('Package')
@@ -173,7 +238,7 @@ export async function GET(req) {
                 expiryDate,
                 stripeSubscriptionId
             `)
-            .eq('expiryDate', new Date().toISOString().split('T')[0]);
+            .eq('expiryDate', today);
 
         if (packagesFetchError) throw packagesFetchError;
 
@@ -260,7 +325,6 @@ export async function GET(req) {
     }
 }
 
-// Stripe webhook handler
 export async function POST(req) {
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
@@ -296,7 +360,6 @@ export async function POST(req) {
     }
 }
 
-// Webhook event handlers
 async function handleSuccessfulPayment(invoice) {
     const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
     const { data: subData } = await supabase
@@ -332,20 +395,10 @@ async function handleSuccessfulPayment(invoice) {
     }
 }
 
-async function handleFailedPayment(invoice) {
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
-    const { data: subData } = await supabase
-        .from('Subscription')
-        .select('*')
-        .eq('stripeSubscriptionId', subscription.id)
-        .single();
-
-    if (subData) {
-        await handleFailedSubscription(subData);
-    }
-}
-
 async function handleSubscriptionCancellation(subscription) {
+    // This is called when Stripe has definitively canceled the subscription
+    // after multiple failed attempts or manual cancellation
+    
     const { data: subData } = await supabase
         .from('Subscription')
         .select('*')
@@ -353,6 +406,55 @@ async function handleSubscriptionCancellation(subscription) {
         .single();
 
     if (subData) {
-        await handleFailedSubscription(subData);
+        // Update subscription status
+        const { error: updateError } = await supabase
+            .from('Subscription')
+            .update({ 
+                isActive: false,
+                status: 'CANCELED'
+            })
+            .eq('id', subData.id);
+
+        if (updateError) throw updateError;
+
+        // Remove tokens
+        await handleTokenAllocation(
+            subData.userId,
+            subData.tier,
+            'remove'
+        );
+
+        await logSuccess('subscription_canceled', {
+            subscriptionId: subData.id,
+            stripeSubscriptionId: subscription.id,
+            reason: subscription.cancellation_details?.reason || 'unknown'
+        });
+        
+        return;
+    }
+
+    // Handle package cancellation
+    const { data: packageData } = await supabase
+        .from('Package')
+        .select('*')
+        .eq('stripeSubscriptionId', subscription.id)
+        .single();
+
+    if (packageData) {
+        const { error: updateError } = await supabase
+            .from('Package')
+            .update({ 
+                isActive: false,
+                status: 'CANCELED'
+            })
+            .eq('id', packageData.id);
+
+        if (updateError) throw updateError;
+
+        await logSuccess('package_canceled', {
+            packageId: packageData.id,
+            stripeSubscriptionId: subscription.id,
+            reason: subscription.cancellation_details?.reason || 'unknown'
+        });
     }
 }

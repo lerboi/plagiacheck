@@ -1,5 +1,6 @@
 import type React from "react"
 import { motion } from "framer-motion"
+import { useTheme } from "next-themes"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 const faqs = [
@@ -56,11 +57,13 @@ const faqs = [
 ]
 
 export const FAQ: React.FC = () => {
+  const { theme } = useTheme()
+
   return (
-    <section className="py-16 backdrop-blur-sm">
+    <section className={`${theme === "light" ? "text-gray-800" : "text-white"} py-16 backdrop-blur-sm`}>
       <div className="container mx-auto px-4">
         <motion.h2
-          className="text-3xl font-bold text-center mb-12 text-white"
+          className="text-3xl font-bold text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -76,8 +79,8 @@ export const FAQ: React.FC = () => {
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
               <AccordionItem value={`item-${index}`}>
-                <AccordionTrigger className="text-white hover:text-blue-400">{faq.question}</AccordionTrigger>
-                <AccordionContent className="text-gray-300">{faq.answer}</AccordionContent>
+                <AccordionTrigger className="hover:text-blue-400">{faq.question}</AccordionTrigger>
+                <AccordionContent className="">{faq.answer}</AccordionContent>
               </AccordionItem>
             </motion.div>
           ))}

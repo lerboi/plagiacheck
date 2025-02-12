@@ -1,1 +1,14 @@
-make canceled_payment and successpayment api have user data in url to prevent bot crawling. Check in APi route if its valid, then only redirect
+invoice.payment_succeeded, invoice.payment_failed, customer.subscription.deleted, customer.subscription.updated, invoice.finalized, invoice.paid, invoice.marked_uncollectible
+for testing webhook
+
+
+.\stripe invoices create --customer cus_Rl4NFxrhLhNSkl
+stripe subscriptions list --customer cus_Rl4NFxrhLhNSkl --limit 1
+sub_1QrYELAJsVayTGRcgr4FCnyr
+stripe invoices list --subscription sub_1QrYELAJsVayTGRcgr4FCnyr --limit 1
+in_1QrYELAJsVayTGRcfDis1D9m
+stripe invoices finalize_invoice in_1QrYELAJsVayTGRcfDis1D9m
+stripe invoices pay in_1QrYELAJsVayTGRcfDis1D9m
+
+stripe events trigger invoice.payment_succeeded --customer cus_Rl4NFxrhLhNSkl --invoice in_1QrYELAJsVayTGRcfDis1D9m
+

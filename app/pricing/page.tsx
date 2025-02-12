@@ -4,11 +4,12 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Check } from "lucide-react"
+import { Check } from 'lucide-react'
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { CustomPlanSlider } from "@/components/CustomPlanSlider"
+import { useTheme } from "next-themes"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -16,6 +17,7 @@ export default function Pricing() {
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
+  const { theme } = useTheme()
 
   useEffect(() => {
     const checkSession = async () => {
@@ -106,39 +108,39 @@ export default function Pricing() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
       <main className="container py-12">
         <div className="grid gap-8">
           <div className="grid gap-4 text-center">
-            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl text-white">Plans & Pricing</h1>
-            <p className="text-gray-300">Choose the perfect plan for your needs</p>
+            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl text-foreground">Plans & Pricing</h1>
+            <p className="text-muted-foreground">Choose the perfect plan for your needs</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {plans.map((plan) => (
               <Card
                 key={plan.name}
-                className={`relative ${plan.popular ? "border-blue-600" : ""} bg-gray-800/50 backdrop-blur-sm`}
+                className={`relative ${plan.popular ? "border-primary" : ""} bg-card`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-0 right-0 mx-auto w-32 rounded-full bg-blue-600 px-3 py-1 text-center text-sm text-white">
+                  <div className="absolute -top-3 left-0 right-0 mx-auto w-32 rounded-full bg-primary px-3 py-1 text-center text-sm text-primary-foreground">
                     Most popular
                   </div>
                 )}
                 <CardHeader className="p-6">
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-400">{plan.description}</p>
-                    <h3 className="text-3xl font-bold text-white">{plan.name}</h3>
+                    <p className="text-sm text-muted-foreground">{plan.description}</p>
+                    <h3 className="text-3xl font-bold text-foreground">{plan.name}</h3>
                   </div>
                   <div className="mt-4 space-y-2">
-                    <div className="text-4xl font-bold text-white">{plan.price}</div>
-                    {plan.period && <p className="text-sm text-gray-400">{plan.period}</p>}
-                    {plan.subtext && <p className="text-sm text-gray-400">{plan.subtext}</p>}
+                    <div className="text-4xl font-bold text-foreground">{plan.price}</div>
+                    {plan.period && <p className="text-sm text-muted-foreground">{plan.period}</p>}
+                    {plan.subtext && <p className="text-sm text-muted-foreground">{plan.subtext}</p>}
                   </div>
                 </CardHeader>
                 <CardContent className="p-6">
                   <Button
-                    className={plan.button.variant === "default" ? "w-full bg-blue-500 hover:bg-blue-600" : "w-full"}
+                    className={`w-full ${plan.button.variant === "default" ? "bg-primary text-primary-foreground hover:bg-primary/90" : ""}`}
                     variant={plan.button.variant}
                     onClick={() => handleGetStarted(plan.name, plan.priceId)}
                     disabled={plan.name === "Free" && user ? true : false}
@@ -148,8 +150,8 @@ export default function Pricing() {
                   <div className="mt-6 space-y-4">
                     {plan.features.map((feature) => (
                       <div key={feature} className="flex items-center gap-3">
-                        <Check className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm text-gray-300">{feature}</span>
+                        <Check className="h-4 w-4 text-primary" />
+                        <span className="text-sm text-muted-foreground">{feature}</span>
                       </div>
                     ))}
                   </div>
@@ -163,4 +165,3 @@ export default function Pricing() {
     </div>
   )
 }
-

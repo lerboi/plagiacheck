@@ -7,6 +7,7 @@ import { MessageCircle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ThemeToggle } from "./theme-toggle"
 
 export function Nav() {
   const { remainingWords } = useTokenStore()
@@ -50,6 +51,7 @@ export function Nav() {
           <Link href="#" className="text-sm font-medium transition-colors hover:text-primary">
             Resources
           </Link>
+          <ThemeToggle />
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-400/10 text-blue-050">
