@@ -41,7 +41,7 @@ export const Hero: React.FC = () => {
             transition={{ duration: 0.5 }}
           >
             <img
-              src="/placeholder.svg?height=400&width=600"
+              src="/herobg.jpg"
               alt="Plagiarism Checker Illustration"
               className="rounded-lg shadow-2xl"
             />

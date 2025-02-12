@@ -54,7 +54,7 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
   return (
     <div className="flex justify-center w-full">
       <motion.div
-        className="mt-16 p-8 w-full max-w-[65%] rounded-lg bg-gray-800/50 backdrop-blur-sm"
+        className="mt-16 p-8 w-full max-w-[45%] rounded-lg bg-transparent backdrop-blur-sm"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
