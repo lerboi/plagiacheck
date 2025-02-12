@@ -1,5 +1,3 @@
-
-
 export default function Privacy() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -15,7 +13,7 @@ export default function Privacy() {
             At Plagiacheck, we respect your privacy and are committed to safeguarding the personal information you share with us. This Privacy Policy explains how we collect, use, and protect your personal data when you use our services.
           </p>
           <p>
-            By accessing or using our website and services ("Service"), you agree to this Privacy Policy. If you do not agree with the terms outlined, please refrain from using our Service.
+            By accessing or using our website and services (&quot;Service&quot;), you agree to this Privacy Policy. If you do not agree with the terms outlined, please refrain from using our Service.
           </p>
 
           <h2 className="text-xl font-semibold">1. Information We Collect</h2>
@@ -54,7 +52,7 @@ export default function Privacy() {
             <li><strong>Deletion</strong>: You can request the deletion of your personal data, subject to certain conditions.</li>
             <li><strong>Opt-out of Marketing</strong>: You can unsubscribe from marketing communications at any time by following the opt-out instructions in the emails or contacting us directly.</li>
           </ul>
-          <p>To exercise these rights, please contact us using the information provided in the "Contact Us" section.</p>
+          <p>To exercise these rights, please contact us using the information provided in the &quot;Contact Us&quot; section.</p>
 
           <h2 className="text-xl font-semibold">6. Security</h2>
           <p>We take reasonable measures to protect your information from unauthorized access, alteration, disclosure, or destruction. However, no data transmission method or storage system is completely secure, and we cannot guarantee the absolute security of your information.</p>
@@ -63,9 +61,9 @@ export default function Privacy() {
           <p>Your information may be transferred to and maintained on servers located outside of your country or region. By using our Service, you consent to the transfer and processing of your data in jurisdictions that may not have the same data protection laws as your home country.</p>
 
           <h2 className="text-xl font-semibold">8. Changes to This Privacy Policy</h2>
-          <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated "Last Updated" date. We encourage you to review this Privacy Policy periodically to stay informed about how we are protecting your information.</p>
+          <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated &quot;Last Updated&quot; date. We encourage you to review this Privacy Policy periodically to stay informed about how we are protecting your information.</p>
 
-          <h2 className="text-xl font-semibold">9. Children's Privacy</h2>
+          <h2 className="text-xl font-semibold">9. Children&apos;s Privacy</h2>
           <p>Our Service is not intended for individuals under the age of 18, and we do not knowingly collect personal information from children. If we become aware that a child under 18 has provided us with personal data, we will take steps to delete such information from our records.</p>
 
           <h2 className="text-xl font-semibold">10. Contact Us</h2>

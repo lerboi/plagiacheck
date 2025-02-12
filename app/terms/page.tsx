@@ -5,7 +5,7 @@ export default function Terms() {
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-center mb-8">Terms of Service</h1>
       <p className="text-lg mb-4">
-        Welcome to Plagiacheck (“we,” “our,” or “us”). By using our website and services (the “Service”), you agree to these Terms of Service ("Terms"). Please read them carefully before accessing or using our Service.
+        Welcome to Plagiacheck (“we,” “our,” or “us”). By using our website and services (the “Service”), you agree to these Terms of Service (&ldquo;Terms&ldquo;). Please read them carefully before accessing or using our Service.
       </p>
 
       <h2 className="text-2xl font-semibold mt-6 mb-2">1. Acceptance of Terms</h2>
