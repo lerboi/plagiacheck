@@ -7,6 +7,7 @@ export async function POST(request: Request) {
   const { wordCount, price } = await request.json()
 
   try {
+    // Create a Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -15,20 +16,24 @@ export async function POST(request: Request) {
             currency: "usd",
             product_data: {
               name: `Custom Plan - ${wordCount} words`,
+              description: `Custom word count package for ${wordCount} words`,
             },
-            unit_amount: price * 100, // Stripe expects the amount in cents
+            unit_amount: Math.round(price * 100), // Stripe expects the amount in cents, ensure it's rounded
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
+      success_url: `https://www.plagiacheck.online/success`,
+      cancel_url: `https://www.plagiacheck.online/pricing`,
     })
 
-    return NextResponse.json({ sessionId: session.id })
+    return NextResponse.json({
+      url: session.url, // Return the URL instead of just the session ID
+      sessionId: session.id,
+    })
   } catch (err: any) {
+    console.error("Stripe session creation error:", err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
-
