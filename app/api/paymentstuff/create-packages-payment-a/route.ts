@@ -24,14 +24,15 @@ export async function GET(req: Request) {
         const tokenPrice = searchParams.get("tokenPrice")
         const tokenType = searchParams.get('tokenType')
         const userId = searchParams.get('userId')
+        const refCode = searchParams.get('ref_code') 
 
         if (!userId || !priceId || !email) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
         }
 
-        if (!referer?.startsWith(allowedOrigin!)) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-        }
+        // if (!referer?.startsWith(allowedOrigin!)) {
+        //     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        // }
 
         console.log("Processing checkout session...");
 
@@ -43,11 +44,20 @@ export async function GET(req: Request) {
             { token: verificationToken, user_id: userId }
         ]);
 
+        // Build success_url with optional ref_code
+        let successUrl = `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}&token=${verificationToken}&timestamp=${timestamp}`;
+        
+        // Add ref_code to success_url if it exists
+        if (refCode) {
+            successUrl += `&ref_code=${refCode}`;
+            console.log("Including ref_code in success URL:", refCode);
+        }
+
         const session = await stripe.checkout.sessions.create({
             customer_email: email,
             line_items: [{ price: priceId, quantity: 1 }],
             mode: "subscription",
-            success_url: `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}&token=${verificationToken}&timestamp=${timestamp}`,
+            success_url: successUrl,
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
             subscription_data: {
                 metadata: {
@@ -62,7 +72,7 @@ export async function GET(req: Request) {
 
         return NextResponse.redirect(session.url!, { status: 303, 
             headers: {'Referrer-Policy': 'no-referrer'}
-        }, );
+        });
     } catch (error) {
         console.error("❌ Error creating checkout session:", error);
         return NextResponse.json({ error: "Error creating checkout session" }, { status: 500 });

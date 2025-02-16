@@ -6,77 +6,122 @@ import { generateCheckoutToken } from "@/utils/generateCheckoutToken";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
-const url = process.env.url
+const url = process.env.url;
 
 export async function GET(req: Request) {
-    // Get URL query parameters
-    const { searchParams } = new URL(req.url);
-    const locale = searchParams.get("locale") || "en"; 
-    const amount = searchParams.get("amount")
-    const token_type = searchParams.get("token_type")
-    const token_amount = searchParams.get("token_amount")
-    const userId = searchParams.get('userId')
-    const paymentId = createId();
-    const token = searchParams.get("token");
-    const timestamp = searchParams.get("timestamp");
+  // Get URL query parameters
+  const { searchParams } = new URL(req.url);
+  const locale = searchParams.get("locale") || "en"; 
+  const amount = searchParams.get("amount");
+  const token_type = searchParams.get("token_type");
+  const token_amount = searchParams.get("token_amount");
+  const userId = searchParams.get("userId");
+  const paymentId = createId();
+  const token = searchParams.get("token");
+  const timestamp = searchParams.get("timestamp");
 
-    // Verify the request is legitimate
-    if (!userId || !amount || !timestamp || !token) {
-        return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
-    }
+  // Verify the request is legitimate
+  if (!userId || !amount || !timestamp || !token) {
+    return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
+  }
 
-    // Check if the timestamp is within a reasonable window (e.g., 1 hour)
-    const timestampNum = parseInt(timestamp);
-    if (Date.now() - timestampNum > 360000) { // 1 hour in milliseconds
-        return NextResponse.redirect('https://www.plagiacheck.online');
-    }
+  // Check if the timestamp is within a reasonable window (e.g., 1 hour)
+  const timestampNum = parseInt(timestamp);
+  if (Date.now() - timestampNum > 360000) { // 1 hour in milliseconds
+    return NextResponse.redirect("https://www.plagiacheck.online");
+  }
 
-    // Regenerate the token and verify it matches
-    const expectedToken = generateCheckoutToken(userId, timestampNum);
-    if (token !== expectedToken) {
-        return NextResponse.redirect('https://www.plagiacheck.online');
-    }
+  // Regenerate the token and verify it matches
+  const expectedToken = generateCheckoutToken(userId, timestampNum);
+  if (token !== expectedToken) {
+    return NextResponse.redirect("https://www.plagiacheck.online");
+  }
 
-     // Check if the token exists and is not used
-     const { data, error } = await supabase
-     .from("OneTimeToken")
-     .select("*")
-     .eq("token", token)
-     .eq("used", false)
-     .single();
+  // Check if the token exists and is not used
+  const { data, error } = await supabase
+    .from("OneTimeToken")
+    .select("*")
+    .eq("token", token)
+    .eq("used", false)
+    .single();
 
-    if (error || !data) {
-        return NextResponse.redirect('https://www.plagiacheck.online');
-    }
+  if (error || !data) {
+    return NextResponse.redirect("https://www.plagiacheck.online");
+  }
 
-    // Mark token as used
-    await supabase
+  // Mark token as used
+  await supabase
     .from("OneTimeToken")
     .update({ used: true })
     .eq("token", token);
 
-    //Create Payment table entry first
-    const { error: paymentError } = await supabase
-        .from('Payment')
-        .insert({
-            id: paymentId,
-            subscriptionId: null,
-            userId: userId,
-            amount: amount,
-            status: 'succeeded',
-            paymentType: 'token',
-            expiryStatus: false
-        });
+  // Create Payment table entry first
+  const { error: paymentError } = await supabase.from("Payment").insert({
+    id: paymentId,
+    subscriptionId: null,
+    userId: userId,
+    amount: amount,
+    status: "succeeded",
+    paymentType: "token",
+    expiryStatus: false,
+  });
 
-    if (paymentError) {
-        throw new Error('Failed to record payment: ' + JSON.stringify(paymentError));
+  if (paymentError) {
+    throw new Error("Failed to record payment: " + JSON.stringify(paymentError));
+  }
+
+  // Check if a ref_code exists in the URL parameters
+  const refCode = searchParams.get("ref_code");
+  if (refCode) {
+    // Check if ref_code exists in the Affiliates table
+    const { data: affiliateData, error: affiliateError } = await supabase
+      .from("Affiliates")
+      .select("id, total_sales, total_sales_amount, total_earned")
+      .eq("ref_code", refCode)
+      .single();
+
+    if (affiliateError || !affiliateData) {
+      console.warn("Invalid or non-existent ref_code:", refCode);
+    } else {
+      const affiliateId = affiliateData.id;
+
+      // Update the Payment entry to include the referrer_id
+      const { error: paymentUpdateError } = await supabase
+        .from("Payment")
+        .update({ referrer_id: affiliateId })
+        .eq("id", paymentId);
+      if (paymentUpdateError) {
+        console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
+      }
+
+      // Calculate commission as 20% of the payment amount
+      const paymentAmount = parseFloat(amount);
+      const commission = paymentAmount * 0.20;
+
+      // Calculate new totals for the affiliate
+      const newTotalSales = (affiliateData.total_sales || 0) + 1;
+      const newTotalSalesAmount = (parseFloat(affiliateData.total_sales_amount) || 0) + paymentAmount;
+      const newTotalEarned = (parseFloat(affiliateData.total_earned) || 0) + commission;
+
+      // Update the Affiliates table with the new totals
+      const { error: affiliateUpdateError } = await supabase
+        .from("Affiliates")
+        .update({
+          total_sales: newTotalSales,
+          total_sales_amount: newTotalSalesAmount,
+          total_earned: newTotalEarned,
+        })
+        .eq("id", affiliateId);
+      if (affiliateUpdateError) {
+        console.error("Failed to update affiliate record:", affiliateUpdateError);
+      }
     }
+  }
 
-    // Construct the dynamic redirect URL
-    const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
+  const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
 
-    // Redirect to the localized success page
-    return NextResponse.redirect(redirectUrl, {
-        status: 302, // Temporary redirect
-    });
+  // Redirect to the localized success page
+  return NextResponse.redirect(redirectUrl, {
+    status: 302, // Temporary redirect
+  });
 }
