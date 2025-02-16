@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     const tokenAmount = searchParams.get("tokenAmount");
     const tokenType = searchParams.get("tokenType");
     const userId = searchParams.get("userId");
-    const currency = searchParams.get('ref_code') || "usd";
+    const currency = searchParams.get('currency') || "usd";
     const refCode = searchParams.get("ref_code");
 
     if (!price || !userId || !email) {
