@@ -11,10 +11,7 @@ const supabase = createClient(supabaseUrl!, supabaseKey!);
 // Function to convert INR to USD
 async function convertINRtoUSD(inrAmount: number): Promise<number> {
   try {
-    const response = await fetch('https://api.exchangerate-api.com/v4/latest/INR');
-    const data = await response.json();
-    const inrToUsdRate = data.rates.USD;
-    return Math.round(inrAmount * inrToUsdRate);
+    return Math.round(inrAmount * 0.012);
   } catch (error) {
     console.error('Error converting currency:', error);
     const fallbackRate = 0.012;
@@ -55,9 +52,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // if (!referer?.startsWith(allowedOrigin!)) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    // }
+    if (!referer?.startsWith(allowedOrigin!)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const priceAmount = parseInt(price);
     let convertedAmount = priceAmount;
