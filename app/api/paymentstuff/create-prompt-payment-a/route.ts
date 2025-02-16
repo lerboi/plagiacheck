@@ -43,7 +43,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const locale = searchParams.get("locale") || "en";
-    let price = searchParams.get("price");
+    const price = searchParams.get("price");
     const email = searchParams.get("email");
     const tokenAmount = searchParams.get("tokenAmount");
     const tokenType = searchParams.get("tokenType");
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     //   return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     // }
 
-    let priceAmount = parseInt(price);
+    const priceAmount = parseInt(price);
     let convertedAmount = priceAmount;
 
     // Only convert the amount for the success URL if currency is INR
@@ -86,11 +86,11 @@ export async function GET(req: Request) {
       customer_email: email,
       line_items: [{
         price_data: {
-          currency: currency.toLowerCase(), // Use original currency
+          currency: currency.toLowerCase(), 
           product_data: {
             name: "One-Time Purchase",
           },
-          unit_amount: priceAmount * 100, // Use original price amount
+          unit_amount: priceAmount * 100, 
         },
         quantity: 1,
       }],
