@@ -3,6 +3,20 @@ import Stripe from "stripe";
 import { generateCheckoutToken } from "@/utils/generateCheckoutToken"
 import { createClient } from "@supabase/supabase-js";
 
+// Function to convert INR to USD
+async function convertINRtoUSD(inrAmount: number): Promise<number> {
+    try {
+      const response = await fetch('https://api.exchangerate-api.com/v4/latest/INR');
+      const data = await response.json();
+      const inrToUsdRate = data.rates.USD;
+      return Math.round(inrAmount * inrToUsdRate);
+    } catch (error) {
+      console.error('Error converting currency:', error);
+      const fallbackRate = 0.012;
+      return Math.round(inrAmount * fallbackRate);
+    }
+  }
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
@@ -24,14 +38,25 @@ export async function GET(req: Request) {
         const tokenPrice = searchParams.get("tokenPrice")
         const tokenType = searchParams.get('tokenType')
         const userId = searchParams.get('userId')
+        const currency = searchParams.get('currency') || "usd"
         const refCode = searchParams.get('ref_code')  
 
-        if (!userId || !priceId || !email) {
+        if (!userId || !priceId || !email || !tokenPrice) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
         }
 
-        if (!referer?.startsWith(allowedOrigin!)) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        // if (!referer?.startsWith(allowedOrigin!)) {
+        //     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        // }
+
+        const priceAmount = parseInt(tokenPrice);
+        let convertedAmount = priceAmount;
+
+        // Only convert the amount for the success URL if currency is INR
+        if (currency.toLowerCase() === 'inr') {
+            console.log('Converting INR to USD for success URL:', priceAmount);
+            convertedAmount = await convertINRtoUSD(priceAmount);
+            console.log('Converted amount in USD:', convertedAmount);
         }
 
         console.log("Processing checkout session...");
@@ -45,7 +70,7 @@ export async function GET(req: Request) {
         ]);
 
         // Build success_url with optional ref_code
-        let successUrl = `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${tokenPrice}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}&token=${verificationToken}&timestamp=${timestamp}`;
+        let successUrl = `https://plagiacheck.online/api/Redirect/success_package?locale=${locale}&amount=${convertedAmount}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&session_id={CHECKOUT_SESSION_ID}&token=${verificationToken}&timestamp=${timestamp}`;
         
         // Add ref_code to success_url if it exists
         if (refCode) {
