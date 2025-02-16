@@ -30,9 +30,9 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
         }
 
-        // if (!referer?.startsWith(allowedOrigin!)) {
-        //     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-        // }
+        if (!referer?.startsWith(allowedOrigin!)) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
 
         console.log("Processing checkout session...");
 
