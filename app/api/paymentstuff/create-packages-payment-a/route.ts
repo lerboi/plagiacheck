@@ -24,7 +24,7 @@ export async function GET(req: Request) {
         const tokenPrice = searchParams.get("tokenPrice")
         const tokenType = searchParams.get('tokenType')
         const userId = searchParams.get('userId')
-        const refCode = searchParams.get('ref_code') 
+        const refCode = searchParams.get('ref_code')  
 
         if (!userId || !priceId || !email) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });

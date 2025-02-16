@@ -8,11 +8,24 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 
-// Handle preflight requests for CORS
+// Function to convert INR to USD
+async function convertINRtoUSD(inrAmount: number): Promise<number> {
+  try {
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/INR');
+    const data = await response.json();
+    const inrToUsdRate = data.rates.USD;
+    return Math.round(inrAmount * inrToUsdRate);
+  } catch (error) {
+    console.error('Error converting currency:', error);
+    const fallbackRate = 0.012;
+    return Math.round(inrAmount * fallbackRate);
+  }
+}
+
 export async function OPTIONS() {
   return NextResponse.json(null, {
     headers: {
-      "Access-Control-Allow-Origin": "*", // Allows all origins (Change for security)
+      "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     },
@@ -30,21 +43,30 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const locale = searchParams.get("locale") || "en";
-    const price = searchParams.get("price");
+    let price = searchParams.get("price");
     const email = searchParams.get("email");
     const tokenAmount = searchParams.get("tokenAmount");
     const tokenType = searchParams.get("tokenType");
     const userId = searchParams.get("userId");
-
-    // Retrieve ref_code from query parameters
+    const currency = searchParams.get('ref_code') || "usd";
     const refCode = searchParams.get("ref_code");
 
     if (!price || !userId || !email) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    if (!referer?.startsWith(allowedOrigin!)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    // if (!referer?.startsWith(allowedOrigin!)) {
+    //   return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    // }
+
+    let priceAmount = parseInt(price);
+    let convertedAmount = priceAmount;
+
+    // Only convert the amount for the success URL if currency is INR
+    if (currency.toLowerCase() === 'inr') {
+      console.log('Converting INR to USD for success URL:', priceAmount);
+      convertedAmount = await convertINRtoUSD(priceAmount);
+      console.log('Converted amount in USD:', convertedAmount);
     }
 
     console.log("Processing one-time checkout session...");
@@ -52,26 +74,23 @@ export async function GET(req: Request) {
     const timestamp = Date.now();
     const verificationToken = generateCheckoutToken(userId, timestamp);
 
-    // Create one-time token
     const { error } = await supabase.from("OneTimeToken").insert([
       { token: verificationToken, user_id: userId }
     ]);
 
-    // Build the base success URL
-    const baseSuccessUrl = `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${price}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&token=${verificationToken}&timestamp=${timestamp}`;
-
-    // If refCode exists, append it to the success URL
+    // Use converted amount only in the success URL
+    const baseSuccessUrl = `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${convertedAmount}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&token=${verificationToken}&timestamp=${timestamp}`;
     const successUrl = refCode ? `${baseSuccessUrl}&ref_code=${refCode}` : baseSuccessUrl;
 
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
       line_items: [{
         price_data: {
-          currency: "usd",
+          currency: currency.toLowerCase(), // Use original currency
           product_data: {
             name: "One-Time Purchase",
           },
-          unit_amount: parseInt(price) * 100,
+          unit_amount: priceAmount * 100, // Use original price amount
         },
         quantity: 1,
       }],

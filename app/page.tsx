@@ -209,7 +209,9 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-                <Button className="w-full bg-blue-400 hover:bg-blue-500">Get Plagiacheck</Button>
+                { !user && (
+                  <Button className="w-full bg-blue-400 hover:bg-blue-500">Get Plagiacheck</Button>
+                ) }
                 {!user && (
                   <div className="text-center text-sm text-muted-foreground">
                     Already have an account?{" "}
