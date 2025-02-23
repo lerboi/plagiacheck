@@ -81,6 +81,7 @@ export async function GET(req: Request) {
 
     const session = await stripe.checkout.sessions.create({
       customer_email: email,
+      allow_promotion_codes:true,
       line_items: [{
         price_data: {
           currency: currency.toLowerCase(), 

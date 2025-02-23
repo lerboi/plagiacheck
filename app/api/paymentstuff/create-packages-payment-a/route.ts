@@ -79,6 +79,7 @@ export async function GET(req: Request) {
             customer_email: email,
             line_items: [{ price: priceId, quantity: 1 }],
             mode: "subscription",
+            allow_promotion_codes:true,
             success_url: successUrl,
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
             subscription_data: {
