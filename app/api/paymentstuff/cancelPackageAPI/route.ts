@@ -3,7 +3,10 @@ import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
 // Initialize Stripe with your secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const stripe = new Stripe(
+  process.env.STRIPE_MODE === 'test' ?
+  process.env.STRIPE_SECRET_KEY_TEST! : process.env.STRIPE_SECRET_KEY!
+)
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
@@ -15,7 +18,7 @@ export async function POST(req: Request) {
     const { stripeSubscriptionId, packageId } = await req.json()
 
     if (!stripeSubscriptionId) {
-      return NextResponse.json({ error: "Stripe subscription ID is required" }, { status: 400 })
+      return NextResponse.json({ error: "Stripe subscription ID is required" }, { status: 405 })
     }
 
     // Cancel the subscription immediately

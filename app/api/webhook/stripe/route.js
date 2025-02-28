@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const tokenExpiryDate = addMonths(new Date(), 1);
 
 // Add logging utility
-const logSuccess = async (operation, details) => {
+async function logSuccess (operation, details) {
     const { error } = await supabase
         .from('OperationLogs')
         .insert({
