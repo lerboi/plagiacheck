@@ -328,7 +328,7 @@ export async function GET(req) {
 export async function POST(req) {
     console.log('Webhook POST received at:', new Date().toISOString());
     const body = await req.text();
-    const signature = req.headers.get('stripe-signature');
+    const signature = req.headers.get('Stripe-Signature');
 
     try {
         const event = stripe.webhooks.constructEvent(
