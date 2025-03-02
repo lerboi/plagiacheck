@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
+    if (request.nextUrl.pathname.startsWith('/api/webhook/stripe')) {
+        return NextResponse.next();
+    }
+
     // Get the response
     const response = NextResponse.next()
     
