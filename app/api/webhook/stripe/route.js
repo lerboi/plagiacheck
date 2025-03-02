@@ -326,6 +326,7 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+    console.log('Webhook POST received at:', new Date().toISOString());
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
 
@@ -348,13 +349,16 @@ export async function POST(req) {
             case 'customer.subscription.deleted':
                 await handleSubscriptionCancellation(event.data.object);
                 break;
+            case 'invoice.finalized':
+                console.log('Received invoice.finalized event', event.data.object.id);
+                break;
         }
 
         return NextResponse.json({ received: true });
     } catch (error) {
-        console.error('Webhook error:', error);
+        console.error('Webhook error:', error.message, error.stack);
         return NextResponse.json(
-            { error: 'Webhook handler failed' },
+            { error: 'Webhook handler failed', details: error.message },
             { status: 400 }
         );
     }
