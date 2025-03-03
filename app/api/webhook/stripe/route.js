@@ -398,6 +398,10 @@ export async function POST(req) {
             case 'invoice.finalized':
                 console.log('Received invoice.finalized event', event.data.object.id);
                 break;
+
+            case 'invoice.paid':
+                console.log('Received invoice.paid event', event.data.object.id);
+                break;
                 
             case 'checkout.session.completed':
                 console.log('Received checkout.session.completed event', event.data.object.id);
