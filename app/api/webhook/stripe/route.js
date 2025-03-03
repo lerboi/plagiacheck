@@ -327,15 +327,37 @@ export async function GET(req) {
 
 export async function POST(req) {
     console.log('Webhook POST received at:', new Date().toISOString());
+    
+    // Log all headers to help diagnose issues
+    const headers = Object.fromEntries([...req.headers.entries()]);
+    console.log('Webhook request headers:', JSON.stringify(headers));
+    
     const body = await req.text();
+    console.log('Webhook body preview:', body.substring(0, 200) + '...');
+    
     const signature = req.headers.get('Stripe-Signature');
+    if (!signature) {
+        console.error('Missing Stripe-Signature header');
+        return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
+    }
 
     try {
+        // Verify we have the secret
+        if (!process.env.STRIPE_WEBHOOK_SECRET) {
+            console.error('STRIPE_WEBHOOK_SECRET environment variable is not set');
+            return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
+        }
+        
         const event = stripe.webhooks.constructEvent(
             body,
             signature,
             process.env.STRIPE_WEBHOOK_SECRET
         );
+        
+        console.log('Successfully verified Stripe signature for event:', event.type);
+
+        // Log every event type we receive
+        console.log('Processing Stripe webhook event:', event.type, 'id:', event.id);
 
         switch (event.type) {
             case 'invoice.payment_succeeded':
@@ -349,9 +371,30 @@ export async function POST(req) {
             case 'customer.subscription.deleted':
                 await handleSubscriptionCancellation(event.data.object);
                 break;
+                
             case 'invoice.finalized':
                 console.log('Received invoice.finalized event', event.data.object.id);
                 break;
+                
+            // Add handlers for other events
+            case 'checkout.session.completed':
+                console.log('Received checkout.session.completed event', event.data.object.id);
+                break;
+                
+            case 'payment_intent.succeeded':
+                console.log('Received payment_intent.succeeded event', event.data.object.id);
+                break;
+                
+            case 'payment_intent.payment_failed':
+                console.log('Received payment_intent.payment_failed event', event.data.object.id);
+                break;
+                
+            case 'customer.subscription.updated':
+                console.log('Received customer.subscription.updated event', event.data.object.id);
+                break;
+                
+            default:
+                console.log(`Unhandled event type: ${event.type}`);
         }
 
         return NextResponse.json({ received: true });
