@@ -350,23 +350,12 @@ export async function OPTIONS() {
 export async function POST(req) {
     console.log('Webhook POST received at:', new Date().toISOString());
     
-    // Log request info for debugging
-    console.log('Request URL:', req.url);
-    console.log('Request method:', req.method);
-    
     // Log all headers to help diagnose issues
     const headers = Object.fromEntries([...req.headers.entries()]);
-    console.log('Webhook request headers:', JSON.stringify(headers, null, 2));
+    console.log('Webhook request headers:', JSON.stringify(headers));
     
-    // Get the raw body
-    let body;
-    try {
-        body = await req.text();
-        console.log('Webhook body preview:', body.substring(0, 200) + '...');
-    } catch (error) {
-        console.error('Error reading request body:', error);
-        return NextResponse.json({ error: 'Failed to read request body' }, { status: 400 });
-    }
+    const body = await req.text();
+    console.log('Webhook body preview:', body.substring(0, 200) + '...');
     
     const signature = req.headers.get('Stripe-Signature');
     if (!signature) {
@@ -381,29 +370,21 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
         }
         
-        // Parse and verify the event
-        let event;
-        try {
-            event = stripe.webhooks.constructEvent(
-                body,
-                signature,
-                process.env.STRIPE_WEBHOOK_SECRET
-            );
-            console.log('Successfully verified Stripe signature for event:', event.type);
-        } catch (err) {
-            console.error('Stripe signature verification failed:', err.message);
-            return NextResponse.json(
-                { error: 'Invalid signature', details: err.message },
-                { status: 400 }
-            );
-        }
+        const event = stripe.webhooks.constructEvent(
+            body,
+            signature,
+            process.env.STRIPE_WEBHOOK_SECRET
+        );
+        
+        console.log('Successfully verified Stripe signature for event:', event.type);
 
         // Log every event type we receive
         console.log('Processing Stripe webhook event:', event.type, 'id:', event.id);
 
         switch (event.type) {
             case 'invoice.payment_succeeded':
-                await handleSuccessfulPayment(event.data.object);
+                //await handleSuccessfulPayment(event.data.object);
+                console.log('Received invoice,payment_succeeded event', event.data.object.id);
                 break;
                 
             case 'invoice.payment_failed':
@@ -418,7 +399,6 @@ export async function POST(req) {
                 console.log('Received invoice.finalized event', event.data.object.id);
                 break;
                 
-            // Add handlers for other events
             case 'checkout.session.completed':
                 console.log('Received checkout.session.completed event', event.data.object.id);
                 break;
