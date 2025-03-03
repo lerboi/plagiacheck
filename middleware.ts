@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
+    // Log the request method and path
+    console.log(`Middleware processing: ${request.method} ${request.nextUrl.pathname}`);
+    
     if (request.nextUrl.pathname.startsWith('/api/webhook/stripe')) {
+        console.log('Skipping middleware for Stripe webhook path');
         return NextResponse.next();
     }
 
@@ -18,6 +22,10 @@ export function middleware(request: NextRequest) {
     return response
 }
 
+// Change your matcher to be more specific - exclude the Stripe webhook path entirely
 export const config = {
-    matcher: '/api/:path*',
+    matcher: [
+        '/api/:path*',
+        '/((?!api/webhook/stripe).*)'
+    ],
 }

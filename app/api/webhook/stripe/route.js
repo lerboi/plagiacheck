@@ -10,6 +10,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 const tokenExpiryDate = addMonths(new Date(), 1);
 
+export const config = {
+    api: {
+        bodyParser: false, 
+    },
+};
+
 // Add logging utility
 async function logSuccess (operation, details) {
     const { error } = await supabase
@@ -325,15 +331,42 @@ export async function GET(req) {
     }
 }
 
+//-------------------------------------------------- For Stripe --------------------------------------------------
+
+export async function OPTIONS() {
+    console.log('OPTIONS request received for Stripe webhook');
+    
+    return new NextResponse(null, {
+        status: 200,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
+            'Access-Control-Max-Age': '86400',
+        },
+    });
+}
+
 export async function POST(req) {
     console.log('Webhook POST received at:', new Date().toISOString());
     
+    // Log request info for debugging
+    console.log('Request URL:', req.url);
+    console.log('Request method:', req.method);
+    
     // Log all headers to help diagnose issues
     const headers = Object.fromEntries([...req.headers.entries()]);
-    console.log('Webhook request headers:', JSON.stringify(headers));
+    console.log('Webhook request headers:', JSON.stringify(headers, null, 2));
     
-    const body = await req.text();
-    console.log('Webhook body preview:', body.substring(0, 200) + '...');
+    // Get the raw body
+    let body;
+    try {
+        body = await req.text();
+        console.log('Webhook body preview:', body.substring(0, 200) + '...');
+    } catch (error) {
+        console.error('Error reading request body:', error);
+        return NextResponse.json({ error: 'Failed to read request body' }, { status: 400 });
+    }
     
     const signature = req.headers.get('Stripe-Signature');
     if (!signature) {
@@ -348,13 +381,22 @@ export async function POST(req) {
             return NextResponse.json({ error: 'Configuration error' }, { status: 500 });
         }
         
-        const event = stripe.webhooks.constructEvent(
-            body,
-            signature,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
-        
-        console.log('Successfully verified Stripe signature for event:', event.type);
+        // Parse and verify the event
+        let event;
+        try {
+            event = stripe.webhooks.constructEvent(
+                body,
+                signature,
+                process.env.STRIPE_WEBHOOK_SECRET
+            );
+            console.log('Successfully verified Stripe signature for event:', event.type);
+        } catch (err) {
+            console.error('Stripe signature verification failed:', err.message);
+            return NextResponse.json(
+                { error: 'Invalid signature', details: err.message },
+                { status: 400 }
+            );
+        }
 
         // Log every event type we receive
         console.log('Processing Stripe webhook event:', event.type, 'id:', event.id);
