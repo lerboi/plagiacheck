@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, isLastDayOfMonth, lastDayOfMonth } from 'date-fns';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -16,8 +16,7 @@ export const config = {
     },
 };
 
-// Add logging utility
-async function logSuccess (operation, details) {
+async function logSuccess(operation, details) {
     const { error } = await supabase
         .from('OperationLogs')
         .insert({
@@ -29,305 +28,283 @@ async function logSuccess (operation, details) {
     if (error) console.error('Logging error:', error);
 };
 
-async function handleFailedSubscription(subscription) {
-    console.log('Handling failed subscription:', subscription.id);
-    
+async function handleFailedPayment(invoice) {
+    console.log(`Processing failed payment for invoice: ${invoice.id}`);
     try {
-        // Cancel the Stripe subscription
-        await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+        // Extract subscription ID from the invoice
+        const subscriptionId = invoice.subscription;
+        if (!subscriptionId) {
+            console.error('No subscription ID found in invoice:', invoice.id);
+            return;
+        }
         
-        // Update subscription status in database
-        const { error: updateError } = await supabase
-            .from('Subscription')
-            .update({ 
-                isActive: false,
-                status: 'CANCELED'
-            })
-            .eq('id', subscription.id);
-
-        if (updateError) throw updateError;
-
-        // Log the cancellation
-        await logSuccess('subscription_canceled', {
-            subscriptionId: subscription.id,
-            stripeSubscriptionId: subscription.stripeSubscriptionId,
-            reason: 'payment_failure'
+        // Retrieve the subscription object using the Stripe API
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        
+        // Access metadata from the subscription object
+        const { metadata } = subscription;
+        
+        if (!metadata || !metadata.userId) {
+            console.error('Missing userId in metadata for subscription:', subscription.id);
+            return;
+        }
+        
+        const { userId } = metadata;
+        
+        // Get the Package record
+        const { data: packageData } = await supabase
+            .from('Package')
+            .select('*')
+            .eq('userId', userId)
+            .eq('stripeSubscriptionId', subscriptionId)
+            .single();
+            
+        if (!packageData) {
+            console.error(`No Package found for userId: ${userId} and subscription: ${subscriptionId}`);
+            return;
+        }
+        
+        // Check for consecutive failures
+        const invoices = await stripe.invoices.list({
+            subscription: subscriptionId,
+            limit: 3,
+            status: 'open'
         });
-
+        
+        // If we have 2 or more consecutive failed payments
+        if (invoices.data.length >= 2) {
+            console.log(`Detected ${invoices.data.length} consecutive failed payments for subscription: ${subscriptionId}`);
+            
+            // Update package status to CANCELED
+            const { error: updateError } = await supabase
+                .from('Package')
+                .update({ 
+                    status: 'CANCELED',
+                    isActive: false
+                })
+                .eq('id', packageData.id);
+                
+            if (updateError) {
+                console.error('Error updating package status:', updateError);
+                throw updateError;
+            }
+            
+            await logSuccess('package_canceled_consecutive_failures', {
+                packageId: packageData.id,
+                userId: userId,
+                subscriptionId: subscriptionId,
+                consecutiveFailures: invoices.data.length
+            });
+            
+            console.log(`Package ${packageData.id} has been marked as CANCELED due to consecutive payment failures`);
+        } else {
+            // Just update the status to match Stripe's status
+            const { error: updateError } = await supabase
+                .from('Package')
+                .update({ 
+                    status: subscription.status.toUpperCase()
+                })
+                .eq('id', packageData.id);
+                
+            if (updateError) {
+                console.error('Error updating package status:', updateError);
+                throw updateError;
+            }
+            
+            await logSuccess('package_payment_failed', {
+                packageId: packageData.id,
+                invoiceId: invoice.id,
+                stripeStatus: subscription.status,
+                attemptCount: invoice.attempt_count,
+                nextPaymentAttempt: invoice.next_payment_attempt
+            });
+            
+            console.log(`Updated Package ${packageData.id} status to ${subscription.status.toUpperCase()}`);
+        }
     } catch (error) {
-        console.error('Error handling failed subscription:', error);
+        console.error('Error in handleFailedPayment:', error.message);
         throw error;
     }
 }
 
-async function handleFailedPayment(invoice) {
-    // We don't immediately cancel anything on payment failure
-    // Instead, log the failure and check subscription status
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
+async function handleTokenAllocation(userId, tokenType) {
+    console.log(`Allocating tokens for user ${userId} with token type: ${tokenType}`);
     
-    // First check for subscription
-    const { data: subData } = await supabase
-        .from('Subscription')
-        .select('*')
-        .eq('stripeSubscriptionId', subscription.id)
-        .single();
+    try {
+        // First, check if the package is active
+        const { data: packageData, error: packageError } = await supabase
+            .from('Package')
+            .select('*')
+            .eq('userId', userId)
+            .single();
+            
+        if (packageError) {
+            console.error('Error fetching package data:', packageError);
+            throw packageError;
+        }
+        
+        // If package is CANCELED, cancel the subscription and don't add tokens
+        if (packageData && packageData.status === 'CANCELED') {
+            console.log(`Package for user ${userId} is CANCELED. Canceling subscription and skipping token allocation.`);
+            
+            // Cancel the Stripe subscription if it exists
+            if (packageData.stripeSubscriptionId) {
+                await stripe.subscriptions.cancel(packageData.stripeSubscriptionId);
+                console.log(`Canceled Stripe subscription: ${packageData.stripeSubscriptionId}`);
+            }
+            
+            await logSuccess('token_allocation_skipped', {
+                userId: userId,
+                packageId: packageData.id,
+                reason: 'Package status is CANCELED'
+            });
+            
+            return { skipped: true, reason: 'Package is canceled' };
+        }
+        
+        let imageTokensToAdd = 0;
+        
+        // Determine the number of tokens to add based on the tokenType
+        if (tokenType === '200Image') {
+            imageTokensToAdd = 200;
+        } else if (tokenType === '1000Image') {
+            imageTokensToAdd = 1000;
+        } else {
+            console.error(`Unknown token type: ${tokenType}`);
+            return { error: 'Unknown token type' };
+        }
+        
+        // Get current user data from PurchasedToken table
+        const { data: tokenData, error: tokenError } = await supabase
+            .from('PurchasedToken')
+            .select('imageToken')
+            .eq('userId', userId)
+            .single();
 
-    if (subData) {
-        // Only update local status to reflect Stripe status
-        const { error: updateError } = await supabase
-            .from('Subscription')
-            .update({ 
-                status: subscription.status.toUpperCase(),
-                // Don't set isActive to false unless Stripe has marked it as canceled
-                isActive: subscription.status !== 'canceled'
+        if (tokenError) {
+            // If no record exists, create one
+            if (tokenError.code === 'PGRST116') {
+                console.log(`No existing token record for user ${userId}, creating new record`);
+                const { data, error: insertError } = await supabase
+                    .from('PurchasedToken')
+                    .insert({
+                        userId: userId,
+                        imageToken: imageTokensToAdd
+                    })
+                    .select();
+
+                if (insertError) {
+                    console.error('Error creating token record:', insertError);
+                    throw insertError;
+                }
+                
+                console.log(`Created token record with ${imageTokensToAdd} imageTokens`);
+            } else {
+                console.error('Error fetching token data:', tokenError);
+                throw tokenError;
+            }
+        } else {
+            // Update existing record
+            const newImageTokens = (tokenData.imageToken || 0) + imageTokensToAdd;
+            
+            const { error: updateError } = await supabase
+                .from('PurchasedToken')
+                .update({
+                    imageToken: newImageTokens
+                })
+                .eq('userId', userId);
+
+            if (updateError) {
+                console.error('Error updating token data:', updateError);
+                throw updateError;
+            }
+
+            console.log(`Successfully added ${imageTokensToAdd} imageTokens. New total: ${newImageTokens}`);
+        }
+        
+        // Calculate the new expiry date (exactly one month from now)
+        const currentDate = new Date();
+        let newExpiryDate = addMonths(currentDate, 1);
+        
+        // Handle edge cases for months with different number of days
+        if (isLastDayOfMonth(currentDate)) {
+            // If today is the last day of the month, set to last day of next month
+            newExpiryDate = lastDayOfMonth(newExpiryDate);
+        }
+        
+        // Update the Package table with the new expiry date
+        const { error: packageUpdateError } = await supabase
+            .from('Package')
+            .update({
+                expiryDate: newExpiryDate.toISOString(),
+                status: 'ACTIVE'
             })
-            .eq('id', subData.id);
+            .eq('userId', userId);
+            
+        if (packageUpdateError) {
+            console.error('Error updating package expiry date:', packageUpdateError);
+            throw packageUpdateError;
+        }
+        
+        console.log(`Updated package expiryDate to ${newExpiryDate.toISOString()} for user ${userId}`);
+        
+        return { imageTokens: imageTokensToAdd, expiryDate: newExpiryDate };
+    } catch (error) {
+        console.error('Error in handleTokenAllocation:', error.message);
+        throw error;
+    }
+}
 
-        if (updateError) throw updateError;
-
-        await logSuccess('payment_failed', {
-            subscriptionId: subData.id,
+async function handleSuccessfulPayment(invoice) {
+    console.log('Processing successful payment for invoice:', invoice.id);
+    
+    try {
+        // Extract subscription ID from the invoice
+        const subscriptionId = invoice.subscription;
+        if (!subscriptionId) {
+            console.error('No subscription ID found in invoice:', invoice.id);
+            return;
+        }
+        
+        console.log(`Retrieving subscription details for: ${subscriptionId}`);
+        
+        // Retrieve the subscription object using the Stripe API
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        
+        // Access metadata from the subscription object
+        const { metadata } = subscription;
+        
+        if (!metadata || !metadata.userId || !metadata.tokenType) {
+            console.error('Missing required metadata in subscription:', subscription.id);
+            return;
+        }
+        
+        const { userId, tokenType } = metadata;
+        console.log(`Processing token allocation for user: ${userId}, token type: ${tokenType}`);
+        
+        // Allocate tokens based on the metadata
+        const tokenResult = await handleTokenAllocation(userId, tokenType);
+        
+        // If token allocation was skipped, don't log success
+        if (tokenResult.skipped) {
+            console.log(`Token allocation was skipped: ${tokenResult.reason}`);
+            return;
+        }
+        
+        // Log the successful operation
+        await logSuccess('payment_success', {
             invoiceId: invoice.id,
-            stripeStatus: subscription.status,
-            attemptCount: invoice.attempt_count,
-            nextPaymentAttempt: invoice.next_payment_attempt
+            subscriptionId: subscription.id,
+            userId: userId,
+            tokenType: tokenType,
+            tokensAdded: tokenResult.imageTokens,
+            newExpiryDate: tokenResult.expiryDate
         });
         
-        return;
-    }
-
-    // Handle package similarly
-    const { data: packageData } = await supabase
-        .from('Package')
-        .select('*')
-        .eq('stripeSubscriptionId', subscription.id)
-        .single();
-
-    if (packageData) {
-        const { error: updateError } = await supabase
-            .from('Package')
-            .update({ 
-                status: subscription.status.toUpperCase(),
-            })
-            .eq('id', packageData.id);
-
-        if (updateError) throw updateError;
-
-        await logSuccess('package_payment_failed', {
-            packageId: packageData.id,
-            invoiceId: invoice.id,
-            stripeStatus: subscription.status,
-            attemptCount: invoice.attempt_count,
-            nextPaymentAttempt: invoice.next_payment_attempt
-        });
-    }
-}
-
-async function handleTokenAllocation(userId, tier, action = 'add') {
-    const textTokens = tier === 'PLUS' ? 1000 : 4000;
-    const imageTokens = tier === 'PLUS' ? 100 : 400;
-    
-    // Get current user data
-    const { data: userData, error: userError } = await supabase
-        .from('User')
-        .select('textTokens, imageTokens')
-        .eq('id', userId)
-        .single();
-
-    if (userError) throw userError;
-
-    const multiplier = action === 'add' ? 1 : -1;
-    const newTextTokens = userData.textTokens + (textTokens * multiplier);
-    const newImageTokens = userData.imageTokens + (imageTokens * multiplier);
-
-    const { error: updateError } = await supabase
-        .from('User')
-        .update({
-            textTokens: newTextTokens,
-            imageTokens: newImageTokens
-        })
-        .eq('id', userId);
-
-    if (updateError) throw updateError;
-
-    return { textTokens, imageTokens };
-}
-
-export async function GET(req) {
-    console.log('Cron job endpoint hit');
-
-    try {
-        // 1. Check for expired tokens and update accordingly
-        const { data: expiredTokens, error: expiredTokensError } = await supabase
-            .from('SubscriptionToken')
-            .select(`
-                *,
-                subscription:Subscription!inner(
-                    id,
-                    userId,
-                    tier,
-                    stripeSubscriptionId,
-                    status
-                )
-            `)
-            .lt('expiryDate', new Date().toISOString());
-
-        if (expiredTokensError) throw expiredTokensError;
-
-        for (const token of expiredTokens || []) {
-            try {
-                if (token.subscription.status === 'ACTIVE') {
-                    // Verify Stripe subscription status
-                    const stripeSubscription = await stripe.subscriptions.retrieve(
-                        token.subscription.stripeSubscriptionId
-                    );
-
-                    if (stripeSubscription.status === 'active') {
-                        // Renewal logic
-                        const tokenAllocation = await handleTokenAllocation(
-                            token.subscription.userId,
-                            token.subscription.tier
-                        );
-
-                        // Update token expiry
-                        const { error: tokenUpdateError } = await supabase
-                            .from('SubscriptionToken')
-                            .update({
-                                textTokens: tokenAllocation.textTokens,
-                                imageTokens: tokenAllocation.imageTokens,
-                                expiryDate: tokenExpiryDate.toISOString()
-                            })
-                            .eq('id', token.id);
-
-                        if (tokenUpdateError) throw tokenUpdateError;
-
-                        await logSuccess('token_renewal', {
-                            subscriptionId: token.subscription.id,
-                            userId: token.subscription.userId,
-                            tokenAllocation
-                        });
-                    } else {
-                        // Handle inactive Stripe subscription
-                        await handleFailedSubscription(token.subscription);
-                    }
-                } else {
-                    // Remove tokens for inactive subscriptions
-                    await handleTokenAllocation(
-                        token.subscription.userId,
-                        token.subscription.tier,
-                        'remove'
-                    );
-
-                    // Delete the expired token
-                    const { error: deleteError } = await supabase
-                        .from('SubscriptionToken')
-                        .delete()
-                        .eq('id', token.id);
-
-                    if (deleteError) throw deleteError;
-                }
-            } catch (error) {
-                console.error('Error processing expired token:', error);
-                continue;
-            }
-        }
-
-        const today = format(new Date(), 'yyyy-MM-dd')
-
-        // 2. Check for package renewals
-        const { data: packagesData, error: packagesFetchError } = await supabase
-            .from('Package')
-            .select(`
-                id,
-                userId,
-                packageName,
-                expiryDate,
-                stripeSubscriptionId
-            `)
-            .eq('expiryDate', today);
-
-        if (packagesFetchError) throw packagesFetchError;
-
-        for (const package_ of packagesData || []) {
-            try {
-                const stripeSubscription = await stripe.subscriptions.retrieve(
-                    package_.stripeSubscriptionId
-                );
-
-                if (stripeSubscription.status === 'active') {
-                    const imageTokenAmount = package_.packageName === '200Image' ? 200 : 1000;
-
-                    // Update or create PurchasedToken
-                    const { data: existingToken, error: fetchError } = await supabase
-                        .from('PurchasedToken')
-                        .select('*')
-                        .eq('userId', package_.userId)
-                        .single();
-
-                    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
-
-                    if (existingToken) {
-                        const { error } = await supabase
-                            .from('PurchasedToken')
-                            .update({
-                                imageTokens: existingToken.imageTokens + imageTokenAmount
-                            })
-                            .eq('id', existingToken.id);
-
-                        if (error) throw error;
-                    } else {
-                        const { error } = await supabase
-                            .from('PurchasedToken')
-                            .insert({
-                                userId: package_.userId,
-                                textTokens: 0,
-                                imageTokens: imageTokenAmount
-                            });
-
-                        if (error) throw error;
-                    }
-
-                    // Update package expiry
-                    const newExpiryDate = addMonths(new Date(package_.expiryDate), 1);
-                    const { error: updateError } = await supabase
-                        .from('Package')
-                        .update({ expiryDate: newExpiryDate.toISOString() })
-                        .eq('id', package_.id);
-
-                    if (updateError) throw updateError;
-
-                    await logSuccess('package_renewal', {
-                        packageId: package_.id,
-                        userId: package_.userId,
-                        imageTokens: imageTokenAmount
-                    });
-                }
-            } catch (error) {
-                console.error('Error processing package renewal:', error);
-                continue;
-            }
-        }
-
-        // Log overall success
-        await logSuccess('cron_job_complete', {
-            processedExpiredTokens: expiredTokens?.length || 0,
-            processedPackages: packagesData?.length || 0
-        });
-
-        return NextResponse.json({
-            message: 'Cron job completed successfully',
-            details: {
-                processedExpiredTokens: expiredTokens?.length || 0,
-                processedPackages: packagesData?.length || 0
-            }
-        }, { status: 200 });
-
+        console.log('Successfully processed payment and allocated tokens');
     } catch (error) {
-        console.error('Cron job error:', error);
-        return NextResponse.json({
-            error: 'Internal server error',
-            details: error.message
-        }, { status: 500 });
+        console.error('Error in handleSuccessfulPayment:', error.message);
+        throw error;
     }
 }
 
@@ -382,9 +359,25 @@ export async function POST(req) {
         console.log('Processing Stripe webhook event:', event.type, 'id:', event.id);
 
         switch (event.type) {
-            case 'invoice.payment_succeeded':
-                //await handleSuccessfulPayment(event.data.object);
-                console.log('Received invoice,payment_succeeded event', event.data.object.id);
+            case 'invoice.paid':
+                const invoice = event.data.object;
+                const billingReason = invoice.billing_reason;
+                
+                if (billingReason === 'subscription_create') {
+                    // Just log the customer ID if it's a new subscription
+                    console.log(`New subscription created for customer: ${invoice.customer}`);
+                    await logSuccess('subscription_created', {
+                        customerId: invoice.customer,
+                        subscriptionId: invoice.subscription,
+                        invoiceId: invoice.id
+                    });
+                } else if (billingReason === 'subscription_cycle') {
+                    // Handle recurring payment
+                    console.log('Processing recurring subscription payment');
+                    await handleSuccessfulPayment(invoice);
+                } else {
+                    console.log(`Unhandled billing reason: ${billingReason}`);
+                }
                 break;
                 
             case 'invoice.payment_failed':
@@ -397,10 +390,6 @@ export async function POST(req) {
                 
             case 'invoice.finalized':
                 console.log('Received invoice.finalized event', event.data.object.id);
-                break;
-
-            case 'invoice.paid':
-                console.log('Received invoice.paid event', event.data.object.id);
                 break;
                 
             case 'checkout.session.completed':
@@ -433,87 +422,60 @@ export async function POST(req) {
     }
 }
 
-async function handleSuccessfulPayment(invoice) {
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription);
-    const { data: subData } = await supabase
-        .from('Subscription')
-        .select('*')
-        .eq('stripeSubscriptionId', subscription.id)
-        .single();
-
-    if (subData) {
-        // Handle subscription payment
-        await handleTokenAllocation(subData.userId, subData.tier);
-        await logSuccess('payment_success', {
-            subscriptionId: subData.id,
-            invoiceId: invoice.id
-        });
-    } else {
-        // Handle package payment
-        const { data: packageData } = await supabase
-            .from('Package')
-            .select('*')
-            .eq('stripeSubscriptionId', subscription.id)
-            .single();
-
-        if (packageData) {
-            const imageTokens = packageData.packageName === '200Image' ? 200 : 1000;
-            await handleTokenAllocation(packageData.userId, null, 'add');
-            await logSuccess('package_payment_success', {
-                packageId: packageData.id,
-                invoiceId: invoice.id,
-                imageTokens
-            });
-        }
-    }
-}
-
 async function handleSubscriptionCancellation(subscription) {
     // This is called when Stripe has definitively canceled the subscription
     // after multiple failed attempts or manual cancellation
     
-    const { data: subData } = await supabase
-        .from('Subscription')
-        .select('*')
-        .eq('stripeSubscriptionId', subscription.id)
-        .single();
-
-    if (subData) {
-        // Update subscription status
-        const { error: updateError } = await supabase
-            .from('Subscription')
-            .update({ 
-                isActive: false,
-                status: 'CANCELED'
-            })
-            .eq('id', subData.id);
-
-        if (updateError) throw updateError;
-
-        // Remove tokens
-        await handleTokenAllocation(
-            subData.userId,
-            subData.tier,
-            'remove'
-        );
-
-        await logSuccess('subscription_canceled', {
-            subscriptionId: subData.id,
-            stripeSubscriptionId: subscription.id,
-            reason: subscription.cancellation_details?.reason || 'unknown'
-        });
+    try {
+        // Access metadata from the subscription object
+        const { metadata } = subscription;
         
-        return;
-    }
+        if (!metadata || !metadata.userId) {
+            console.error('Missing userId in metadata for subscription:', subscription.id);
+            
+            // Fallback to looking up by stripeSubscriptionId
+            const { data: packageData } = await supabase
+                .from('Package')
+                .select('*')
+                .eq('stripeSubscriptionId', subscription.id)
+                .single();
+                
+            if (packageData) {
+                const { error: updateError } = await supabase
+                    .from('Package')
+                    .update({ 
+                        isActive: false,
+                        status: 'CANCELED'
+                    })
+                    .eq('id', packageData.id);
 
-    // Handle package cancellation
-    const { data: packageData } = await supabase
-        .from('Package')
-        .select('*')
-        .eq('stripeSubscriptionId', subscription.id)
-        .single();
+                if (updateError) throw updateError;
 
-    if (packageData) {
+                await logSuccess('package_canceled', {
+                    packageId: packageData.id,
+                    stripeSubscriptionId: subscription.id,
+                    reason: subscription.cancellation_details?.reason || 'unknown'
+                });
+            }
+            
+            return;
+        }
+        
+        const { userId } = metadata;
+        
+        // Update package status
+        const { data: packageData, error: packageError } = await supabase
+            .from('Package')
+            .select('*')
+            .eq('userId', userId)
+            .eq('stripeSubscriptionId', subscription.id)
+            .single();
+            
+        if (packageError) {
+            console.error('Error fetching package data:', packageError);
+            return;
+        }
+        
         const { error: updateError } = await supabase
             .from('Package')
             .update({ 
@@ -526,8 +488,15 @@ async function handleSubscriptionCancellation(subscription) {
 
         await logSuccess('package_canceled', {
             packageId: packageData.id,
+            userId: userId,
             stripeSubscriptionId: subscription.id,
             reason: subscription.cancellation_details?.reason || 'unknown'
         });
+        
+        console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
+        
+    } catch (error) {
+        console.error('Error in handleSubscriptionCancellation:', error.message);
+        throw error;
     }
 }
