@@ -15,20 +15,18 @@ export async function GET(req: Request) {
     // Get URL query parameters
     const { searchParams } = new URL(req.url);
     const locale = searchParams.get("locale") || "en"; 
-    const amount = searchParams.get("amount");
+    const originalAmount = searchParams.get("amount");
     const token_type = searchParams.get("token_type");
     const token_amount = searchParams.get("token_amount");
     const userId = searchParams.get('userId');
-    const ref_code = searchParams.get('ref_code'); // ✅ Step 1: Capture ref_code
+    const ref_code = searchParams.get('ref_code');
     const paymentId = createId();
     const sessionId = searchParams.get("session_id"); 
-    const session = await stripe.checkout.sessions.retrieve(sessionId!);
-    const subscriptionId = session.subscription as string;
     const token = searchParams.get("token");
     const timestamp = searchParams.get("timestamp");
 
     // Verify the request is legitimate
-    if (!userId || !amount || !timestamp || !token) {
+    if (!userId || !originalAmount || !timestamp || !token || !sessionId) {
         return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
     }
 
@@ -44,102 +42,116 @@ export async function GET(req: Request) {
         return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
-    // Check if the token exists and is not used
-    const { data, error } = await supabase
-        .from("OneTimeToken")
-        .select("*")
-        .eq("token", token)
-        .eq("used", false)
-        .single();
-
-    if (error || !data) {
-        return NextResponse.redirect('https://www.plagiacheck.online');
-    }
-
-    // Mark token as used
-    await supabase
-        .from("OneTimeToken")
-        .update({ used: true })
-        .eq("token", token);
-
-    // **Step 2: Validate `ref_code` and get `affiliates.id`**
-    let referrerId = null;
-
-    if (ref_code) {
-        const { data: affiliate, error: affiliateError } = await supabase
-            .from("Affiliates")
-            .select("id")
-            .eq("ref_code", ref_code)
-            .single();
-
-        if (affiliateError || !affiliate) {
-            console.warn("Invalid referral code:", ref_code);
-        } else {
-            referrerId = affiliate.id;
-        }
-    }
-
-    // **Step 3: Create Payment Entry**
-    const { error: paymentError } = await supabase
-        .from('Payment')
-        .insert({
-            id: paymentId,
-            subscriptionId: null,
-            userId: userId,
-            amount: amount,
-            status: 'succeeded',
-            paymentType: 'Packages',
-            expiryStatus: false,
-            referrer_id: referrerId // ✅ Step 3: Store referrer in Payment table
+    try {
+        // Retrieve the Stripe Checkout Session to get the final amount
+        const session = await stripe.checkout.sessions.retrieve(sessionId!, {
+            expand: ['line_items']
         });
 
-    if (paymentError) {
-        throw new Error('Failed to record payment' + JSON.stringify(paymentError));
-    }
+        // Get the final amount paid (in cents, convert to dollars)
+        const finalAmount = (session.amount_total! / 100).toFixed(2);
+        const subscriptionId = session.subscription as string;
 
-    // **Step 4: Update Affiliates Table if `ref_code` exists**
-    if (referrerId) {
-        const commission = parseFloat(amount) * 0.20; // 20% of the purchase amount
-    
-        // Fetch current affiliate data
-        const { data: affiliateData, error: fetchError } = await supabase
-            .from("Affiliates")
-            .select("total_sales, total_sales_amount, total_earned")
-            .eq("id", referrerId)
+        // Check if the token exists and is not used
+        const { data, error } = await supabase
+            .from("OneTimeToken")
+            .select("*")
+            .eq("token", token)
+            .eq("used", false)
             .single();
-    
-        if (fetchError || !affiliateData) {
-            console.error("Error fetching affiliate data:", fetchError);
-            return NextResponse.json({ error: "Failed to retrieve affiliate data." }, { status: 500 });
+
+        if (error || !data) {
+            return NextResponse.redirect('https://www.plagiacheck.online');
         }
-    
-        // Calculate new values
-        const newTotalSales = affiliateData.total_sales + 1;
-        const newTotalSalesAmount = parseFloat(affiliateData.total_sales_amount) + parseFloat(amount);
-        const newTotalEarned = parseFloat(affiliateData.total_earned) + commission;
-    
-        // Update the Affiliates table
-        const { error: updateError } = await supabase
-            .from("Affiliates")
-            .update({
-                total_sales: newTotalSales,
-                total_sales_amount: newTotalSalesAmount,
-                total_earned: newTotalEarned
-            })
-            .eq("id", referrerId);
-    
-        if (updateError) {
-            console.error("Error updating affiliate earnings:", updateError);
-            return NextResponse.json({ error: "Failed to update affiliate earnings." }, { status: 500 });
+
+        // Mark token as used
+        await supabase
+            .from("OneTimeToken")
+            .update({ used: true })
+            .eq("token", token);
+
+        // Validate `ref_code` and get `affiliates.id`
+        let referrerId = null;
+
+        if (ref_code) {
+            const { data: affiliate, error: affiliateError } = await supabase
+                .from("Affiliates")
+                .select("id")
+                .eq("ref_code", ref_code)
+                .single();
+
+            if (affiliateError || !affiliate) {
+                console.warn("Invalid referral code:", ref_code);
+            } else {
+                referrerId = affiliate.id;
+            }
         }
+
+        // Create Payment Entry with final amount
+        const { error: paymentError } = await supabase
+            .from('Payment')
+            .insert({
+                id: paymentId,
+                subscriptionId: null,
+                userId: userId,
+                amount: finalAmount, 
+                status: 'succeeded',
+                paymentType: 'Packages',
+                expiryStatus: false,
+                referrer_id: referrerId,
+            });
+
+        if (paymentError) {
+            throw new Error('Failed to record payment' + JSON.stringify(paymentError));
+        }
+
+        // Update Affiliates Table if `ref_code` exists
+        if (referrerId) {
+            const commission = parseFloat(finalAmount) * 0.20; // 20% of the final amount
+
+            // Fetch current affiliate data
+            const { data: affiliateData, error: fetchError } = await supabase
+                .from("Affiliates")
+                .select("total_sales, total_sales_amount, total_earned")
+                .eq("id", referrerId)
+                .single();
+
+            if (fetchError || !affiliateData) {
+                console.error("Error fetching affiliate data:", fetchError);
+                return NextResponse.json({ error: "Failed to retrieve affiliate data." }, { status: 500 });
+            }
+
+            // Calculate new values based on final amount
+            const newTotalSales = affiliateData.total_sales + 1;
+            const newTotalSalesAmount = parseFloat(affiliateData.total_sales_amount) + parseFloat(finalAmount);
+            const newTotalEarned = parseFloat(affiliateData.total_earned) + commission;
+
+            // Update the Affiliates table
+            const { error: updateError } = await supabase
+                .from("Affiliates")
+                .update({
+                    total_sales: newTotalSales,
+                    total_sales_amount: newTotalSalesAmount,
+                    total_earned: newTotalEarned
+                })
+                .eq("id", referrerId);
+
+            if (updateError) {
+                console.error("Error updating affiliate earnings:", updateError);
+                return NextResponse.json({ error: "Failed to update affiliate earnings." }, { status: 500 });
+            }
+        }
+
+        // Construct the dynamic redirect URL with final amount
+        const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}&userId=${userId}`;
+
+        // Redirect to the localized success page
+        return NextResponse.redirect(redirectUrl, {
+            status: 302, // Temporary redirect
+        });
+
+    } catch (error) {
+        console.error('Error processing successful payment:', error);
+        return NextResponse.redirect('https://www.plagiacheck.online', { status: 302 });
     }
-    
-
-    // Construct the dynamic redirect URL
-    const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${amount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}&userId=${userId}`;
-
-    // Redirect to the localized success page
-    return NextResponse.redirect(redirectUrl, {
-        status: 302, // Temporary redirect
-    });
 }
