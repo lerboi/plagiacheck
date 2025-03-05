@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     const timestamp = searchParams.get("timestamp");
 
     // Verify the request is legitimate
-    if (!userId || !originalAmount || !timestamp || !token || !sessionId) {
+    if (!userId || !originalAmount || !timestamp || !sessionId) {
         return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
     }
 
@@ -52,23 +52,23 @@ export async function GET(req: Request) {
         const finalAmount = (session.amount_total! / 100).toFixed(2);
         const subscriptionId = session.subscription as string;
 
-        // Check if the token exists and is not used
-        const { data, error } = await supabase
-            .from("OneTimeToken")
-            .select("*")
-            .eq("token", token)
-            .eq("used", false)
-            .single();
+        // // Check if the token exists and is not used
+        // const { data, error } = await supabase
+        //     .from("OneTimeToken")
+        //     .select("*")
+        //     .eq("token", token)
+        //     .eq("used", false)
+        //     .single();
 
-        if (error || !data) {
-            return NextResponse.redirect('https://www.plagiacheck.online');
-        }
+        // if (error || !data) {
+        //     return NextResponse.redirect('https://www.plagiacheck.online');
+        // }
 
-        // Mark token as used
-        await supabase
-            .from("OneTimeToken")
-            .update({ used: true })
-            .eq("token", token);
+        // // Mark token as used
+        // await supabase
+        //     .from("OneTimeToken")
+        //     .update({ used: true })
+        //     .eq("token", token);
 
         // Validate `ref_code` and get `affiliates.id`
         let referrerId = null;
