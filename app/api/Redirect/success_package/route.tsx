@@ -37,10 +37,10 @@ export async function GET(req: Request) {
     }
 
     // Regenerate the token and verify it matches
-    const expectedToken = generateCheckoutToken(userId, timestampNum);
-    if (token !== expectedToken) {
-        return NextResponse.redirect('https://www.plagiacheck.online');
-    }
+    //const expectedToken = generateCheckoutToken(userId, timestampNum);
+    //if (token !== expectedToken) {
+    //    return NextResponse.redirect('https://www.plagiacheck.online');
+    //}
 
     try {
         // Retrieve the Stripe Checkout Session to get the final amount
