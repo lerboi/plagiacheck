@@ -76,7 +76,7 @@ export async function GET(req: Request) {
     ]);
 
     // Use converted amount only in the success URL
-    const baseSuccessUrl = `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${convertedAmount}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&token=${verificationToken}&timestamp=${timestamp}`;
+    const baseSuccessUrl = `https://plagiacheck.online/api/Redirect/success_prompt?locale=${locale}&amount=${convertedAmount}&token_type=${tokenType}&token_amount=${tokenAmount}&userId=${userId}&token=${verificationToken}&timestamp=${timestamp}&session_id={CHECKOUT_SESSION_ID}`;
     const successUrl = refCode ? `${baseSuccessUrl}&ref_code=${refCode}` : baseSuccessUrl;
 
     const session = await stripe.checkout.sessions.create({
