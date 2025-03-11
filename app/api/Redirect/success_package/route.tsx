@@ -32,7 +32,7 @@ export async function GET(req: Request) {
 
     // Check if the timestamp is within a reasonable window (e.g., 1 hour)
     const timestampNum = parseInt(timestamp);
-    if (Date.now() - timestampNum > 3600000) { // 1 hour in milliseconds
+    if (Date.now() - timestampNum > 1200000) { // 20 minutes in milliseconds
         return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
