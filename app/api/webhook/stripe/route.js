@@ -177,7 +177,7 @@ async function handleTokenAllocation(userId, tokenType) {
         // Get current user data from PurchasedToken table
         const { data: tokenData, error: tokenError } = await supabase
             .from('PurchasedToken')
-            .select('imageToken')
+            .select('imageTokens')
             .eq('userId', userId)
             .single();
 
@@ -189,7 +189,7 @@ async function handleTokenAllocation(userId, tokenType) {
                     .from('PurchasedToken')
                     .insert({
                         userId: userId,
-                        imageToken: imageTokensToAdd
+                        imageTokens: imageTokensToAdd
                     })
                     .select();
 
@@ -205,12 +205,12 @@ async function handleTokenAllocation(userId, tokenType) {
             }
         } else {
             // Update existing record
-            const newImageTokens = (tokenData.imageToken || 0) + imageTokensToAdd;
+            const newImageTokens = (tokenData.imageTokens || 0) + imageTokensToAdd;
             
             const { error: updateError } = await supabase
                 .from('PurchasedToken')
                 .update({
-                    imageToken: newImageTokens
+                    imageTokens: newImageTokens
                 })
                 .eq('userId', userId);
 
