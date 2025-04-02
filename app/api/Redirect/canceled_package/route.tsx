@@ -48,6 +48,8 @@ export async function GET(req: Request) {
     // Construct the dynamic redirect URL
     const redirectUrl = `https://anione.me/${locale}/Pricing`;
 
+    console.log("❌ Stripe session canceled by user...");
+
     // Redirect to the localized success page
     return NextResponse.redirect(redirectUrl, {
         status: 302
