@@ -13,7 +13,7 @@ export function Footer() {
           </Link>
         </div>
         <div className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Plagiacheck. All rights reserved.
+          © {new Date().getFullYear()} MakeItAI. All rights reserved.
         </div>
       </div>
     </footer>

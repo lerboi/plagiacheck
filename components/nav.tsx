@@ -4,7 +4,7 @@ import { PiLetterCircleP } from "react-icons/pi"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useTokenStore } from "@/lib/store"
-import { MessageCircle } from "lucide-react"
+import { MessageCircle } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
@@ -14,6 +14,13 @@ export function Nav() {
   const { remainingWords, fetchRemainingWords } = useTokenStore()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
+
+  const navigation = [
+    { name: "Plagiarism Checker", href: "/" },
+    { name: "AI Humanizer", href: "/ai-humanizer" },
+    { name: "AI Detector", href: "/ai-detector" },
+    { name: "Pricing", href: "/pricing" },
+  ]
 
   useEffect(() => {
     const checkSession = async () => {
@@ -55,9 +62,15 @@ export function Nav() {
             </div>
             <span className="font-bold">plagiacheck</span>
           </Link>
-          <Link href="/pricing" className="text-sm font-medium transition-colors hover:text-primary">
-            Pricing
-          </Link>
+          {navigation.map((item) => (
+            <Link 
+              key={item.name} 
+              href={item.href} 
+              className="text-sm font-medium transition-colors hover:text-primary"
+            >
+              {item.name}
+            </Link>
+          ))}
           <ThemeToggle />
         </div>
         <div className="flex items-center gap-4">
