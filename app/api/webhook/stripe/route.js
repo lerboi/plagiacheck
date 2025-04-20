@@ -366,11 +366,6 @@ export async function POST(req) {
                 if (billingReason === 'subscription_create') {
                     // Just log the customer ID if it's a new subscription
                     console.log(`New subscription created for customer: ${invoice.customer}`);
-                    await logSuccess('subscription_created', {
-                        customerId: invoice.customer,
-                        subscriptionId: invoice.subscription,
-                        invoiceId: invoice.id
-                    });
                 } else if (billingReason === 'subscription_cycle') {
                     // Handle recurring payment
                     console.log('Processing recurring subscription payment');
@@ -382,6 +377,10 @@ export async function POST(req) {
                 
             case 'invoice.payment_failed':
                 await handleFailedPayment(event.data.object);
+                break;
+
+            case 'invoice.payment_succeeded':
+                console.log(`Invoice succeeded for customer: ${event.data.object.customer}`);
                 break;
                 
             case 'customer.subscription.deleted':
