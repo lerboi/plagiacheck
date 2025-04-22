@@ -63,7 +63,7 @@ export default function Pricing() {
         variant: "default" as const,
       },
       popular: true,
-      priceId: "price_1QqWVeAJsVayTGRctEvFA5UQ", // Replace with your actual Stripe Price ID
+      priceId: "price_1QrlQ3AJsVayTGRcMsOQu8Gy", // Replace with your actual Stripe Price ID
     },
     {
       name: "Premium",
@@ -75,11 +75,11 @@ export default function Pricing() {
         text: "Get Started",
         variant: "outline" as const,
       },
-      priceId: "price_1QqWWlAJsVayTGRcIUIzLiGv", // Replace with your actual Stripe Price ID
+      priceId: "price_1QrlQJAJsVayTGRcmRXqWNfc", // Replace with your actual Stripe Price ID
     },
   ]
 
-  const handleGetStarted = async (planName: string, priceId: string | null) => {
+  const handleGetStarted = (planName: string, priceId: string | null) => {
     if (!user) {
       router.push("/signin?tab=register")
       return
@@ -90,21 +90,8 @@ export default function Pricing() {
       return
     }
 
-    const stripe = await stripePromise
-    const response = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ priceId, planName }),
-    })
-
-    const { sessionId } = await response.json()
-    const result = await stripe!.redirectToCheckout({ sessionId })
-
-    if (result.error) {
-      console.error(result.error)
-    }
+    // Direct navigation instead of fetch
+    window.location.href = `/api/create-checkout-session?priceId=${priceId}&planName=${planName}`
   }
 
   return (
