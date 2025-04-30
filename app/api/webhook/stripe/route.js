@@ -80,7 +80,6 @@ async function handleFailedPayment(invoice) {
                 .from('Package')
                 .update({
                     status: 'CANCELED',
-                    isActive: false
                 })
                 .eq('id', packageData.id);
 
@@ -477,7 +476,6 @@ async function handleSubscriptionCancellation(subscription) {
         const { error: updateError } = await supabase
             .from('Package')
             .update({
-                isActive: false,
                 status: 'CANCELED'
             })
             .eq('id', packageData.id);
