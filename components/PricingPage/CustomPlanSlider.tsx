@@ -19,7 +19,7 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
   const [isLoading, setIsLoading] = useState(false)
 
   const calculatePrice = (words: number) => {
-    return Math.round(((words - 250) / (4000 - 250)) * (40 - 5) + 5)
+    return Math.round(((words - 250) / (10000 - 250)) * (100 - 5) + 5)
   }
 
   const price = calculatePrice(wordCount)
@@ -72,18 +72,18 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="text-2xl font-bold mb-6 text-white">Customize Your Plan</h2>
+        <h2 className="text-2xl font-bold mb-6 text-foreground">Customize Your Plan</h2>
         <div className="mb-6">
-          <Slider min={250} max={4000} step={50} value={[wordCount]} onValueChange={handleSliderChange} />
+          <Slider min={250} max={10000} step={50} value={[wordCount]} onValueChange={handleSliderChange} />
         </div>
         <div className="flex justify-between items-center mb-6">
           <div>
-            <p className="text-lg font-semibold text-white">{wordCount} words</p>
-            <p className="text-sm text-gray-400">Drag the slider to adjust</p>
+            <p className="text-lg font-semibold text-foreground">{wordCount} words</p>
+            <p className="text-sm text-muted-foreground">Drag the slider to adjust</p>
           </div>
           <div>
-            <p className="text-3xl font-bold text-white">${price}</p>
-            <p className="text-sm text-gray-400">One-time purchase</p>
+            <p className="text-3xl font-bold text-foreground">${price}</p>
+            <p className="text-sm text-muted-foreground">One-time purchase</p>
           </div>
         </div>
         <Button 

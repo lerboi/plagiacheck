@@ -4,7 +4,7 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, Loader2 } from "lucide-react"
+import { Upload, Loader2, Sparkles, Shield, Zap } from "lucide-react"
 import { PlagiarismResults } from "@/components/plagiarism-results"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
@@ -14,6 +14,7 @@ import Link from "next/link"
 import { Hero } from "@/components/Hero"
 import { FeatureShowcase } from "@/components/FeatureShowcase"
 import { FAQ } from "@/components/FAQ"
+import { motion } from "framer-motion"
 
 type PlagiarismResult = {
   matches: string[]
@@ -24,7 +25,7 @@ export default function Home() {
   const [text, setText] = useState("")
   const [isChecking, setIsChecking] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [result, setResult] = useState<PlagiarismResult>(null) // Typed `result`
+  const [result, setResult] = useState<PlagiarismResult>(null)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
@@ -56,7 +57,6 @@ export default function Home() {
 
   const handlePlagiarismCheck = async () => {
     if (!user) {
-      // Redirect to signin page if there is no user session
       router.push("/signin")
       return
     }
@@ -106,13 +106,12 @@ export default function Home() {
             }
   
             if (data.result) {
-              // Only set the plagiarism percentage and handle matches conditionally
               setResult({
-                matches: Array.isArray(data.result.matches) ? data.result.matches : [],  // Ensure matches is always an array
-                plagiarismPercentage: data.result.plagiarismPercentage || 0,  // Ensure it's never undefined
+                matches: Array.isArray(data.result.matches) ? data.result.matches : [],
+                plagiarismPercentage: data.result.plagiarismPercentage || 0,
               });
 
-              await decrementWords(requiredTokens) // Deduct tokens from Supabase
+              await decrementWords(requiredTokens)
             }
   
             if (data.error) {
@@ -133,98 +132,200 @@ export default function Home() {
 
   const formattedResult = result
   ? {
-      plagiarismPercentage: result.plagiarismPercentage || 0, // Default to 0 if undefined
-      matches: [], // Ignore matches to avoid hydration issues
+      plagiarismPercentage: result.plagiarismPercentage || 0,
+      matches: [],
     }
   : null;
 
+  const quickFeatures = [
+    { icon: Shield, text: "99.9% Accurate", color: "text-blue-600" },
+    { icon: Zap, text: "Results in 30s", color: "text-green-600" },
+    { icon: Sparkles, text: "AI-Powered", color: "text-purple-600" }
+  ]
+
   return (
-    <div className="min-h-screen bg-background px-5 md:px-10">
+    <div className="min-h-screen">
       <Nav />
-      <main className="container py-12">
-        <div className="text-center space-y-4 mb-12">
-          <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl">Plagiarism Checker</h1>
-          <p className="mx-auto max-w-[700px] text-muted-foreground">
-            Ensure every word is your own with Plagiachecks plagiarism checker, which detects plagiarism in your text
-            and checks for other writing issues.
-          </p>
-        </div>
-        <div className="grid md:grid-cols-[2fr,1fr] gap-8 items-start">
-          <div className="space-y-4">
-            <Card className="p-6">
-              <Textarea
-                placeholder="Enter text or upload file to check for plagiarism and writing errors."
-                className="min-h-[300px] resize-none"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
-              {error && (
-                <p className="mt-2 text-sm text-red-500">{error}</p>
-              )}
-              <div className="mt-4 flex gap-4">
-                <Button
-                  className="bg-blue-400 hover:bg-blue-500 flex-1"
-                  onClick={handlePlagiarismCheck}
-                  disabled={isChecking || !text.trim() || calculateRequiredTokens(text) > remainingWords}
-                >
-                  {isChecking ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    `Check for plagiarism (${calculateRequiredTokens(text)} words)`
-                  )}
-                </Button>
-                <Button variant="outline" className="flex-1">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload a file
-                </Button>
-              </div>
-              {calculateRequiredTokens(text) > remainingWords && (
-                <p className="mt-2 text-sm text-red-500">Not enough words remaining. Please upgrade your plan.</p>
-              )}
-            </Card>
-            <PlagiarismResults isChecking={isChecking} progress={progress} result={formattedResult} />
+      
+      {/* Hero Section */}
+      <section className="container py-16">
+        <motion.div 
+          className="text-center space-y-6 mb-16"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm font-medium">
+            <Sparkles className="h-4 w-4" />
+            Trusted by 10M+ users worldwide
           </div>
-          <Card>
-            <CardContent className="p-6">
+          
+          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
+            <span className="bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
+              Plagiarism Checker
+            </span>
+          </h1>
+          
+          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
+            Ensure academic integrity with our AI-powered plagiarism detection. 
+            Get instant results and maintain originality in your work.
+          </p>
+
+          {/* Quick Features */}
+          <div className="flex flex-wrap justify-center gap-6 pt-4">
+            {quickFeatures.map((feature, index) => (
+              <motion.div
+                key={index}
+                className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+              >
+                <feature.icon className={`h-4 w-4 ${feature.color}`} />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Main Content */}
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
+          <motion.div 
+            className="space-y-6"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-xl font-bold">Lets get started.</h3>
+                <Textarea
+                  placeholder="Paste your text here to check for plagiarism..."
+                  className="min-h-[300px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 text-base leading-relaxed"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                />
+                
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
+                  >
+                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                  </motion.div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button
+                    className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    onClick={handlePlagiarismCheck}
+                    disabled={isChecking || !text.trim() || calculateRequiredTokens(text) > remainingWords}
+                  >
+                    {isChecking ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Analyzing...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="mr-2 h-5 w-5" />
+                        Check Plagiarism ({calculateRequiredTokens(text)} words)
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 h-12 border-2 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    <Upload className="mr-2 h-5 w-5" />
+                    Upload File
+                  </Button>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <p className="font-semibold">Step 1:</p>
-                    <p className="text-muted-foreground">Add your text or upload a file.</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold">Step 2:</p>
-                    <p className="text-muted-foreground">Click to scan for plagiarism.</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold">Step 3:</p>
-                    <p className="text-muted-foreground">
-                      Review the results for instances of potential plagiarism, plus additional writing issues.
+
+                {calculateRequiredTokens(text) > remainingWords && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+                  >
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      ⚠️ Not enough words remaining. 
+                      <Link href="/pricing" className="font-semibold underline ml-1">
+                        Upgrade your plan
+                      </Link>
                     </p>
-                  </div>
-                </div>
-                { !user && (
-                  <Button className="w-full bg-blue-400 hover:bg-blue-500">Get Plagiacheck</Button>
-                ) }
-                {!user && (
-                  <div className="text-center text-sm text-muted-foreground">
-                    Already have an account?{" "}
-                    <Link href="/signin" className="text-blue-300 hover:underline">
-                      Log in
-                    </Link>
-                  </div>
+                  </motion.div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </Card>
+            
+            <PlagiarismResults isChecking={isChecking} progress={progress} result={formattedResult} />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <Card className="sticky top-6 shadow-lg border-0 bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-900">
+              <CardContent className="p-8">
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                      Quick Start Guide
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      Follow these simple steps to check your content
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {[
+                      { step: "1", title: "Add Content", desc: "Paste your text or upload a document" },
+                      { step: "2", title: "Scan", desc: "Click to start the plagiarism check" },
+                      { step: "3", title: "Review", desc: "Get detailed results and suggestions" }
+                    ].map((item, index) => (
+                      <motion.div 
+                        key={index}
+                        className="flex gap-4"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
+                      >
+                        <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                          {item.step}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900 dark:text-white">{item.title}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {!user && (
+                    <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <Button className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg">
+                        Get Started Free
+                      </Button>
+                      <div className="text-center mt-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Already have an account?{" "}
+                          <Link href="/signin" className="text-blue-500 hover:text-blue-600 font-medium">
+                            Sign in
+                          </Link>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
-      </main>
+      </section>
+
       <FeatureShowcase />
       <Hero />
       <FAQ />

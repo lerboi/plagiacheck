@@ -9,6 +9,7 @@ import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ThemeToggle } from "./theme-toggle"
+import { ProfileDropdown } from "@/components/Profile/ProfileDropdown"
 
 export function Nav() {
   const { remainingWords, fetchRemainingWords } = useTokenStore()
@@ -49,6 +50,7 @@ export function Nav() {
   }, [supabase.auth, fetchRemainingWords])
 
   const handleLogout = async () => {
+    console.log("Logging out")
     await supabase.auth.signOut()
   }
 
@@ -80,22 +82,17 @@ export function Nav() {
           </div>
 
           {user ? (
-            <Button variant="ghost" className="text-sm" onClick={handleLogout}>
-              Log Out
-            </Button>
+            <ProfileDropdown user={user} onLogout={handleLogout} />
           ) : (
-            <Button variant="ghost" className="text-sm" asChild>
-              <Link href="/signin">Log in</Link>
-            </Button>
+            <>
+              <Button variant="ghost" className="text-sm" asChild>
+                <Link href="/signin">Log in</Link>
+              </Button>
+              <Button className="bg-blue-400 text-sm hover:bg-blue-500" asChild>
+                <Link href="/pricing">Get Plagiacheck</Link>
+              </Button>
+            </>
           )}
-
-          {user ? 
-          <></>
-          : 
-          <Button className="bg-blue-400 text-sm hover:bg-blue-500" asChild>
-            <Link href="/pricing">Get Plagiacheck</Link>
-          </Button>
-          }
         </div>
       </div>
     </nav>
