@@ -208,7 +208,7 @@ export default function Pricing() {
                       </Button>
                       <div className="space-y-4">
                         <div className="text-sm font-semibold text-foreground mb-3">
-                          What's included:
+                          Whats included:
                         </div>
                         {plan.features.map((feature) => (
                           <div key={feature} className="flex items-start gap-3">

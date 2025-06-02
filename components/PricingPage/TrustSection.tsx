@@ -174,7 +174,7 @@ export function TrustSection() {
                       ))}
                     </div>
                     <blockquote className="text-muted-foreground mb-4 italic leading-relaxed">
-                      "{testimonial.content}"
+                      &ldquo{testimonial.content}&ldquo
                     </blockquote>
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                       <div className="font-semibold text-foreground">{testimonial.name}</div>
