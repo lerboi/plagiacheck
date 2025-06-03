@@ -159,9 +159,9 @@ export default function Home() {
             <Sparkles className="h-4 w-4" />
             Trusted by 10M+ users worldwide
           </div>
-          
+        
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className="bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
+            <span className="font-bold tracking-tighter sm:text-6xl bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               Plagiarism Checker
             </span>
           </h1>
