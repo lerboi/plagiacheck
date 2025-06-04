@@ -135,6 +135,7 @@ async function handleTokenAllocation(userId, tokenType) {
             .from('Package')
             .select('*')
             .eq('userId', userId)
+            .eq('packageName', tokenType)
             .single();
 
         if (packageError) {
@@ -238,7 +239,7 @@ async function handleTokenAllocation(userId, tokenType) {
                 expiryDate: newExpiryDate.toISOString(),
                 status: 'ACTIVE'
             })
-            .eq('userId', userId);
+            .eq('id', packageData.id);
 
         if (packageUpdateError) {
             console.error('Error updating package expiry date:', packageUpdateError);
