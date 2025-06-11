@@ -38,10 +38,14 @@ export async function POST(req: Request) {
 
     const code = generateRandomCode();
 
+    // Calculate expiry date (3 days from now)
+    const expiresAt = Math.floor(Date.now() / 1000) + (3 * 24 * 60 * 60); // 3 days in seconds
+
     const promoCode = await stripe.promotionCodes.create({
       coupon: coupon.id,
       code,
-      max_redemptions: 1
+      max_redemptions: 1,
+      expires_at: expiresAt, // Set the expiry date on the promotion code
     });
 
     return NextResponse.json({
