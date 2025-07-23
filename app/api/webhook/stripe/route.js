@@ -16,17 +16,40 @@ export const config = {
     },
 };
 
-async function logSuccess(operation, details) {
-    const { error } = await supabase
-        .from('OperationLogs')
-        .insert({
-            operation,
-            details,
-            timestamp: new Date().toISOString()
-        });
+async function logPayment(invoice, subscription, userId, tokenType, tokensAdded) {
+    try {
+        // Determine paymentType based on tokenType
+        let paymentType;
+        if (tokenType === '200Image' || tokenType === '1000Image') {
+            paymentType = 'token';
+        } else {
+            paymentType = 'Packages';
+        }
 
-    if (error) console.error('Logging error:', error);
-};
+        const { error } = await supabase
+            .from('Payment')
+            .insert({
+                id: invoice.id, 
+                subscriptionId: null, 
+                userId: userId,
+                amount: invoice.amount_paid / 100, 
+                status: 'PAID',
+                createdAt: new Date(invoice.status_transitions.paid_at * 1000).toISOString(),
+                paymentType: paymentType,
+                expiryStatus: true,
+                referrer_id: null 
+            });
+
+        if (error) {
+            console.error('Error logging payment:', error);
+            // Don't throw error - just log it and continue
+        } else {
+            console.log(`Successfully logged payment ${invoice.id} to Payment table`);
+        }
+    } catch (error) {
+        console.error('Error in logPayment:', error.message);
+    }
+}
 
 async function handleFailedPayment(invoice) {
     console.log(`Processing failed payment for invoice: ${invoice.id}`);
@@ -88,13 +111,6 @@ async function handleFailedPayment(invoice) {
                 throw updateError;
             }
 
-            await logSuccess('package_canceled_consecutive_failures', {
-                packageId: packageData.id,
-                userId: userId,
-                subscriptionId: subscriptionId,
-                consecutiveFailures: invoices.data.length
-            });
-
             console.log(`Package ${packageData.id} has been marked as CANCELED due to consecutive payment failures`);
         } else {
             // Just update the status to match Stripe's status
@@ -109,14 +125,6 @@ async function handleFailedPayment(invoice) {
                 console.error('Error updating package status:', updateError);
                 throw updateError;
             }
-
-            await logSuccess('package_payment_failed', {
-                packageId: packageData.id,
-                invoiceId: invoice.id,
-                stripeStatus: subscription.status,
-                attemptCount: invoice.attempt_count,
-                nextPaymentAttempt: invoice.next_payment_attempt
-            });
 
             console.log(`Updated Package ${packageData.id} status to ${subscription.status.toUpperCase()}`);
         }
@@ -152,12 +160,6 @@ async function handleTokenAllocation(userId, tokenType) {
                 await stripe.subscriptions.cancel(packageData.stripeSubscriptionId);
                 console.log(`Canceled Stripe subscription: ${packageData.stripeSubscriptionId}`);
             }
-
-            await logSuccess('token_allocation_skipped', {
-                userId: userId,
-                packageId: packageData.id,
-                reason: 'Package status is CANCELED'
-            });
 
             return { skipped: true, reason: 'Package is canceled' };
         }
@@ -285,21 +287,14 @@ async function handleSuccessfulPayment(invoice) {
         // Allocate tokens based on the metadata
         const tokenResult = await handleTokenAllocation(userId, tokenType);
 
-        // If token allocation was skipped, don't log success
+        // If token allocation was skipped, don't log payment
         if (tokenResult.skipped) {
             console.log(`Token allocation was skipped: ${tokenResult.reason}`);
             return;
         }
 
-        // Log the successful operation
-        await logSuccess('payment_success', {
-            invoiceId: invoice.id,
-            subscriptionId: subscription.id,
-            userId: userId,
-            tokenType: tokenType,
-            tokensAdded: tokenResult.imageTokens,
-            newExpiryDate: tokenResult.expiryDate
-        });
+        // Log the payment to Payment table
+        await logPayment(invoice, subscription, userId, tokenType, tokenResult.imageTokens);
 
         console.log('Successfully processed payment and allocated tokens');
     } catch (error) {
@@ -449,11 +444,7 @@ async function handleSubscriptionCancellation(subscription) {
 
                 if (updateError) throw updateError;
 
-                await logSuccess('package_canceled', {
-                    packageId: packageData.id,
-                    stripeSubscriptionId: subscription.id,
-                    reason: subscription.cancellation_details?.reason || 'unknown'
-                });
+                console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
             }
 
             return;
@@ -482,13 +473,6 @@ async function handleSubscriptionCancellation(subscription) {
             .eq('id', packageData.id);
 
         if (updateError) throw updateError;
-
-        await logSuccess('package_canceled', {
-            packageId: packageData.id,
-            userId: userId,
-            stripeSubscriptionId: subscription.id,
-            reason: subscription.cancellation_details?.reason || 'unknown'
-        });
 
         console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
 
