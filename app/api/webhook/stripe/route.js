@@ -21,9 +21,9 @@ async function logPayment(invoice, subscription, userId, tokenType, tokensAdded)
         // Determine paymentType based on tokenType
         let paymentType;
         if (tokenType === '200Image' || tokenType === '1000Image') {
-            paymentType = 'token';
-        } else {
             paymentType = 'Packages';
+        } else {
+            paymentType = 'token';
         }
 
         const { error } = await supabase
@@ -33,7 +33,7 @@ async function logPayment(invoice, subscription, userId, tokenType, tokensAdded)
                 subscriptionId: null, 
                 userId: userId,
                 amount: invoice.amount_paid / 100, 
-                status: 'PAID',
+                status: 'succeeded',
                 createdAt: new Date(invoice.status_transitions.paid_at * 1000).toISOString(),
                 paymentType: paymentType,
                 expiryStatus: true,
