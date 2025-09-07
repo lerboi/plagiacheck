@@ -86,14 +86,19 @@ export async function GET(req: Request) {
         successUrl += `&ref_code=${refCode}`;
     }
 
+    let promoId
     // Add voucher if exists
     if (voucher) {
         successUrl += `&voucher=${voucher}`;
         console.log("Including voucher in success URL:", voucher);
+        const promotionCodes = await stripe.promotionCodes.list({
+          code: voucher
+        });
+        promoId = promotionCodes.data[0].id;
     }
 
     // Add discount if voucher exists, otherwise allow promotion codes
-    if (voucher) {
+    if (voucher && promoId) {
       const session = await stripe.checkout.sessions.create({
           customer_email: email,
           line_items: [{
@@ -108,7 +113,7 @@ export async function GET(req: Request) {
           }],
           mode: "payment",
           discounts: [{
-              promotion_code: voucher
+              promotion_code: promoId
           }],
           success_url: successUrl,
           cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
