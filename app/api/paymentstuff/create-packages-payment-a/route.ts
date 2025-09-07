@@ -36,7 +36,8 @@ export async function GET(req: Request) {
         const tokenType = searchParams.get('tokenType')
         const userId = searchParams.get('userId')
         const currency = searchParams.get('currency') || "usd"
-        const refCode = searchParams.get('ref_code')  
+        const refCode = searchParams.get('ref_code')
+        const voucher = searchParams.get('voucher')  
 
         if (!userId || !priceId || !email || !tokenPrice) {
             return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
@@ -75,28 +76,49 @@ export async function GET(req: Request) {
             console.log("Including ref_code in success URL:", refCode);
         }
 
-        const session = await stripe.checkout.sessions.create({
-            customer_email: email,
-            line_items: [{ price: priceId, quantity: 1 }],
-            mode: "subscription",
-            allow_promotion_codes:true,
-            success_url: successUrl,
-            cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
-            subscription_data: {
-                metadata: {
-                    userId: userId,
-                    tokenAmount: tokenAmount,
-                    tokenType: tokenType
+        // Add discount if voucher exists, otherwise allow promotion codes
+        if (voucher) {
+            const session = await stripe.checkout.sessions.create({
+                customer_email: email,
+                line_items: [{ price: priceId, quantity: 1 }],
+                mode: "subscription",
+                discounts: [{
+                    promotion_code: voucher
+                }],
+                success_url: successUrl,
+                cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
+                subscription_data: {
+                    metadata: {
+                        userId: userId,
+                        tokenAmount: tokenAmount,
+                        tokenType: tokenType
+                    }
                 }
-            }
-        });
-
-        console.log("✅ Stripe session created:", session.url);
-
-        return NextResponse.redirect(session.url!, { status: 303, 
-            headers: {'Referrer-Policy': 'no-referrer'}
-        });
-    } catch (error) {
+            });
+            console.log("Pre-applying voucher:", voucher);
+            console.log("✅ Stripe session created:", session.url);
+            return NextResponse.redirect(session.url!, { status: 303, headers: {'Referrer-Policy': 'no-referrer'} });
+        } else {
+            const session = await stripe.checkout.sessions.create({
+                customer_email: email,
+                line_items: [{ price: priceId, quantity: 1 }],
+                mode: "subscription",
+                allow_promotion_codes: true,
+                success_url: successUrl,
+                cancel_url: `https://plagiacheck.online/api/Redirect/canceled_package?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
+                subscription_data: {
+                    metadata: {
+                        userId: userId,
+                        tokenAmount: tokenAmount,
+                        tokenType: tokenType
+                    }
+                }
+            });
+            console.log("✅ Stripe session created:", session.url);
+            return NextResponse.redirect(session.url!, { status: 303, headers: {'Referrer-Policy': 'no-referrer'} });
+        }
+    }
+    catch (error) {
         console.error("❌ Error creating checkout session:", error);
         return NextResponse.json({ error: "Error creating checkout session" }, { status: 500 });
     }

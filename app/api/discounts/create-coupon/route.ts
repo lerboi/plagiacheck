@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl!, supabaseKey!);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 function generateRandomCode(length = 6) {
@@ -47,6 +51,24 @@ export async function POST(req: Request) {
       max_redemptions: 1,
       expires_at: expiresAt, // Set the expiry date on the promotion code
     });
+
+    // Add entry to Vouchers table in Supabase
+    const { error: supabaseError } = await supabase
+      .from('Vouchers')
+      .insert({
+        code: promoCode.code,
+        is_active: true,
+        description: `Auto-generated ${percentOff}% off coupon`,
+        auto: true,
+        expires_at: new Date(expiresAt * 1000).toISOString(), // Convert to ISO string
+        percent_off: percentOff,
+        amount_off: null
+      });
+
+    if (supabaseError) {
+      console.error("Error inserting voucher into Supabase:", supabaseError);
+      // Continue execution - don't fail the entire request if Supabase insert fails
+    }
 
     return NextResponse.json({
       success: true,
