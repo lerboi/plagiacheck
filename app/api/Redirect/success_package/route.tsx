@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     const sessionId = searchParams.get("session_id"); 
     const token = searchParams.get("token");
     const timestamp = searchParams.get("timestamp");
+    const voucher = searchParams.get("voucher");
 
     // Verify the request is legitimate
     if (!userId || !originalAmount || !timestamp || !sessionId) {
@@ -84,6 +85,37 @@ export async function GET(req: Request) {
                 console.warn("Invalid referral code:", ref_code);
             } else {
                 referrerId = affiliate.id;
+            }
+        }
+
+        if (voucher) {
+            try {
+                console.log("Processing voucher usage:", voucher);
+                
+                // Check if voucher is auto-generated
+                const { data: voucherData, error: voucherError } = await supabase
+                    .from('Vouchers')
+                    .select('auto')
+                    .eq('code', voucher)
+                    .eq('is_active', true)
+                    .single();
+                
+                if (!voucherError && voucherData?.auto) {
+                    // If auto-generated, disable it after use
+                    const { error: updateError } = await supabase
+                        .from('Vouchers')
+                        .update({ is_active: false })
+                        .eq('code', voucher);
+                    
+                    if (updateError) {
+                        console.error("Error disabling auto voucher:", updateError);
+                    } else {
+                        console.log("Auto-generated voucher disabled:", voucher);
+                    }
+                }
+            } catch (voucherProcessingError) {
+                console.error("Error processing voucher usage:", voucherProcessingError);
+                // Don't fail the payment process if voucher update fails
             }
         }
 

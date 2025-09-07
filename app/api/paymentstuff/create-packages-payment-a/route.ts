@@ -76,6 +76,12 @@ export async function GET(req: Request) {
             console.log("Including ref_code in success URL:", refCode);
         }
 
+        // Add voucher to success_url if it exists
+        if (voucher) {
+            successUrl += `&voucher=${voucher}`;
+            console.log("Including voucher in success URL:", voucher);
+        }
+
         // Add discount if voucher exists, otherwise allow promotion codes
         if (voucher) {
             const session = await stripe.checkout.sessions.create({

@@ -22,6 +22,7 @@ export async function GET(req: Request) {
   const token = searchParams.get("token");
   const timestamp = searchParams.get("timestamp");
   const sessionId = searchParams.get("session_id");
+  const voucher = searchParams.get("voucher");
 
   // Verify the request is legitimate
   if (!userId || !originalAmount || !timestamp || !sessionId) {
@@ -128,6 +129,38 @@ export async function GET(req: Request) {
           console.error("Failed to update affiliate record:", affiliateUpdateError);
         }
       }
+    }
+    
+    // Handle voucher usage tracking
+    if (voucher) {
+      try {
+          console.log("Processing voucher usage:", voucher);
+          
+          // Check if voucher is auto-generated
+          const { data: voucherData, error: voucherError } = await supabase
+              .from('Vouchers')
+              .select('auto')
+              .eq('code', voucher)
+              .eq('is_active', true)
+              .single();
+          
+          if (!voucherError && voucherData?.auto) {
+              // If auto-generated, disable it after use
+              const { error: updateError } = await supabase
+                  .from('Vouchers')
+                  .update({ is_active: false })
+                  .eq('code', voucher);
+              
+              if (updateError) {
+                  console.error("Error disabling auto voucher:", updateError);
+              } else {
+                  console.log("Auto-generated voucher disabled:", voucher);
+              }
+          }
+        } catch (voucherProcessingError) {
+            console.error("Error processing voucher usage:", voucherProcessingError);
+            // Don't fail the payment process if voucher update fails
+        }
     }
 
     const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
