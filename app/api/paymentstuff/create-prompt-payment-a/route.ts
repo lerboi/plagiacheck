@@ -94,7 +94,12 @@ export async function GET(req: Request) {
         const promotionCodes = await stripe.promotionCodes.list({
           code: voucher
         });
-        promoId = promotionCodes.data[0].id;
+        if (promotionCodes.data.length > 0) {
+            promoId = promotionCodes.data[0].id;
+        } else {
+            promoId = null;
+            console.log("Promotion code not found:", voucher);
+        }
     }
 
     // Add discount if voucher exists, otherwise allow promotion codes
