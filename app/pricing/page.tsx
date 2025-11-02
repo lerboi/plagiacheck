@@ -84,7 +84,7 @@ export default function Pricing() {
     {
       name: "Premium",
       description: "For organizations & power users",
-      price: "$19.99",
+      price: "$29.99",
       period: "per month",
       yearlyPrice: "$239",
       features: [
@@ -100,7 +100,7 @@ export default function Pricing() {
         text: "Go Premium",
         variant: "outline" as const,
       },
-      priceId: "price_1QrlQJAJsVayTGRcmRXqWNfc",
+      priceId: "price_1S4ntlAJsVayTGRcEL6YUGdf",
       icon: Zap,
       savings: "Save $40/year",
     },
