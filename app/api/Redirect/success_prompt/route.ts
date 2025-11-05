@@ -86,30 +86,31 @@ export async function GET(req: Request) {
     // Check if a ref_code exists in the URL parameters
     const refCode = searchParams.get("ref_code");
     if (refCode) {
-      // Check if ref_code exists in the Affiliates table
-      const { data: affiliateData, error: affiliateError } = await supabase
+        // Check if ref_code exists in the Affiliates table and get commission rate
+        const { data: affiliateData, error: affiliateError } = await supabase
         .from("Affiliates")
-        .select("id, total_sales, total_sales_amount, total_earned")
+        .select("id, total_sales, total_sales_amount, total_earned, commission")
         .eq("ref_code", refCode)
         .single();
 
-      if (affiliateError || !affiliateData) {
+    if (affiliateError || !affiliateData) {
         console.warn("Invalid or non-existent ref_code:", refCode);
-      } else {
+    } else {
         const affiliateId = affiliateData.id;
+        const commissionRate = (affiliateData.commission || 20) / 100; // Convert percentage to decimal
 
         // Update the Payment entry to include the referrer_id
         const { error: paymentUpdateError } = await supabase
-          .from("Payment")
-          .update({ referrer_id: affiliateId })
-          .eq("id", paymentId);
+            .from("Payment")
+            .update({ referrer_id: affiliateId })
+            .eq("id", paymentId);
         if (paymentUpdateError) {
-          console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
+            console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
         }
 
-        // Calculate commission as 20% of the final payment amount
+        // Calculate commission based on affiliate's commission rate
         const paymentAmount = parseFloat(finalAmount);
-        const commission = paymentAmount * 0.20;
+        const commission = paymentAmount * commissionRate;
 
         // Calculate new totals for the affiliate
         const newTotalSales = (affiliateData.total_sales || 0) + 1;

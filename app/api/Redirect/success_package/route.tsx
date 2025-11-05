@@ -71,13 +71,14 @@ export async function GET(req: Request) {
         //     .update({ used: true })
         //     .eq("token", token);
 
-        // Validate `ref_code` and get `affiliates.id`
+        // Validate `ref_code` and get `affiliates.id` and commission
         let referrerId = null;
+        let commissionRate = 0;
 
         if (ref_code) {
             const { data: affiliate, error: affiliateError } = await supabase
                 .from("Affiliates")
-                .select("id")
+                .select("id, commission")
                 .eq("ref_code", ref_code)
                 .single();
 
@@ -85,6 +86,7 @@ export async function GET(req: Request) {
                 console.warn("Invalid referral code:", ref_code);
             } else {
                 referrerId = affiliate.id;
+                commissionRate = (affiliate.commission || 0) / 100; // Convert percentage to decimal
             }
         }
 
@@ -139,7 +141,7 @@ export async function GET(req: Request) {
 
         // Update Affiliates Table if `ref_code` exists
         if (referrerId) {
-            const commission = parseFloat(finalAmount) * 0.20; // 20% of the final amount
+            const commission = parseFloat(finalAmount) * commissionRate; // Dynamic commission based on affiliate settings
 
             // Fetch current affiliate data
             const { data: affiliateData, error: fetchError } = await supabase
