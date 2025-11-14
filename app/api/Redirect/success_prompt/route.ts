@@ -140,10 +140,10 @@ export async function GET(req: Request) {
           // Check if voucher is auto-generated
           const { data: voucherData, error: voucherError } = await supabase
               .from('Vouchers')
-              .select('auto')
+              .select('auto, created_for_user_id')
               .eq('code', voucher)
               .eq('is_active', true)
-              .single();
+              .maybeSingle();
           
           if (!voucherError && voucherData?.auto) {
               // If auto-generated, disable it after use
@@ -157,6 +157,21 @@ export async function GET(req: Request) {
               } else {
                   console.log("Auto-generated voucher disabled:", voucher);
               }
+
+              // Mark first-time offer as used if this was a user-specific voucher
+              if (voucherData.created_for_user_id) {
+                  const { error: userUpdateError } = await supabase
+                      .from('User')
+                      .update({ firstTimeOfferUsed: true })
+                      .eq('id', voucherData.created_for_user_id);
+                  
+                  if (userUpdateError) {
+                      console.error("Error marking first-time offer as used:", userUpdateError);
+                  } else {
+                      console.log("First-time offer marked as used for user:", voucherData.created_for_user_id);
+                  }
+              }
+              
           }
         } catch (voucherProcessingError) {
             console.error("Error processing voucher usage:", voucherProcessingError);
