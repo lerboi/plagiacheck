@@ -153,6 +153,22 @@ export async function GET(req: Request) {
             throw new Error('Failed to record payment' + JSON.stringify(paymentError));
         }
 
+        // Discord Webhook
+        fetch('http://localhost:3000/api/discord/webhook', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-discord-api-key': process.env.DISCORD_API_KEY!
+        },
+        body: JSON.stringify({
+            user_id: userId,
+            event: 'payment.success'
+        })
+        }).catch(error => {
+        console.log('Discord webhook notification failed:', error);
+        // Fail silently - don't block payment flow
+        });
+
         // Update Affiliates Table if `ref_code` exists
         if (referrerId) {
             const commission = parseFloat(finalAmount) * commissionRate; // Dynamic commission based on affiliate settings

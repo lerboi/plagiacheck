@@ -131,6 +131,22 @@ export async function GET(req: Request) {
         }
       }
     }
+
+    // Discord webhook
+    fetch('http://localhost:3000/api/discord/webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-discord-api-key': process.env.DISCORD_API_KEY!
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        event: 'payment.success'
+      })
+    }).catch(error => {
+      console.log('Discord webhook notification failed:', error);
+      // Fail silently - don't block payment flow
+    });
     
     // Handle voucher usage tracking
     if (voucher) {
