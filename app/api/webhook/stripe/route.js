@@ -87,6 +87,25 @@ async function handleFailedPayment(invoice) {
             return;
         }
 
+        const updateData = {
+            status: 'PAST_DUE',
+            paymentFailureCount: (packageData.paymentFailureCount || 0) + 1
+        };
+
+        // Set pastDueSince timestamp if not already set
+        if (!packageData.pastDueSince) {
+            updateData.pastDueSince = new Date().toISOString();
+        }
+
+        const { error: updateError } = await supabase
+            .from('Package')
+            .update(updateData)
+            .eq('id', packageData.id);
+
+        if (updateError) {
+            console.log('Failed to updated pastDueTiming...');
+        }
+
         // Check for consecutive failures
         const invoices = await stripe.invoices.list({
             subscription: subscriptionId,
