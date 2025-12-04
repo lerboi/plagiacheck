@@ -21,6 +21,8 @@ export async function GET(req: Request) {
         return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
+    console.log('Request Legitimate...')
+
     // Check if the timestamp is within a reasonable window (e.g., 1 hour)
     const timestampNum = parseInt(timestamp);
     if (Date.now() - timestampNum > 3600000) { // 1 hour in milliseconds
@@ -36,6 +38,7 @@ export async function GET(req: Request) {
     .single();
 
     if (error || !data) {
+        console.log('Token invalid or already used...');
         return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
