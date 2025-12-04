@@ -45,7 +45,29 @@ export async function GET(req: Request) {
         const finalAmount = (session.amount_total! / 100).toFixed(2);
         const subscriptionId = session.subscription as string;
 
-        const paymentId = session.payment_intent as string;
+        let paymentId: string | null = null;
+        let invoiceId: string | null = null;
+
+        const invoices = await stripe.invoices.list({
+            subscription: subscriptionId,
+            limit: 1,
+            status: 'paid'
+        });
+
+        const initialInvoice = invoices.data[0];
+
+        // **CRITICAL CHECK 2: Extract Payment Intent or use Invoice ID as fallback**
+        if (initialInvoice) {
+            invoiceId = initialInvoice.id;
+            if (initialInvoice.payment_intent) {
+                paymentId = initialInvoice.payment_intent as string;
+
+            } else if (initialInvoice.amount_due === 0 && initialInvoice.status === 'paid') {
+                // Fallback: Use Invoice ID as Payment ID for $0.00 invoices
+                paymentId = initialInvoice.id;
+                console.log(`Initial invoice was $0.00. Using Invoice ID ${paymentId} as Payment record ID.`);
+            }
+        }
 
         if (!paymentId) {
             console.error('No payment intent found in session');
