@@ -18,7 +18,6 @@ export async function GET(req: Request) {
   const token_type = searchParams.get("token_type");
   const token_amount = searchParams.get("token_amount");
   const userId = searchParams.get("userId");
-  const paymentId = createId();
   const token = searchParams.get("token");
   const timestamp = searchParams.get("timestamp");
   const sessionId = searchParams.get("session_id");
@@ -35,12 +34,6 @@ export async function GET(req: Request) {
     return NextResponse.redirect("https://www.plagiacheck.online");
   }
 
-  // Regenerate the token and verify it matches
-  //const expectedToken = generateCheckoutToken(userId, timestampNum);
-  //if (token !== expectedToken) {
-  //  return NextResponse.redirect("https://www.plagiacheck.online");
-  //}
-
   try {
     // Retrieve the Stripe Checkout Session to get the final amount
     const session = await stripe.checkout.sessions.retrieve(sessionId!, {
@@ -49,26 +42,33 @@ export async function GET(req: Request) {
 
     // Get the final amount paid (in cents, convert to dollars)
     const finalAmount = (session.amount_total! / 100).toFixed(2);
+    const paymentId = session.payment_intent as string;
 
-    // // Check if the token exists and is not used
-    // const { data, error } = await supabase
-    //   .from("OneTimeToken")
-    //   .select("*")
-    //   .eq("token", token)
-    //   .eq("used", false)
-    //   .single();
+    if (!paymentId) {
+      console.error('No payment intent found in session');
+      return NextResponse.redirect("https://www.plagiacheck.online", { status: 302 });
+    }
 
-    // if (error || !data) {
-    //   return NextResponse.redirect("https://www.plagiacheck.online");
-    // }
+    // ========== IDEMPOTENCY CHECK ==========
+    // Check if Payment already exists
+    const { data: existingPayment, error: checkError } = await supabase
+      .from('Payment')
+      .select('id, expiryStatus')
+      .eq('id', paymentId)
+      .single();
 
-    // // Mark token as used
-    // await supabase
-    //   .from("OneTimeToken")
-    //   .update({ used: true })
-    //   .eq("token", token);
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing payment:', checkError);
+      throw new Error('Database error while checking payment');
+    }
 
-    // Create Payment table entry first with final amount
+    if (existingPayment) {
+      console.log(`Payment ${paymentId} already processed. Redirecting to success page.`);
+      const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
+      return NextResponse.redirect(redirectUrl, { status: 302 });
+    }
+
+    // ========== CREATE PAYMENT RECORD ==========
     const { error: paymentError } = await supabase.from("Payment").insert({
       id: paymentId,
       subscriptionId: null,
@@ -80,44 +80,92 @@ export async function GET(req: Request) {
     });
 
     if (paymentError) {
+      console.error('Failed to create payment:', paymentError);
       throw new Error("Failed to record payment: " + JSON.stringify(paymentError));
     }
 
-    // Check if a ref_code exists in the URL parameters
+    // ========== ADD TOKENS ==========
+    const tokenAmountInt = parseInt(token_amount!);
+    
+    // Check if user already has tokens
+    const { data: existingToken, error: existingTokenError } = await supabase
+      .from('PurchasedToken')
+      .select('textTokens, imageTokens')
+      .eq('userId', userId)
+      .single();
+
+    if (existingTokenError && existingTokenError.code !== 'PGRST116') {
+      console.error('Error checking existing tokens:', existingTokenError);
+      throw new Error('Failed to check existing tokens');
+    }
+
+    if (existingToken) {
+      // Update existing tokens
+      const updates = token_type === 'text' 
+        ? { textTokens: existingToken.textTokens + tokenAmountInt }
+        : { imageTokens: existingToken.imageTokens + tokenAmountInt };
+      
+      const { error: updateError } = await supabase
+        .from('PurchasedToken')
+        .update(updates)
+        .eq('userId', userId);
+
+      if (updateError) {
+        console.error('Error updating tokens:', updateError);
+        throw new Error('Failed to update tokens');
+      }
+
+      console.log(`Updated ${token_type} tokens for user ${userId}: +${tokenAmountInt}`);
+    } else {
+      // Create new token record
+      const { error: insertError } = await supabase
+        .from('PurchasedToken')
+        .insert({
+          userId: userId,
+          textTokens: token_type === 'text' ? tokenAmountInt : 0,
+          imageTokens: token_type === 'image' ? tokenAmountInt : 0,
+        });
+
+      if (insertError) {
+        console.error('Error inserting tokens:', insertError);
+        throw new Error('Failed to create token record');
+      }
+
+      console.log(`Created new token record for user ${userId}: ${tokenAmountInt} ${token_type}`);
+    }
+
+    // ========== UPDATE AFFILIATE DATA ==========
     const refCode = searchParams.get("ref_code");
     if (refCode) {
-        // Check if ref_code exists in the Affiliates table and get commission rate
         const { data: affiliateData, error: affiliateError } = await supabase
         .from("Affiliates")
         .select("id, total_sales, total_sales_amount, total_earned, commission")
         .eq("ref_code", refCode)
         .single();
 
-    if (affiliateError || !affiliateData) {
+      if (affiliateError || !affiliateData) {
         console.warn("Invalid or non-existent ref_code:", refCode);
-    } else {
+      } else {
         const affiliateId = affiliateData.id;
-        const commissionRate = (affiliateData.commission || 20) / 100; // Convert percentage to decimal
+        const commissionRate = (affiliateData.commission || 20) / 100;
 
         // Update the Payment entry to include the referrer_id
         const { error: paymentUpdateError } = await supabase
             .from("Payment")
             .update({ referrer_id: affiliateId })
             .eq("id", paymentId);
+        
         if (paymentUpdateError) {
             console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
         }
 
-        // Calculate commission based on affiliate's commission rate
         const paymentAmount = parseFloat(finalAmount);
         const commission = paymentAmount * commissionRate;
 
-        // Calculate new totals for the affiliate
         const newTotalSales = (affiliateData.total_sales || 0) + 1;
         const newTotalSalesAmount = (parseFloat(affiliateData.total_sales_amount) || 0) + paymentAmount;
         const newTotalEarned = (parseFloat(affiliateData.total_earned) || 0) + commission;
 
-        // Update the Affiliates table with the new totals
         const { error: affiliateUpdateError } = await supabase
           .from("Affiliates")
           .update({
@@ -126,10 +174,66 @@ export async function GET(req: Request) {
             total_earned: newTotalEarned,
           })
           .eq("id", affiliateId);
+        
         if (affiliateUpdateError) {
           console.error("Failed to update affiliate record:", affiliateUpdateError);
+        } else {
+          console.log(`Updated affiliate ${affiliateId}: +$${commission.toFixed(2)}`);
         }
       }
+    }
+
+    // ========== HANDLE VOUCHER ==========
+    if (voucher) {
+      try {
+          console.log("Processing voucher usage:", voucher);
+          
+          const { data: voucherData, error: voucherError } = await supabase
+              .from('Vouchers')
+              .select('auto, created_for_user_id')
+              .eq('code', voucher)
+              .eq('is_active', true)
+              .maybeSingle();
+          
+          if (!voucherError && voucherData?.auto) {
+              const { error: updateError } = await supabase
+                  .from('Vouchers')
+                  .update({ is_active: false })
+                  .eq('code', voucher);
+              
+              if (updateError) {
+                  console.error("Error disabling auto voucher:", updateError);
+              } else {
+                  console.log("Auto-generated voucher disabled:", voucher);
+              }
+
+              if (voucherData.created_for_user_id) {
+                  const { error: userUpdateError } = await supabase
+                      .from('User')
+                      .update({ firstTimeOfferUsed: true })
+                      .eq('id', voucherData.created_for_user_id);
+                  
+                  if (userUpdateError) {
+                      console.error("Error marking first-time offer as used:", userUpdateError);
+                  } else {
+                      console.log("First-time offer marked as used for user:", voucherData.created_for_user_id);
+                  }
+              }
+          }
+        } catch (voucherProcessingError) {
+            console.error("Error processing voucher usage:", voucherProcessingError);
+        }
+    }
+
+    // ========== MARK PAYMENT AS PROCESSED ==========
+    const { error: markProcessedError } = await supabase
+      .from('Payment')
+      .update({ expiryStatus: true })
+      .eq('id', paymentId);
+
+    if (markProcessedError) {
+      console.error('Error marking payment as processed:', markProcessedError);
+      // Don't throw - tokens were added successfully
     }
 
     // Discord webhook
@@ -145,61 +249,14 @@ export async function GET(req: Request) {
       })
     }).catch(error => {
       console.log('Discord webhook notification failed:', error);
-      // Fail silently - don't block payment flow
     });
-    
-    // Handle voucher usage tracking
-    if (voucher) {
-      try {
-          console.log("Processing voucher usage:", voucher);
-          
-          // Check if voucher is auto-generated
-          const { data: voucherData, error: voucherError } = await supabase
-              .from('Vouchers')
-              .select('auto, created_for_user_id')
-              .eq('code', voucher)
-              .eq('is_active', true)
-              .maybeSingle();
-          
-          if (!voucherError && voucherData?.auto) {
-              // If auto-generated, disable it after use
-              const { error: updateError } = await supabase
-                  .from('Vouchers')
-                  .update({ is_active: false })
-                  .eq('code', voucher);
-              
-              if (updateError) {
-                  console.error("Error disabling auto voucher:", updateError);
-              } else {
-                  console.log("Auto-generated voucher disabled:", voucher);
-              }
 
-              // Mark first-time offer as used if this was a user-specific voucher
-              if (voucherData.created_for_user_id) {
-                  const { error: userUpdateError } = await supabase
-                      .from('User')
-                      .update({ firstTimeOfferUsed: true })
-                      .eq('id', voucherData.created_for_user_id);
-                  
-                  if (userUpdateError) {
-                      console.error("Error marking first-time offer as used:", userUpdateError);
-                  } else {
-                      console.log("First-time offer marked as used for user:", voucherData.created_for_user_id);
-                  }
-              }
-              
-          }
-        } catch (voucherProcessingError) {
-            console.error("Error processing voucher usage:", voucherProcessingError);
-            // Don't fail the payment process if voucher update fails
-        }
-    }
+    console.log(`✅ Successfully processed token purchase for user ${userId}: ${tokenAmountInt} ${token_type} tokens`);
 
     const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
 
-    // Redirect to the localized success page
     return NextResponse.redirect(redirectUrl, {
-      status: 302, // Temporary redirect
+      status: 302,
     });
 
   } catch (error) {
