@@ -4,12 +4,20 @@ import { PiLetterCircleP } from "react-icons/pi"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useTokenStore } from "@/lib/store"
-import { MessageCircle, Menu, X } from 'lucide-react'
+import { MessageCircle, Menu, X, ChevronDown, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash, History } from 'lucide-react'
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ThemeToggle } from "./theme-toggle"
 import { ProfileDropdown } from "@/components/Profile/ProfileDropdown"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 
 export function Nav() {
   const { remainingWords, fetchRemainingWords } = useTokenStore()
@@ -17,11 +25,30 @@ export function Nav() {
   const [user, setUser] = useState<User | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  const navigation = [
+  const mainNavigation = [
     { name: "Plagiarism Checker", href: "/" },
-    { name: "AI Humanizer", href: "/ai-humanizer" },
     { name: "AI Detector", href: "/ai-detector" },
     { name: "Pricing", href: "/pricing" },
+  ]
+
+  const tools = [
+    { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, desc: "Transform AI text to human" },
+    { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, desc: "Rewrite text uniquely" },
+    { name: "Summarizer", href: "/summarizer", icon: FileText, desc: "Condense long text" },
+    { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, desc: "Fix grammar errors" },
+    { name: "Word Counter", href: "/word-counter", icon: Hash, desc: "Count words & characters" },
+  ]
+
+  const allMobileLinks = [
+    { name: "Plagiarism Checker", href: "/", icon: Shield },
+    { name: "AI Detector", href: "/ai-detector", icon: Brain },
+    { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2 },
+    { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw },
+    { name: "Summarizer", href: "/summarizer", icon: FileText },
+    { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2 },
+    { name: "Word Counter", href: "/word-counter", icon: Hash },
+    { name: "History", href: "/history", icon: History },
+    { name: "Pricing", href: "/pricing", icon: null },
   ]
 
   useEffect(() => {
@@ -76,16 +103,49 @@ export function Nav() {
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden lg:flex items-center gap-6">
-          {navigation.map((item) => (
-            <Link 
-              key={item.name} 
-              href={item.href} 
-              className="text-sm font-medium transition-colors hover:text-primary"
+        <div className="hidden lg:flex items-center gap-1">
+          {mainNavigation.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="text-sm font-medium transition-colors hover:text-primary px-3 py-2 rounded-md hover:bg-accent"
             >
               {item.name}
             </Link>
           ))}
+
+          {/* Tools Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="text-sm font-medium gap-1 px-3">
+                Tools
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-64">
+              <DropdownMenuLabel>Writing Tools</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {tools.map((tool) => (
+                <DropdownMenuItem key={tool.name} asChild>
+                  <Link href={tool.href} className="flex items-start gap-3 py-2 cursor-pointer">
+                    <tool.icon className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <div className="font-medium">{tool.name}</div>
+                      <div className="text-xs text-muted-foreground">{tool.desc}</div>
+                    </div>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/history" className="flex items-center gap-3 py-2 cursor-pointer">
+                  <History className="h-5 w-5 text-muted-foreground" />
+                  <div className="font-medium">History</div>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <ThemeToggle />
         </div>
 
@@ -117,7 +177,7 @@ export function Nav() {
             <MessageCircle className="w-3 h-3" />
             <span className="font-medium">{user ? String(remainingWords) : "1000"}</span>
           </div>
-          
+
           <button
             onClick={toggleMobileMenu}
             className="p-2 rounded-md hover:bg-accent transition-colors"
@@ -135,21 +195,22 @@ export function Nav() {
           <div className="fixed top-16 left-0 right-0 bg-background border-b shadow-lg z-50 max-h-[calc(100vh-4rem)] overflow-y-auto">
             <div className="container px-4 py-6">
               {/* Navigation Links */}
-              <div className="space-y-4 mb-6">
-                {navigation.map((item) => (
-                  <Link 
-                    key={item.name} 
-                    href={item.href} 
-                    className="block text-base font-medium transition-colors hover:text-primary py-2 border-b border-border/50"
+              <div className="space-y-1 mb-6">
+                {allMobileLinks.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className="flex items-center gap-3 text-base font-medium transition-colors hover:text-primary hover:bg-accent py-3 px-3 rounded-lg"
                     onClick={closeMobileMenu}
                   >
+                    {item.icon && <item.icon className="h-5 w-5 text-muted-foreground" />}
                     {item.name}
                   </Link>
                 ))}
               </div>
 
               {/* Theme Toggle */}
-              <div className="flex items-center justify-between py-2 mb-6 border-b border-border/50">
+              <div className="flex items-center justify-between py-3 px-3 mb-6 bg-accent/50 rounded-lg">
                 <span className="text-sm font-medium">Theme</span>
                 <ThemeToggle />
               </div>
@@ -158,11 +219,11 @@ export function Nav() {
               <div className="space-y-3">
                 {user ? (
                   <div className="space-y-3">
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground px-3">
                       Signed in as {user.email}
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full"
                       onClick={handleLogout}
                     >

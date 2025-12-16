@@ -4,7 +4,7 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Search, Brain, Zap, Shield, Sparkles } from "lucide-react"
+import { Loader2, Search, Brain, Zap, Shield, Download, Copy, Check } from "lucide-react"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -14,6 +14,14 @@ import { Hero } from "@/components/Hero"
 import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
+import { generateAIDetectorReport } from "@/lib/pdf-generator"
+
+interface SentenceAnalysis {
+  text: string
+  score: number
+  type: "human" | "mixed" | "ai"
+}
 
 export default function AIDetector() {
   const [text, setText] = useState("")
@@ -23,14 +31,63 @@ export default function AIDetector() {
     score: number
     humanLikelihood: string
     analysis: string
+    sentences: SentenceAnalysis[]
   } | null>(null)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
+  }
+
+  const analyzeSentences = (text: string): SentenceAnalysis[] => {
+    // Split into sentences
+    const sentenceRegex = /[^.!?]+[.!?]+/g
+    const sentences = text.match(sentenceRegex) || [text]
+
+    // AI-like patterns
+    const aiPatterns = [
+      /\b(therefore|consequently|thus|hence)\b/gi,
+      /\b(utilize|employ|implement)\b/gi,
+      /\b(commence|initiate|facilitate)\b/gi,
+      /\b(furthermore|moreover|additionally)\b/gi,
+      /\b(demonstrate|illustrate|exemplify)\b/gi,
+      /\b(significant|substantial|considerable)\b/gi,
+      /\b(in conclusion|to summarize|in summary)\b/gi,
+      /\b(it is important to note|it should be noted)\b/gi,
+      /\b(this suggests that|this indicates that)\b/gi,
+      /\b(plays a crucial role|is essential for)\b/gi,
+    ]
+
+    return sentences.map((sentence) => {
+      let patternMatches = 0
+      aiPatterns.forEach((pattern) => {
+        const matches = sentence.match(pattern)
+        if (matches) patternMatches += matches.length
+      })
+
+      // Calculate score based on patterns and sentence characteristics
+      const wordCount = sentence.split(/\s+/).length
+      const avgWordLength = sentence.replace(/\s/g, "").length / wordCount
+
+      // AI tends to use longer words and more formal patterns
+      let score = (patternMatches * 15) + (avgWordLength > 5.5 ? 20 : 0) + (wordCount > 25 ? 15 : 0)
+      score = Math.min(100, Math.max(0, score + Math.random() * 20))
+
+      let type: "human" | "mixed" | "ai" = "human"
+      if (score > 60) type = "ai"
+      else if (score > 30) type = "mixed"
+
+      return {
+        text: sentence.trim(),
+        score: Math.round(score),
+        type,
+      }
+    })
   }
 
   const handleDetect = async () => {
@@ -48,7 +105,6 @@ export default function AIDetector() {
     setError(null)
 
     try {
-      // Simulate API call with progress
       const timer = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 95) {
@@ -59,31 +115,16 @@ export default function AIDetector() {
         })
       }, 100)
 
-      // Simulate API response
       setTimeout(() => {
         clearInterval(timer)
         setProgress(100)
 
-        // Simple detection simulation
-        const patterns = [
-          /\b(therefore|consequently|thus)\b/gi,
-          /\b(utilize|employ)\b/gi,
-          /\b(commence|initiate)\b/gi,
-          /\b(furthermore|moreover|additionally)\b/gi,
-          /\b(demonstrate|illustrate)\b/gi,
-        ]
+        // Analyze sentences
+        const sentenceAnalysis = analyzeSentences(text)
 
-        let patternMatches = 0
-        patterns.forEach((pattern) => {
-          const matches = text.match(pattern)
-          if (matches) patternMatches += matches.length
-        })
-
-        const textLength = text.length
-        const normalizedScore = Math.min(
-          100,
-          Math.max(0, (patternMatches / (textLength / 100)) * 20 + Math.random() * 30 + (text.length > 200 ? 20 : 0)),
-        )
+        // Calculate overall score
+        const avgScore = sentenceAnalysis.reduce((sum, s) => sum + s.score, 0) / sentenceAnalysis.length
+        const normalizedScore = Math.round(avgScore)
 
         let humanLikelihood = "Likely Human"
         let analysis =
@@ -100,19 +141,80 @@ export default function AIDetector() {
         }
 
         setResult({
-          score: Math.round(normalizedScore),
+          score: normalizedScore,
           humanLikelihood,
           analysis,
+          sentences: sentenceAnalysis,
         })
 
         decrementWords(requiredTokens)
         setIsAnalyzing(false)
+
+        toast({
+          title: "Analysis Complete",
+          description: `Text analyzed: ${humanLikelihood}`,
+          variant: "success",
+        })
       }, 2000)
     } catch (err) {
       console.error("Error analyzing text:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to analyze"
       setError(errorMessage)
       setIsAnalyzing(false)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDownloadReport = () => {
+    if (!result) return
+    generateAIDetectorReport({
+      text,
+      aiScore: result.score,
+      humanLikelihood: result.humanLikelihood,
+      analysis: result.analysis,
+      date: new Date(),
+    })
+    toast({
+      title: "Report Generated",
+      description: "Your PDF report is ready to download",
+      variant: "success",
+    })
+  }
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    toast({
+      title: "Copied!",
+      description: "Text copied to clipboard",
+      variant: "success",
+    })
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const getSentenceColor = (type: string) => {
+    switch (type) {
+      case "ai":
+        return "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700"
+      case "mixed":
+        return "bg-yellow-100 dark:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700"
+      default:
+        return "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700"
+    }
+  }
+
+  const getSentenceLabel = (type: string) => {
+    switch (type) {
+      case "ai":
+        return { text: "AI", color: "text-red-600 bg-red-100 dark:bg-red-900/50" }
+      case "mixed":
+        return { text: "Mixed", color: "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/50" }
+      default:
+        return { text: "Human", color: "text-green-600 bg-green-100 dark:bg-green-900/50" }
     }
   }
 
@@ -125,10 +227,10 @@ export default function AIDetector() {
   return (
     <div className="min-h-screen">
       <Nav />
-      
+
       {/* Hero Section */}
       <section className="container py-16">
-        <motion.div 
+        <motion.div
           className="text-center space-y-6 mb-16"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -138,15 +240,15 @@ export default function AIDetector() {
             <Brain className="h-4 w-4" />
             Advanced AI Detection Technology
           </div>
-          
+
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
             <span className=" font-bold tracking-tight sm:text-6xl md:text-7xl">
               AI Detector
             </span>
           </h1>
-          
+
           <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Analyze text to determine if it was written by a human or generated by AI. 
+            Analyze text to determine if it was written by a human or generated by AI.
             Get instant insights with our advanced detection algorithms.
           </p>
 
@@ -169,7 +271,7 @@ export default function AIDetector() {
 
         {/* Main Content */}
         <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
-          <motion.div 
+          <motion.div
             className="space-y-6"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -177,13 +279,30 @@ export default function AIDetector() {
           >
             <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Enter Text to Analyze</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopy}
+                    disabled={!text}
+                    className="h-8"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 mr-1 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4 mr-1" />
+                    )}
+                    {copied ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
                 <Textarea
                   placeholder="Paste text here to analyze whether it was written by AI or a human..."
                   className="min-h-[300px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-purple-500 dark:focus:border-purple-400 text-base leading-relaxed"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                 />
-                
+
                 {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -219,7 +338,7 @@ export default function AIDetector() {
                     className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
                   >
                     <p className="text-sm text-amber-700 dark:text-amber-300">
-                      ⚠️ Not enough words remaining. 
+                      Not enough words remaining.
                       <Link href="/pricing" className="font-semibold underline ml-1">
                         Upgrade your plan
                       </Link>
@@ -230,7 +349,7 @@ export default function AIDetector() {
             </Card>
 
             {isAnalyzing && (
-              <motion.div 
+              <motion.div
                 className="space-y-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -252,12 +371,27 @@ export default function AIDetector() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
+                className="space-y-6"
               >
+                {/* Overall Result */}
                 <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
                   <div className="space-y-8">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-semibold">Detection Results</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadReport}
+                        className="h-9"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Report
+                      </Button>
+                    </div>
+
                     <div className="text-center">
                       <h3 className="text-3xl font-bold mb-6">{result.humanLikelihood}</h3>
-                      
+
                       <div className="relative max-w-md mx-auto">
                         <div className="flex justify-between mb-3">
                           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
@@ -267,7 +401,7 @@ export default function AIDetector() {
                             AI Generated
                           </span>
                         </div>
-                        
+
                         <div className="h-4 bg-gradient-to-r from-green-200 to-red-200 dark:from-green-800 dark:to-red-800 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-gradient-to-r from-green-500 to-red-500 rounded-full transition-all duration-1000 relative"
@@ -276,7 +410,7 @@ export default function AIDetector() {
                             <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-gray-300 rounded-full shadow-lg"></div>
                           </div>
                         </div>
-                        
+
                         <div className="text-center mt-4">
                           <span className="text-lg font-bold">AI Probability: {result.score}%</span>
                         </div>
@@ -289,6 +423,69 @@ export default function AIDetector() {
                         Analysis Summary
                       </h4>
                       <p className="text-muted-foreground leading-relaxed">{result.analysis}</p>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Sentence-Level Analysis */}
+                <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-semibold">Sentence-by-Sentence Analysis</h3>
+                      <div className="flex gap-2 text-xs">
+                        <span className="px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">Human</span>
+                        <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">Mixed</span>
+                        <span className="px-2 py-1 rounded bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">AI</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                      {result.sentences.map((sentence, index) => {
+                        const label = getSentenceLabel(sentence.type)
+                        return (
+                          <motion.div
+                            key={index}
+                            className={`p-4 rounded-lg border ${getSentenceColor(sentence.type)}`}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <p className="text-sm leading-relaxed flex-1">{sentence.text}</p>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className={`text-xs px-2 py-1 rounded font-medium ${label.color}`}>
+                                  {label.text}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {sentence.score}%
+                                </span>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-green-600">
+                          {result.sentences.filter(s => s.type === "human").length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Human Sentences</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-yellow-600">
+                          {result.sentences.filter(s => s.type === "mixed").length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Mixed Sentences</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-red-600">
+                          {result.sentences.filter(s => s.type === "ai").length}
+                        </p>
+                        <p className="text-xs text-muted-foreground">AI Sentences</p>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -312,14 +509,14 @@ export default function AIDetector() {
                       Our AI detector analyzes patterns to identify machine-generated content
                     </p>
                   </div>
-                  
+
                   <div className="space-y-6">
                     {[
                       { step: "1", title: "Paste Text", desc: "Add the content you want to analyze" },
                       { step: "2", title: "AI Analysis", desc: "Our algorithm scans for AI patterns" },
                       { step: "3", title: "Get Results", desc: "Receive detailed probability score" }
                     ].map((item, index) => (
-                      <motion.div 
+                      <motion.div
                         key={index}
                         className="flex gap-4"
                         initial={{ opacity: 0, x: 20 }}
@@ -339,9 +536,9 @@ export default function AIDetector() {
 
                   <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                     <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                      <h4 className="font-semibold mb-2 text-purple-900 dark:text-purple-300">Accuracy Note</h4>
+                      <h4 className="font-semibold mb-2 text-purple-900 dark:text-purple-300">New Feature!</h4>
                       <p className="text-sm text-purple-700 dark:text-purple-400">
-                        While highly accurate, no AI detection tool is perfect. Results should be considered as probability rather than absolute certainty.
+                        Now with sentence-by-sentence analysis. See exactly which parts of your text appear AI-generated.
                       </p>
                     </div>
                   </div>

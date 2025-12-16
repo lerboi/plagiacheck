@@ -4,6 +4,7 @@ import "./globals.css"
 import { Footer } from "@/components/footer"
 import type React from "react"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,6 +39,7 @@ export default function RootLayout({
         >
           <main className="flex-grow container mx-auto px-4">{children}</main>
           <Footer />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
