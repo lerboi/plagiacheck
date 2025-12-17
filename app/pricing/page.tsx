@@ -4,7 +4,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Check, Sparkles, Zap } from 'lucide-react'
+import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash } from 'lucide-react'
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
@@ -223,6 +223,44 @@ export default function Pricing() {
                   </Card>
                 )
               })}
+            </div>
+
+            {/* Tools Included Section */}
+            <div className="mt-20">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl font-bold mb-4">All Plans Include These Tools</h2>
+                <p className="text-muted-foreground max-w-2xl mx-auto">
+                  Get access to our complete suite of writing tools with any plan
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                {[
+                  { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500", bgColor: "bg-blue-500/10", desc: "Check originality" },
+                  { name: "AI Detector", icon: Brain, color: "text-purple-500", bgColor: "bg-purple-500/10", desc: "Detect AI text" },
+                  { name: "AI Humanizer", icon: Wand2, color: "text-pink-500", bgColor: "bg-pink-500/10", desc: "Humanize AI" },
+                  { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500", bgColor: "bg-cyan-500/10", desc: "Rewrite text" },
+                  { name: "Summarizer", icon: FileText, color: "text-green-500", bgColor: "bg-green-500/10", desc: "Condense text" },
+                  { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500", bgColor: "bg-emerald-500/10", desc: "Fix grammar" },
+                  { name: "Word Counter", icon: Hash, color: "text-orange-500", bgColor: "bg-orange-500/10", desc: "Count words", isFree: true },
+                ].map((tool) => (
+                  <div
+                    key={tool.name}
+                    className="group flex flex-col items-center p-5 bg-card/50 backdrop-blur-sm rounded-xl border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-md relative"
+                  >
+                    <div className={`p-3 rounded-xl ${tool.bgColor} mb-3 group-hover:scale-110 transition-transform`}>
+                      <tool.icon className={`h-5 w-5 ${tool.color}`} />
+                    </div>
+                    <h3 className="font-semibold text-sm text-center mb-1">{tool.name}</h3>
+                    <p className="text-xs text-muted-foreground text-center">{tool.desc}</p>
+                    {tool.isFree && (
+                      <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full">
+                        FREE
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Custom Plan Slider */}

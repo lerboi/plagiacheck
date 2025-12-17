@@ -153,7 +153,7 @@ export function Nav() {
           {/* Tools Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-9 text-sm font-medium gap-1.5 px-3">
+              <Button variant="ghost" className="h-9 text-sm font-medium gap-1.5 px-3 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none">
                 <LayoutGrid className="h-4 w-4" />
                 Tools
                 <ChevronDown className="h-3.5 w-3.5 opacity-60" />
@@ -205,7 +205,7 @@ export function Nav() {
 
           <Link
             href="/pricing"
-            className="h-9 px-3 inline-flex items-center justify-center text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md gap-1.5"
+            className="h-9 px-3 inline-flex items-center justify-center text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
           >
             <CreditCard className="h-4 w-4" />
             Pricing
@@ -226,10 +226,10 @@ export function Nav() {
             <ProfileDropdown user={user} onLogout={handleLogout} />
           ) : (
             <>
-              <Button variant="ghost" size="sm" className="h-9" asChild>
+              <Button variant="ghost" size="sm" className="h-9 focus-visible:ring-0 focus-visible:ring-offset-0" asChild>
                 <Link href="/signin">Log in</Link>
               </Button>
-              <Button size="sm" className="h-9 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700" asChild>
+              <Button size="sm" className="h-9 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus-visible:ring-0 focus-visible:ring-offset-0" asChild>
                 <Link href="/pricing">Get Started</Link>
               </Button>
             </>
@@ -246,7 +246,7 @@ export function Nav() {
 
           <button
             onClick={toggleMobileMenu}
-            className="p-2 rounded-md hover:bg-accent transition-colors"
+            className="p-2 rounded-md hover:bg-accent transition-colors focus-visible:ring-0 focus:outline-none"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -315,7 +315,7 @@ export function Nav() {
                     </div>
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full focus-visible:ring-0 focus-visible:ring-offset-0"
                       onClick={handleLogout}
                     >
                       Sign Out
@@ -323,10 +323,10 @@ export function Nav() {
                   </div>
                 ) : (
                   <>
-                    <Button variant="outline" className="w-full" asChild onClick={closeMobileMenu}>
+                    <Button variant="outline" className="w-full focus-visible:ring-0 focus-visible:ring-offset-0" asChild onClick={closeMobileMenu}>
                       <Link href="/signin">Log in</Link>
                     </Button>
-                    <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600" asChild onClick={closeMobileMenu}>
+                    <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0" asChild onClick={closeMobileMenu}>
                       <Link href="/pricing">Get Started</Link>
                     </Button>
                   </>
