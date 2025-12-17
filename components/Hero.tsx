@@ -1,8 +1,13 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle } from 'lucide-react';
+import Link from 'next/link';
 
-export const Hero: React.FC = () => {
+interface HeroProps {
+  onTryFreeClick?: () => void;
+}
+
+export const Hero: React.FC<HeroProps> = ({ onTryFreeClick }) => {
   return (
     <section className="py-12 md:py-20">
       <div className="container mx-auto px-4">
@@ -44,18 +49,24 @@ export const Hero: React.FC = () => {
             </div>
 
             {/* CTA Buttons */}
-            <motion.div 
+            <motion.div
               className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center lg:justify-start"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <button className="px-6 md:px-8 py-3 md:py-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors duration-200 text-sm md:text-base">
+              <button
+                onClick={onTryFreeClick}
+                className="px-6 md:px-8 py-3 md:py-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors duration-200 text-sm md:text-base"
+              >
                 Try Free Now
               </button>
-              <button className="px-6 md:px-8 py-3 md:py-4 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold rounded-lg transition-colors duration-200 text-sm md:text-base">
+              <Link
+                href="/pricing"
+                className="px-6 md:px-8 py-3 md:py-4 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold rounded-lg transition-colors duration-200 text-sm md:text-base text-center"
+              >
                 View Pricing
-              </button>
+              </Link>
             </motion.div>
           </motion.div>
 

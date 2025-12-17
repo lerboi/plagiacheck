@@ -1,10 +1,10 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, Loader2, Sparkles, Shield, Zap, FileText, Copy, File } from "lucide-react"
+import { Upload, Loader2, Sparkles, Shield, Zap, FileText, Copy, File, Brain, Wand2, RefreshCw, CheckCircle2, Hash, ArrowRight, LayoutGrid } from "lucide-react"
 import { PlagiarismResults } from "@/components/plagiarism-results"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
@@ -38,6 +38,21 @@ export default function Home() {
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const plagiarismCheckerRef = useRef<HTMLElement>(null)
+
+  const scrollToChecker = () => {
+    plagiarismCheckerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  const tools = [
+    { name: "Plagiarism Checker", href: "/", icon: Shield, color: "text-blue-500" },
+    { name: "AI Detector", href: "/ai-detector", icon: Brain, color: "text-purple-500" },
+    { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500" },
+    { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500" },
+    { name: "Summarizer", href: "/summarizer", icon: FileText, color: "text-green-500" },
+    { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500" },
+    { name: "Word Counter", href: "/word-counter", icon: Hash, color: "text-orange-500", isFree: true },
+  ]
 
   useEffect(() => {
     const checkSession = async () => {
@@ -140,7 +155,7 @@ export default function Home() {
       <Nav />
       
       {/* Main Plagiarism Checker Tool - Now First */}
-      <section className="py-12 md:py-16">
+      <section ref={plagiarismCheckerRef} className="py-12 md:py-16 scroll-mt-16">
         <div className="container mx-auto px-4">
           <motion.div 
             className="text-center space-y-6 mb-12"
@@ -287,20 +302,23 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Quick Action Links */}
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="ghost" size="sm" className="text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20" asChild>
-                      <Link href="/ai-detector">
-                        <Sparkles className="h-3 w-3 mr-1" />
-                        AI Detector
+                  {/* Quick Action Links - All Tools */}
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    {tools.map((tool) => (
+                      <Link
+                        key={tool.name}
+                        href={tool.href}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
+                      >
+                        <tool.icon className={`h-3.5 w-3.5 ${tool.color}`} />
+                        <span className="text-gray-700 dark:text-gray-300">{tool.name}</span>
+                        {tool.isFree && (
+                          <span className="ml-0.5 text-[9px] px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full font-semibold">
+                            FREE
+                          </span>
+                        )}
                       </Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-xs hover:bg-purple-50 dark:hover:bg-purple-900/20" asChild>
-                      <Link href="/ai-humanizer">
-                        <Zap className="h-3 w-3 mr-1" />
-                        AI Humanizer
-                      </Link>
-                    </Button>
+                    ))}
                   </div>
 
                   {/* Results Section */}
@@ -389,10 +407,74 @@ export default function Home() {
       </section>
 
       {/* Hero Section - Now Second */}
-      <Hero />
+      <Hero onTryFreeClick={scrollToChecker} />
 
       {/* Feature Showcase */}
       <FeatureShowcase />
+
+      {/* Tools Showcase Section */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <motion.div
+            className="text-center mb-12"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              All the Tools You Need
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              From plagiarism checking to grammar correction, we have everything to perfect your writing
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 max-w-4xl mx-auto">
+            {tools.map((tool, index) => (
+              <motion.div
+                key={tool.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+              >
+                <Link
+                  href={tool.href}
+                  className="group relative flex flex-col items-center p-5 md:p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-300"
+                >
+                  <div className="relative mb-3">
+                    <tool.icon className={`h-7 w-7 md:h-8 md:w-8 ${tool.color} transition-transform duration-300 group-hover:scale-110`} />
+                  </div>
+                  <h3 className="font-medium text-sm md:text-base text-center text-gray-900 dark:text-gray-100">{tool.name}</h3>
+                  {tool.isFree && (
+                    <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
+                      FREE
+                    </span>
+                  )}
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            className="text-center mt-10"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <Link
+              href="/history"
+              className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              View All Tools
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+        </div>
+      </section>
 
       {/* FAQ Section */}
       <FAQ />
