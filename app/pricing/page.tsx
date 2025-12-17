@@ -234,27 +234,26 @@ export default function Pricing() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 max-w-4xl mx-auto">
                 {[
-                  { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500", bgColor: "bg-blue-500/10", desc: "Check originality" },
-                  { name: "AI Detector", icon: Brain, color: "text-purple-500", bgColor: "bg-purple-500/10", desc: "Detect AI text" },
-                  { name: "AI Humanizer", icon: Wand2, color: "text-pink-500", bgColor: "bg-pink-500/10", desc: "Humanize AI" },
-                  { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500", bgColor: "bg-cyan-500/10", desc: "Rewrite text" },
-                  { name: "Summarizer", icon: FileText, color: "text-green-500", bgColor: "bg-green-500/10", desc: "Condense text" },
-                  { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500", bgColor: "bg-emerald-500/10", desc: "Fix grammar" },
-                  { name: "Word Counter", icon: Hash, color: "text-orange-500", bgColor: "bg-orange-500/10", desc: "Count words", isFree: true },
+                  { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500" },
+                  { name: "AI Detector", icon: Brain, color: "text-purple-500" },
+                  { name: "AI Humanizer", icon: Wand2, color: "text-pink-500" },
+                  { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500" },
+                  { name: "Summarizer", icon: FileText, color: "text-green-500" },
+                  { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500" },
+                  { name: "Word Counter", icon: Hash, color: "text-orange-500", isFree: true },
                 ].map((tool) => (
                   <div
                     key={tool.name}
-                    className="group flex flex-col items-center p-5 bg-card/50 backdrop-blur-sm rounded-xl border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-md relative"
+                    className="group relative flex flex-col items-center p-5 md:p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-300"
                   >
-                    <div className={`p-3 rounded-xl ${tool.bgColor} mb-3 group-hover:scale-110 transition-transform`}>
-                      <tool.icon className={`h-5 w-5 ${tool.color}`} />
+                    <div className="relative mb-3">
+                      <tool.icon className={`h-7 w-7 md:h-8 md:w-8 ${tool.color} transition-transform duration-300 group-hover:scale-110`} />
                     </div>
-                    <h3 className="font-semibold text-sm text-center mb-1">{tool.name}</h3>
-                    <p className="text-xs text-muted-foreground text-center">{tool.desc}</p>
+                    <h3 className="font-medium text-sm md:text-base text-center text-gray-900 dark:text-gray-100">{tool.name}</h3>
                     {tool.isFree && (
-                      <span className="absolute top-2 right-2 text-[10px] font-medium px-1.5 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full">
+                      <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
                         FREE
                       </span>
                     )}

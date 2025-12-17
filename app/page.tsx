@@ -45,12 +45,13 @@ export default function Home() {
   }
 
   const tools = [
-    { name: "AI Detector", href: "/ai-detector", icon: Brain, color: "text-purple-500", bgColor: "bg-purple-50 dark:bg-purple-900/20" },
-    { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500", bgColor: "bg-pink-50 dark:bg-pink-900/20" },
-    { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bgColor: "bg-cyan-50 dark:bg-cyan-900/20" },
-    { name: "Summarizer", href: "/summarizer", icon: FileText, color: "text-green-500", bgColor: "bg-green-50 dark:bg-green-900/20" },
-    { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500", bgColor: "bg-emerald-50 dark:bg-emerald-900/20" },
-    { name: "Word Counter", href: "/word-counter", icon: Hash, color: "text-orange-500", bgColor: "bg-orange-50 dark:bg-orange-900/20", isFree: true },
+    { name: "Plagiarism Checker", href: "/", icon: Shield, color: "text-blue-500" },
+    { name: "AI Detector", href: "/ai-detector", icon: Brain, color: "text-purple-500" },
+    { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500" },
+    { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500" },
+    { name: "Summarizer", href: "/summarizer", icon: FileText, color: "text-green-500" },
+    { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500" },
+    { name: "Word Counter", href: "/word-counter", icon: Hash, color: "text-orange-500", isFree: true },
   ]
 
   useEffect(() => {
@@ -302,25 +303,21 @@ export default function Home() {
                   </div>
 
                   {/* Quick Action Links - All Tools */}
-                  <div className="flex flex-wrap gap-2 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 dark:border-gray-800">
                     {tools.map((tool) => (
-                      <Button
+                      <Link
                         key={tool.name}
-                        variant="ghost"
-                        size="sm"
-                        className={`text-xs ${tool.bgColor} hover:opacity-80 transition-opacity`}
-                        asChild
+                        href={tool.href}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
                       >
-                        <Link href={tool.href}>
-                          <tool.icon className={`h-3 w-3 mr-1 ${tool.color}`} />
-                          {tool.name}
-                          {tool.isFree && (
-                            <span className="ml-1 text-[10px] px-1 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded">
-                              FREE
-                            </span>
-                          )}
-                        </Link>
-                      </Button>
+                        <tool.icon className={`h-3.5 w-3.5 ${tool.color}`} />
+                        <span className="text-gray-700 dark:text-gray-300">{tool.name}</span>
+                        {tool.isFree && (
+                          <span className="ml-0.5 text-[9px] px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full font-semibold">
+                            FREE
+                          </span>
+                        )}
+                      </Link>
                     ))}
                   </div>
 
@@ -416,7 +413,7 @@ export default function Home() {
       <FeatureShowcase />
 
       {/* Tools Showcase Section */}
-      <section className="py-16 md:py-24 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900/50 dark:to-background">
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <motion.div
             className="text-center mb-12"
@@ -425,10 +422,6 @@ export default function Home() {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <LayoutGrid className="h-4 w-4" />
-              Complete Writing Suite
-            </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
               All the Tools You Need
             </h2>
@@ -437,53 +430,25 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto">
-            {/* Plagiarism Checker Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-            >
-              <Link
-                href="/"
-                className="group flex flex-col items-center p-6 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-300"
-              >
-                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/30 mb-4 group-hover:scale-110 transition-transform">
-                  <Shield className="h-6 w-6 text-blue-500" />
-                </div>
-                <h3 className="font-semibold text-sm md:text-base mb-1">Plagiarism Checker</h3>
-                <p className="text-xs text-muted-foreground text-center">Check originality</p>
-              </Link>
-            </motion.div>
-
-            {/* Other Tools */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 max-w-4xl mx-auto">
             {tools.map((tool, index) => (
               <motion.div
                 key={tool.name}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: (index + 1) * 0.1 }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
               >
                 <Link
                   href={tool.href}
-                  className="group flex flex-col items-center p-6 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg transition-all duration-300 relative"
+                  className="group relative flex flex-col items-center p-5 md:p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-300"
                 >
-                  <div className={`p-3 rounded-xl ${tool.bgColor} mb-4 group-hover:scale-110 transition-transform`}>
-                    <tool.icon className={`h-6 w-6 ${tool.color}`} />
+                  <div className="relative mb-3">
+                    <tool.icon className={`h-7 w-7 md:h-8 md:w-8 ${tool.color} transition-transform duration-300 group-hover:scale-110`} />
                   </div>
-                  <h3 className="font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
-                  <p className="text-xs text-muted-foreground text-center">
-                    {tool.name === "AI Detector" && "Detect AI text"}
-                    {tool.name === "AI Humanizer" && "Humanize AI text"}
-                    {tool.name === "Paraphraser" && "Rewrite text"}
-                    {tool.name === "Summarizer" && "Condense text"}
-                    {tool.name === "Grammar Checker" && "Fix grammar"}
-                    {tool.name === "Word Counter" && "Count words"}
-                  </p>
+                  <h3 className="font-medium text-sm md:text-base text-center text-gray-900 dark:text-gray-100">{tool.name}</h3>
                   {tool.isFree && (
-                    <span className="absolute top-2 right-2 text-[10px] font-medium px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full">
+                    <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
                       FREE
                     </span>
                   )}
@@ -497,19 +462,16 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: 0.6 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
           >
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl px-8"
-              asChild
+            <Link
+              href="/history"
+              className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
-              <Link href="/history" className="flex items-center gap-2">
-                <LayoutGrid className="h-5 w-5" />
-                View All Tools
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
+              <LayoutGrid className="h-4 w-4" />
+              View All Tools
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </motion.div>
         </div>
       </section>
