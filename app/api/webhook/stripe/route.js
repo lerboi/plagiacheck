@@ -322,6 +322,294 @@ async function handleSuccessfulPayment(invoice) {
     }
 }
 
+async function handleTokenPurchase(paymentIntent) {
+    console.log('Processing token purchase for payment_intent:', paymentIntent.id);
+
+    try {
+        const { metadata } = paymentIntent;
+
+        if (!metadata || !metadata.userId || !metadata.tokenAmount || !metadata.tokenType) {
+            console.error('Missing required metadata in payment_intent:', paymentIntent.id);
+            return;
+        }
+
+        const { userId, tokenAmount, tokenType } = metadata;
+        const paymentId = paymentIntent.id;
+        const amount = parseFloat((paymentIntent.amount / 100).toFixed(2)); // Convert to number
+
+        console.log(`Processing token purchase: ${tokenAmount} ${tokenType} tokens for user ${userId}`);
+
+        // ========== IDEMPOTENCY CHECK ==========
+        const { data: existingPayment, error: checkError } = await supabase
+            .from('Payment')
+            .select('id, expiryStatus')
+            .eq('id', paymentId)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('Error checking existing payment:', checkError);
+            throw new Error('Database error while checking payment');
+        }
+
+        if (existingPayment) {
+            console.log(`Payment ${paymentId} already processed. Skipping.`);
+            return;
+        }
+
+        // ========== CREATE PAYMENT RECORD ==========
+        const { error: paymentError } = await supabase.from("Payment").insert({
+            id: paymentId,
+            subscriptionId: null,
+            userId: userId,
+            amount: amount, // Now a number
+            status: "succeeded",
+            paymentType: "token",
+            expiryStatus: false,
+            referrer_id: null // Affiliate handled in success route
+        });
+
+        if (paymentError) {
+            console.error('Failed to create payment:', paymentError);
+            throw new Error("Failed to record payment: " + JSON.stringify(paymentError));
+        }
+
+        console.log(`Created Payment record: ${paymentId}`);
+
+        // ========== ADD TOKENS ==========
+        const tokenAmountInt = parseInt(tokenAmount);
+        
+        // Check if user already has tokens
+        const { data: existingToken, error: existingTokenError } = await supabase
+            .from('PurchasedToken')
+            .select('textTokens, imageTokens')
+            .eq('userId', userId)
+            .single();
+
+        if (existingTokenError && existingTokenError.code !== 'PGRST116') {
+            console.error('Error checking existing tokens:', existingTokenError);
+            throw new Error('Failed to check existing tokens');
+        }
+
+        if (existingToken) {
+            // Update existing tokens
+            const updates = tokenType === 'text' 
+                ? { textTokens: existingToken.textTokens + tokenAmountInt }
+                : { imageTokens: existingToken.imageTokens + tokenAmountInt };
+            
+            const { error: updateError } = await supabase
+                .from('PurchasedToken')
+                .update(updates)
+                .eq('userId', userId);
+
+            if (updateError) {
+                console.error('Error updating tokens:', updateError);
+                throw new Error('Failed to update tokens');
+            }
+
+            console.log(`Updated ${tokenType} tokens for user ${userId}: +${tokenAmountInt}`);
+        } else {
+            // Create new token record
+            const { error: insertError } = await supabase
+                .from('PurchasedToken')
+                .insert({
+                    userId: userId,
+                    textTokens: tokenType === 'text' ? tokenAmountInt : 0,
+                    imageTokens: tokenType === 'image' ? tokenAmountInt : 0,
+                });
+
+            if (insertError) {
+                console.error('Error inserting tokens:', insertError);
+                throw new Error('Failed to create token record');
+            }
+
+            console.log(`Created new token record for user ${userId}: ${tokenAmountInt} ${tokenType}`);
+        }
+
+        // ========== MARK PAYMENT AS PROCESSED ==========
+        const { error: markProcessedError } = await supabase
+            .from('Payment')
+            .update({ expiryStatus: true })
+            .eq('id', paymentId);
+
+        if (markProcessedError) {
+            console.error('Error marking payment as processed:', markProcessedError);
+            // Don't throw - tokens were added successfully
+        }
+
+        console.log(`✅ Successfully processed token purchase for user ${userId}: ${tokenAmountInt} ${tokenType} tokens`);
+
+    } catch (error) {
+        console.error('Error in handleTokenPurchase:', error.message);
+        throw error;
+    }
+}
+
+async function handleInitialPackagePayment(invoice) {
+    console.log('Processing initial package payment for invoice:', invoice.id);
+
+    try {
+        // Extract subscription ID from the invoice
+        const subscriptionId = invoice.subscription;
+        if (!subscriptionId) {
+            console.error('No subscription ID found in invoice:', invoice.id);
+            return;
+        }
+
+        console.log(`Retrieving subscription details for: ${subscriptionId}`);
+
+        // Retrieve the subscription object using the Stripe API
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+        // Access metadata from the subscription object
+        const { metadata } = subscription;
+
+        if (!metadata || !metadata.userId || !metadata.tokenType || !metadata.tokenAmount) {
+            console.error('Missing required metadata in subscription:', subscription.id);
+            return;
+        }
+
+        const { userId, tokenType, tokenAmount } = metadata;
+        const paymentId = invoice.payment_intent;
+        const amount = parseFloat((invoice.amount_paid / 100).toFixed(2)); // Convert to number
+
+        if (!paymentId) {
+            console.error('No payment_intent found in invoice:', invoice.id);
+            return;
+        }
+
+        console.log(`Processing initial package: ${tokenType} for user ${userId}`);
+
+        // ========== IDEMPOTENCY CHECK ==========
+        const { data: existingPayment, error: checkError } = await supabase
+            .from('Payment')
+            .select('id, expiryStatus')
+            .eq('id', paymentId)
+            .single();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+            console.error('Error checking existing payment:', checkError);
+            throw new Error('Database error while checking payment');
+        }
+
+        if (existingPayment) {
+            console.log(`Payment ${paymentId} already processed. Skipping.`);
+            return;
+        }
+
+        // ========== CREATE PAYMENT RECORD ==========
+        const { error: paymentError } = await supabase
+            .from('Payment')
+            .insert({
+                id: paymentId,
+                subscriptionId: null,
+                userId: userId,
+                amount: amount, // Now a number
+                status: 'succeeded',
+                paymentType: 'Packages',
+                expiryStatus: false,
+                referrer_id: null // Will be updated by success route if affiliate exists
+            });
+
+        if (paymentError) {
+            console.error('Failed to create payment:', paymentError);
+            throw new Error('Failed to record payment: ' + JSON.stringify(paymentError));
+        }
+
+        console.log(`Created Payment record: ${paymentId}`);
+
+        // ========== CREATE PACKAGE RECORD ==========
+        // Calculate expiry date (1 month from now) using date-fns for consistency
+        const now = new Date();
+        let expiryDate = addMonths(now, 1);
+        
+        // Handle edge cases for months with different number of days
+        if (isLastDayOfMonth(now)) {
+            expiryDate = lastDayOfMonth(expiryDate);
+        }
+
+        const { error: packageError } = await supabase
+            .from('Package')
+            .insert({
+                userId: userId,
+                packageName: tokenType,
+                expiryDate: expiryDate.toISOString(),
+                status: 'ACTIVE',
+                startDate: now.toISOString(),
+                stripeSubscriptionId: subscriptionId,
+                paymentFailureCount: 0
+            });
+
+        if (packageError) {
+            console.error('Error creating package:', packageError);
+            throw new Error('Failed to create package');
+        }
+
+        console.log(`Created package for user ${userId}: ${tokenType}, expires ${expiryDate.toISOString()}`);
+
+        // ========== ADD INITIAL TOKENS ==========
+        const tokensToAdd = tokenType === '200Image' ? 200 : 1000;
+
+        const { data: existingToken, error: existingTokenError } = await supabase
+            .from('PurchasedToken')
+            .select('imageTokens')
+            .eq('userId', userId)
+            .single();
+
+        if (existingTokenError && existingTokenError.code !== 'PGRST116') {
+            console.error('Error checking existing tokens:', existingTokenError);
+            throw new Error('Failed to check existing tokens');
+        }
+
+        if (existingToken) {
+            // Update existing tokens
+            const { error: updateError } = await supabase
+                .from('PurchasedToken')
+                .update({ imageTokens: existingToken.imageTokens + tokensToAdd })
+                .eq('userId', userId);
+
+            if (updateError) {
+                console.error('Error updating tokens:', updateError);
+                throw new Error('Failed to update tokens');
+            }
+
+            console.log(`Updated image tokens for user ${userId}: +${tokensToAdd}`);
+        } else {
+            // Create new token record
+            const { error: insertError } = await supabase
+                .from('PurchasedToken')
+                .insert({
+                    userId: userId,
+                    textTokens: 0,
+                    imageTokens: tokensToAdd,
+                });
+
+            if (insertError) {
+                console.error('Error inserting tokens:', insertError);
+                throw new Error('Failed to create token record');
+            }
+
+            console.log(`Created new token record for user ${userId}: ${tokensToAdd} image tokens`);
+        }
+
+        // ========== MARK PAYMENT AS PROCESSED ==========
+        const { error: markProcessedError } = await supabase
+            .from('Payment')
+            .update({ expiryStatus: true })
+            .eq('id', paymentId);
+
+        if (markProcessedError) {
+            console.error('Error marking payment as processed:', markProcessedError);
+            // Don't throw - package and tokens were added successfully
+        }
+
+        console.log(`✅ Successfully processed initial package purchase for user ${userId}: ${tokenType}`);
+
+    } catch (error) {
+        console.error('Error in handleInitialPackagePayment:', error.message);
+        throw error;
+    }
+}
+
 //-------------------------------------------------- For Stripe --------------------------------------------------
 
 export async function OPTIONS() {
@@ -373,13 +661,24 @@ export async function POST(req) {
         console.log('Processing Stripe webhook event:', event.type, 'id:', event.id);
 
         switch (event.type) {
+            case 'payment_intent.succeeded':
+                const paymentIntent = event.data.object;
+                // Only process if it's a token purchase (has our metadata)
+                if (paymentIntent.metadata && paymentIntent.metadata.purchaseType === 'token') {
+                    await handleTokenPurchase(paymentIntent);
+                } else {
+                    console.log('Payment intent succeeded but not a token purchase:', paymentIntent.id);
+                }
+                break;
+
             case 'invoice.paid':
                 const invoice = event.data.object;
                 const billingReason = invoice.billing_reason;
 
                 if (billingReason === 'subscription_create') {
-                    // Just log the customer ID if it's a new subscription
-                    console.log(`New subscription created for customer: ${invoice.customer}`);
+                    // Handle first-time package purchase
+                    console.log('Processing first-time package payment');
+                    await handleInitialPackagePayment(invoice);
                 } else if (billingReason === 'subscription_cycle') {
                     // Handle recurring payment
                     console.log('Processing recurring subscription payment');
@@ -407,10 +706,6 @@ export async function POST(req) {
 
             case 'checkout.session.completed':
                 console.log('Received checkout.session.completed event', event.data.object.id);
-                break;
-
-            case 'payment_intent.succeeded':
-                console.log('Received payment_intent.succeeded event', event.data.object.id);
                 break;
 
             case 'payment_intent.payment_failed':

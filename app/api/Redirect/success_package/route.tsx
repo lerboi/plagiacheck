@@ -1,15 +1,35 @@
 import { NextResponse } from "next/server";
-import { createId } from "@paralleldrive/cuid2";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { generateCheckoutToken } from "@/utils/generateCheckoutToken";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 const url = process.env.url;
+
+// Helper function to wait for Payment record to be created by webhook
+async function waitForPayment(paymentId: string, maxRetries = 10, delayMs = 500): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    const { data, error } = await supabase
+      .from('Payment')
+      .select('id')
+      .eq('id', paymentId)
+      .single();
+    
+    if (data && !error) {
+      console.log(`Payment ${paymentId} found after ${i + 1} attempts`);
+      return true;
+    }
+    
+    if (i < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  console.warn(`Payment ${paymentId} not found after ${maxRetries} attempts`);
+  return false;
+}
 
 export async function GET(req: Request) {
     // Get URL query parameters
@@ -30,85 +50,54 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
     }
 
-    // Check if the timestamp is within a reasonable window (e.g., 1 hour)
+    // Check if the timestamp is within a reasonable window (20 minutes)
     const timestampNum = parseInt(timestamp);
-    if (Date.now() - timestampNum > 1200000) { // 20 minutes in milliseconds
+    if (Date.now() - timestampNum > 1200000) {
         return NextResponse.redirect('https://www.plagiacheck.online');
     }
 
     try {
-        // Retrieve the Stripe Checkout Session to get the final amount
-        const session = await stripe.checkout.sessions.retrieve(sessionId!, {
-            expand: ['line_items']
-        });
-
-        const finalAmount = (session.amount_total! / 100).toFixed(2);
-        const subscriptionId = session.subscription as string;
-
+        // Get payment_intent from session for affiliate update
         let paymentId: string | null = null;
-        let invoiceId: string | null = null;
-
-        const invoices = await stripe.invoices.list({
-            subscription: subscriptionId,
-            limit: 1,
-            status: 'paid'
-        });
-
-        const initialInvoice = invoices.data[0];
-
-        // **CRITICAL CHECK 2: Extract Payment Intent or use Invoice ID as fallback**
-        if (initialInvoice) {
-            invoiceId = initialInvoice.id;
-            if (initialInvoice.payment_intent) {
-                paymentId = initialInvoice.payment_intent as string;
-
-            } else if (initialInvoice.amount_due === 0 && initialInvoice.status === 'paid') {
-                // Fallback: Use Invoice ID as Payment ID for $0.00 invoices
-                paymentId = initialInvoice.id;
-                console.log(`Initial invoice was $0.00. Using Invoice ID ${paymentId} as Payment record ID.`);
-            }
-        }
-
-        if (!paymentId) {
-            console.error('No payment intent found in session');
-            return NextResponse.redirect('https://www.plagiacheck.online', { status: 302 });
-        }
-
-        // ========== IDEMPOTENCY CHECK ==========
-        // Check if Payment already exists
-        const { data: existingPayment, error: checkError } = await supabase
-            .from('Payment')
-            .select('id, expiryStatus')
-            .eq('id', paymentId)
-            .single();
-
-        if (checkError && checkError.code !== 'PGRST116') {
-            console.error('Error checking existing payment:', checkError);
-            throw new Error('Database error while checking payment');
-        }
-
-        if (existingPayment) {
-            console.log(`Payment ${paymentId} already processed. Redirecting to success page.`);
-            const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}&userId=${userId}`;
-            return NextResponse.redirect(redirectUrl, { status: 302 });
-        }
-
-        // Validate `ref_code` and get `affiliates.id` and commission
-        let referrerId = null;
-        let commissionRate = 0;
-
+        
         if (ref_code) {
-            const { data: affiliate, error: affiliateError } = await supabase
-                .from("Affiliates")
-                .select("id, commission")
-                .eq("ref_code", ref_code)
-                .single();
+            try {
+                const session = await stripe.checkout.sessions.retrieve(sessionId!, {
+                    expand: ['subscription']
+                });
+                
+                // Handle subscription as either string or object
+                let subscriptionId: string | null = null;
+                if (typeof session.subscription === 'string') {
+                    subscriptionId = session.subscription;
+                } else if (session.subscription && typeof session.subscription === 'object') {
+                    subscriptionId = session.subscription.id;
+                }
+                
+                if (subscriptionId) {
+                    const invoices = await stripe.invoices.list({
+                        subscription: subscriptionId,
+                        limit: 1,
+                        status: 'paid'
+                    });
 
-            if (affiliateError || !affiliate) {
-                console.warn("Invalid referral code:", ref_code);
-            } else {
-                referrerId = affiliate.id;
-                commissionRate = (affiliate.commission || 0) / 100;
+                    const initialInvoice = invoices.data[0];
+                    if (initialInvoice) {
+                        // Handle payment_intent as either string or object
+                        if (typeof initialInvoice.payment_intent === 'string') {
+                            paymentId = initialInvoice.payment_intent;
+                        } else if (initialInvoice.payment_intent && typeof initialInvoice.payment_intent === 'object') {
+                            paymentId = initialInvoice.payment_intent.id;
+                        }
+                        
+                        if (paymentId) {
+                            // Wait for webhook to create Payment record
+                            await waitForPayment(paymentId);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error retrieving session/invoice for affiliate update:', error);
             }
         }
 
@@ -154,101 +143,55 @@ export async function GET(req: Request) {
             }
         }
 
-        // ========== CREATE PAYMENT RECORD ==========
-        const { error: paymentError } = await supabase
-            .from('Payment')
-            .insert({
-                id: paymentId,
-                subscriptionId: null,
-                userId: userId,
-                amount: finalAmount, 
-                status: 'succeeded',
-                paymentType: 'Packages',
-                expiryStatus: false,
-                referrer_id: referrerId,
-            });
+        // ========== UPDATE AFFILIATES ==========
+        if (ref_code && paymentId) {
+            const { data: affiliateData, error: fetchError } = await supabase
+                .from("Affiliates")
+                .select("id, total_sales, total_sales_amount, total_earned, commission")
+                .eq("ref_code", ref_code)
+                .single();
 
-        if (paymentError) {
-            console.error('Failed to create payment:', paymentError);
-            throw new Error('Failed to record payment' + JSON.stringify(paymentError));
-        }
+            if (fetchError || !affiliateData) {
+                console.error("Error fetching affiliate data:", fetchError);
+            } else {
+                const commissionRate = (affiliateData.commission || 0) / 100;
+                const commission = parseFloat(originalAmount) * commissionRate;
 
-        // ========== CREATE PACKAGE RECORD ==========
-        // Calculate expiry date (1 month from now)
-        const now = new Date();
-        let expiryDate = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-        
-        // Handle invalid dates (e.g., Jan 31 -> Feb 31 should become Feb 28/29)
-        if (expiryDate.getMonth() !== (now.getMonth() + 1) % 12) {
-            expiryDate = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), 0);
-        }
+                // Update Payment record with referrer_id
+                const { error: paymentUpdateError } = await supabase
+                    .from("Payment")
+                    .update({ referrer_id: affiliateData.id })
+                    .eq("id", paymentId);
+                
+                if (paymentUpdateError) {
+                    console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
+                } else {
+                    console.log(`Updated Payment ${paymentId} with referrer_id: ${affiliateData.id}`);
+                }
 
-        const { error: packageError } = await supabase
-            .from('Package')
-            .insert({
-                userId: userId,
-                packageName: token_type,
-                expiryDate: expiryDate.toISOString(),
-                status: 'ACTIVE',
-                startDate: now.toISOString(),
-                stripeSubscriptionId: subscriptionId,
-                paymentFailureCount: 0
-            });
+                const newTotalSales = affiliateData.total_sales + 1;
+                const newTotalSalesAmount = parseFloat(affiliateData.total_sales_amount) + parseFloat(originalAmount);
+                const newTotalEarned = parseFloat(affiliateData.total_earned) + commission;
 
-        if (packageError) {
-            console.error('Error creating package:', packageError);
-            throw new Error('Failed to create package');
-        }
+                const { error: updateError } = await supabase
+                    .from("Affiliates")
+                    .update({
+                        total_sales: newTotalSales,
+                        total_sales_amount: newTotalSalesAmount,
+                        total_earned: newTotalEarned
+                    })
+                    .eq("id", affiliateData.id);
 
-        console.log(`Created package for user ${userId}: ${token_type}, expires ${expiryDate.toISOString()}`);
-
-        // ========== ADD INITIAL TOKENS ==========
-        const tokensToAdd = token_type === '200Image' ? 200 : 1000;
-
-        const { data: existingToken, error: existingTokenError } = await supabase
-            .from('PurchasedToken')
-            .select('imageTokens')
-            .eq('userId', userId)
-            .single();
-
-        if (existingTokenError && existingTokenError.code !== 'PGRST116') {
-            console.error('Error checking existing tokens:', existingTokenError);
-            throw new Error('Failed to check existing tokens');
-        }
-
-        if (existingToken) {
-            // Update existing tokens
-            const { error: updateError } = await supabase
-                .from('PurchasedToken')
-                .update({ imageTokens: existingToken.imageTokens + tokensToAdd })
-                .eq('userId', userId);
-
-            if (updateError) {
-                console.error('Error updating tokens:', updateError);
-                throw new Error('Failed to update tokens');
+                if (updateError) {
+                    console.error("Error updating affiliate earnings:", updateError);
+                } else {
+                    console.log(`Updated affiliate ${affiliateData.id}: +$${commission.toFixed(2)}`);
+                }
             }
-
-            console.log(`Updated image tokens for user ${userId}: +${tokensToAdd}`);
-        } else {
-            // Create new token record
-            const { error: insertError } = await supabase
-                .from('PurchasedToken')
-                .insert({
-                    userId: userId,
-                    textTokens: 0,
-                    imageTokens: tokensToAdd,
-                });
-
-            if (insertError) {
-                console.error('Error inserting tokens:', insertError);
-                throw new Error('Failed to create token record');
-            }
-
-            console.log(`Created new token record for user ${userId}: ${tokensToAdd} image tokens`);
         }
 
         // Discord Webhook
-        fetch('http://localhost:3000/api/discord/webhook', {
+        fetch('https://anione.me/api/discord/webhook', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -262,55 +205,10 @@ export async function GET(req: Request) {
             console.log('Discord webhook notification failed:', error);
         });
 
-        // ========== UPDATE AFFILIATES ==========
-        if (referrerId) {
-            const commission = parseFloat(finalAmount) * commissionRate;
+        console.log(`✅ Processed affiliate and voucher for package purchase. Redirecting user.`);
 
-            const { data: affiliateData, error: fetchError } = await supabase
-                .from("Affiliates")
-                .select("total_sales, total_sales_amount, total_earned")
-                .eq("id", referrerId)
-                .single();
-
-            if (fetchError || !affiliateData) {
-                console.error("Error fetching affiliate data:", fetchError);
-            } else {
-                const newTotalSales = affiliateData.total_sales + 1;
-                const newTotalSalesAmount = parseFloat(affiliateData.total_sales_amount) + parseFloat(finalAmount);
-                const newTotalEarned = parseFloat(affiliateData.total_earned) + commission;
-
-                const { error: updateError } = await supabase
-                    .from("Affiliates")
-                    .update({
-                        total_sales: newTotalSales,
-                        total_sales_amount: newTotalSalesAmount,
-                        total_earned: newTotalEarned
-                    })
-                    .eq("id", referrerId);
-
-                if (updateError) {
-                    console.error("Error updating affiliate earnings:", updateError);
-                } else {
-                    console.log(`Updated affiliate ${referrerId}: +$${commission.toFixed(2)}`);
-                }
-            }
-        }
-
-        // ========== MARK PAYMENT AS PROCESSED ==========
-        const { error: markProcessedError } = await supabase
-            .from('Payment')
-            .update({ expiryStatus: true })
-            .eq('id', paymentId);
-
-        if (markProcessedError) {
-            console.error('Error marking payment as processed:', markProcessedError);
-            // Don't throw - package and tokens were added successfully
-        }
-
-        console.log(`✅ Successfully processed package purchase for user ${userId}: ${token_type}`);
-
-        // Construct the dynamic redirect URL with final amount
-        const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&stripeSubscriptionId=${subscriptionId}&userId=${userId}`;
+        // Construct the dynamic redirect URL
+        const redirectUrl = `${url}/${locale}/Redirects/success-packages?amount=${originalAmount}&token_type=${token_type}&token_amount=${token_amount}&userId=${userId}`;
 
         // Redirect to the localized success page
         return NextResponse.redirect(redirectUrl, {
@@ -318,7 +216,7 @@ export async function GET(req: Request) {
         });
 
     } catch (error) {
-        console.error('Error processing successful payment:', error);
+        console.error('Error in success_package route:', error);
         return NextResponse.redirect('https://www.plagiacheck.online', { status: 302 });
     }
 }

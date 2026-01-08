@@ -120,6 +120,12 @@ export async function GET(req: Request) {
           discounts: [{
               promotion_code: promoId
           }],
+          metadata: {
+            userId: userId,
+            tokenAmount: tokenAmount,
+            tokenType: tokenType,
+            purchaseType: 'token'
+          },
           success_url: successUrl,
           cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
       });
@@ -142,6 +148,12 @@ export async function GET(req: Request) {
             }],
             mode: "payment",
             allow_promotion_codes: true,
+            metadata: {
+              userId: userId,
+              tokenAmount: tokenAmount,
+              tokenType: tokenType,
+              purchaseType: 'token'
+            },
             success_url: successUrl,
             cancel_url: `https://plagiacheck.online/api/Redirect/canceled_prompt?locale=${locale}&token=${verificationToken}&timestamp=${timestamp}&userId=${userId}`,
         });

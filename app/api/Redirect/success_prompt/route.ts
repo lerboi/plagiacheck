@@ -1,14 +1,35 @@
 import { NextResponse } from "next/server";
-import { createId } from "@paralleldrive/cuid2";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { generateCheckoutToken } from "@/utils/generateCheckoutToken";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl!, supabaseKey!);
 const url = process.env.url;
+
+// Helper function to wait for Payment record to be created by webhook
+async function waitForPayment(paymentId: string, maxRetries = 10, delayMs = 500): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    const { data, error } = await supabase
+      .from('Payment')
+      .select('id')
+      .eq('id', paymentId)
+      .single();
+    
+    if (data && !error) {
+      console.log(`Payment ${paymentId} found after ${i + 1} attempts`);
+      return true;
+    }
+    
+    if (i < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  console.warn(`Payment ${paymentId} not found after ${maxRetries} attempts`);
+  return false;
+}
 
 export async function GET(req: Request) {
   // Get URL query parameters
@@ -22,122 +43,88 @@ export async function GET(req: Request) {
   const timestamp = searchParams.get("timestamp");
   const sessionId = searchParams.get("session_id");
   const voucher = searchParams.get("voucher");
+  const refCode = searchParams.get("ref_code");
 
   // Verify the request is legitimate
   if (!userId || !originalAmount || !timestamp || !sessionId) {
     return NextResponse.json({ error: "Missing verification parameters" }, { status: 400 });
   }
 
-  // Check if the timestamp is within a reasonable window (e.g., 1 hour)
+  // Check if the timestamp is within a reasonable window (20 minutes)
   const timestampNum = parseInt(timestamp);
-  if (Date.now() - timestampNum > 1200000) { // 20 minutes in milliseconds
+  if (Date.now() - timestampNum > 1200000) {
     return NextResponse.redirect("https://www.plagiacheck.online");
   }
 
   try {
-    // Retrieve the Stripe Checkout Session to get the final amount
-    const session = await stripe.checkout.sessions.retrieve(sessionId!, {
-      expand: ['line_items']
-    });
-
-    // Get the final amount paid (in cents, convert to dollars)
-    const finalAmount = (session.amount_total! / 100).toFixed(2);
-    const paymentId = session.payment_intent as string;
-
-    if (!paymentId) {
-      console.error('No payment intent found in session');
-      return NextResponse.redirect("https://www.plagiacheck.online", { status: 302 });
-    }
-
-    // ========== IDEMPOTENCY CHECK ==========
-    // Check if Payment already exists
-    const { data: existingPayment, error: checkError } = await supabase
-      .from('Payment')
-      .select('id, expiryStatus')
-      .eq('id', paymentId)
-      .single();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing payment:', checkError);
-      throw new Error('Database error while checking payment');
-    }
-
-    if (existingPayment) {
-      console.log(`Payment ${paymentId} already processed. Redirecting to success page.`);
-      const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
-      return NextResponse.redirect(redirectUrl, { status: 302 });
-    }
-
-    // ========== CREATE PAYMENT RECORD ==========
-    const { error: paymentError } = await supabase.from("Payment").insert({
-      id: paymentId,
-      subscriptionId: null,
-      userId: userId,
-      amount: finalAmount,
-      status: "succeeded",
-      paymentType: "token",
-      expiryStatus: false,
-    });
-
-    if (paymentError) {
-      console.error('Failed to create payment:', paymentError);
-      throw new Error("Failed to record payment: " + JSON.stringify(paymentError));
-    }
-
-    // ========== ADD TOKENS ==========
-    const tokenAmountInt = parseInt(token_amount!);
+    // Get payment_intent from session for affiliate update
+    let paymentId: string | null = null;
     
-    // Check if user already has tokens
-    const { data: existingToken, error: existingTokenError } = await supabase
-      .from('PurchasedToken')
-      .select('textTokens, imageTokens')
-      .eq('userId', userId)
-      .single();
-
-    if (existingTokenError && existingTokenError.code !== 'PGRST116') {
-      console.error('Error checking existing tokens:', existingTokenError);
-      throw new Error('Failed to check existing tokens');
+    if (refCode) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId!);
+        
+        // Handle payment_intent as either string or object
+        if (typeof session.payment_intent === 'string') {
+          paymentId = session.payment_intent;
+        } else if (session.payment_intent && typeof session.payment_intent === 'object') {
+          paymentId = session.payment_intent.id;
+        }
+        
+        if (paymentId) {
+          // Wait for webhook to create Payment record
+          await waitForPayment(paymentId);
+        }
+      } catch (error) {
+        console.error('Error retrieving session for affiliate update:', error);
+      }
     }
 
-    if (existingToken) {
-      // Update existing tokens
-      const updates = token_type === 'text' 
-        ? { textTokens: existingToken.textTokens + tokenAmountInt }
-        : { imageTokens: existingToken.imageTokens + tokenAmountInt };
-      
-      const { error: updateError } = await supabase
-        .from('PurchasedToken')
-        .update(updates)
-        .eq('userId', userId);
+    // ========== HANDLE VOUCHER ==========
+    if (voucher) {
+      try {
+        console.log("Processing voucher usage:", voucher);
+        
+        const { data: voucherData, error: voucherError } = await supabase
+          .from('Vouchers')
+          .select('auto, created_for_user_id')
+          .eq('code', voucher)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (!voucherError && voucherData?.auto) {
+          const { error: updateError } = await supabase
+            .from('Vouchers')
+            .update({ is_active: false })
+            .eq('code', voucher);
+          
+          if (updateError) {
+            console.error("Error disabling auto voucher:", updateError);
+          } else {
+            console.log("Auto-generated voucher disabled:", voucher);
+          }
 
-      if (updateError) {
-        console.error('Error updating tokens:', updateError);
-        throw new Error('Failed to update tokens');
+          if (voucherData.created_for_user_id) {
+            const { error: userUpdateError } = await supabase
+              .from('User')
+              .update({ firstTimeOfferUsed: true })
+              .eq('id', voucherData.created_for_user_id);
+            
+            if (userUpdateError) {
+              console.error("Error marking first-time offer as used:", userUpdateError);
+            } else {
+              console.log("First-time offer marked as used for user:", voucherData.created_for_user_id);
+            }
+          }
+        }
+      } catch (voucherProcessingError) {
+        console.error("Error processing voucher usage:", voucherProcessingError);
       }
-
-      console.log(`Updated ${token_type} tokens for user ${userId}: +${tokenAmountInt}`);
-    } else {
-      // Create new token record
-      const { error: insertError } = await supabase
-        .from('PurchasedToken')
-        .insert({
-          userId: userId,
-          textTokens: token_type === 'text' ? tokenAmountInt : 0,
-          imageTokens: token_type === 'image' ? tokenAmountInt : 0,
-        });
-
-      if (insertError) {
-        console.error('Error inserting tokens:', insertError);
-        throw new Error('Failed to create token record');
-      }
-
-      console.log(`Created new token record for user ${userId}: ${tokenAmountInt} ${token_type}`);
     }
 
     // ========== UPDATE AFFILIATE DATA ==========
-    const refCode = searchParams.get("ref_code");
-    if (refCode) {
-        const { data: affiliateData, error: affiliateError } = await supabase
+    if (refCode && paymentId) {
+      const { data: affiliateData, error: affiliateError } = await supabase
         .from("Affiliates")
         .select("id, total_sales, total_sales_amount, total_earned, commission")
         .eq("ref_code", refCode)
@@ -148,19 +135,20 @@ export async function GET(req: Request) {
       } else {
         const affiliateId = affiliateData.id;
         const commissionRate = (affiliateData.commission || 20) / 100;
+        const paymentAmount = parseFloat(originalAmount);
+        const commission = paymentAmount * commissionRate;
 
-        // Update the Payment entry to include the referrer_id
+        // Update Payment record with referrer_id
         const { error: paymentUpdateError } = await supabase
-            .from("Payment")
-            .update({ referrer_id: affiliateId })
-            .eq("id", paymentId);
+          .from("Payment")
+          .update({ referrer_id: affiliateId })
+          .eq("id", paymentId);
         
         if (paymentUpdateError) {
-            console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
+          console.error("Failed to update Payment with referrer_id:", paymentUpdateError);
+        } else {
+          console.log(`Updated Payment ${paymentId} with referrer_id: ${affiliateId}`);
         }
-
-        const paymentAmount = parseFloat(finalAmount);
-        const commission = paymentAmount * commissionRate;
 
         const newTotalSales = (affiliateData.total_sales || 0) + 1;
         const newTotalSalesAmount = (parseFloat(affiliateData.total_sales_amount) || 0) + paymentAmount;
@@ -183,61 +171,8 @@ export async function GET(req: Request) {
       }
     }
 
-    // ========== HANDLE VOUCHER ==========
-    if (voucher) {
-      try {
-          console.log("Processing voucher usage:", voucher);
-          
-          const { data: voucherData, error: voucherError } = await supabase
-              .from('Vouchers')
-              .select('auto, created_for_user_id')
-              .eq('code', voucher)
-              .eq('is_active', true)
-              .maybeSingle();
-          
-          if (!voucherError && voucherData?.auto) {
-              const { error: updateError } = await supabase
-                  .from('Vouchers')
-                  .update({ is_active: false })
-                  .eq('code', voucher);
-              
-              if (updateError) {
-                  console.error("Error disabling auto voucher:", updateError);
-              } else {
-                  console.log("Auto-generated voucher disabled:", voucher);
-              }
-
-              if (voucherData.created_for_user_id) {
-                  const { error: userUpdateError } = await supabase
-                      .from('User')
-                      .update({ firstTimeOfferUsed: true })
-                      .eq('id', voucherData.created_for_user_id);
-                  
-                  if (userUpdateError) {
-                      console.error("Error marking first-time offer as used:", userUpdateError);
-                  } else {
-                      console.log("First-time offer marked as used for user:", voucherData.created_for_user_id);
-                  }
-              }
-          }
-        } catch (voucherProcessingError) {
-            console.error("Error processing voucher usage:", voucherProcessingError);
-        }
-    }
-
-    // ========== MARK PAYMENT AS PROCESSED ==========
-    const { error: markProcessedError } = await supabase
-      .from('Payment')
-      .update({ expiryStatus: true })
-      .eq('id', paymentId);
-
-    if (markProcessedError) {
-      console.error('Error marking payment as processed:', markProcessedError);
-      // Don't throw - tokens were added successfully
-    }
-
     // Discord webhook
-    fetch('http://localhost:3000/api/discord/webhook', {
+    fetch('https://anione.me/api/discord/webhook', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -251,16 +186,16 @@ export async function GET(req: Request) {
       console.log('Discord webhook notification failed:', error);
     });
 
-    console.log(`✅ Successfully processed token purchase for user ${userId}: ${tokenAmountInt} ${token_type} tokens`);
+    console.log(`✅ Processed affiliate and voucher for token purchase. Redirecting user.`);
 
-    const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${finalAmount}&token_type=${token_type}&token_amount=${token_amount}&payment_id=${paymentId}&userId=${userId}`;
+    const redirectUrl = `${url}/${locale}/Redirects/success-tokens?amount=${originalAmount}&token_type=${token_type}&token_amount=${token_amount}&userId=${userId}`;
 
     return NextResponse.redirect(redirectUrl, {
       status: 302,
     });
 
   } catch (error) {
-    console.error('Error processing successful payment:', error);
+    console.error('Error in success_prompt route:', error);
     return NextResponse.redirect('https://www.plagiacheck.online', { status: 302 });
   }
 }
