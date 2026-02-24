@@ -295,12 +295,27 @@ async function handleSuccessfulPayment(invoice) {
         // Access metadata from the subscription object
         const { metadata } = subscription;
 
-        if (!metadata || !metadata.userId || !metadata.tokenType) {
-            console.error('Missing required metadata in subscription:', subscription.id);
-            return;
-        }
+        let userId, tokenType;
 
-        const { userId, tokenType } = metadata;
+        if (metadata && metadata.userId && metadata.tokenType) {
+            userId = metadata.userId;
+            tokenType = metadata.tokenType;
+        } else {
+            // Fallback: subscription metadata missing, look up from Package table
+            const { data: pkgData, error: pkgErr } = await supabase
+                .from('Package')
+                .select('userId, packageName')
+                .eq('stripeSubscriptionId', subscriptionId)
+                .single();
+
+            if (pkgErr || !pkgData) {
+                console.error('Missing required metadata and no Package found for subscription:', subscription.id);
+                return;
+            }
+
+            userId = pkgData.userId;
+            tokenType = pkgData.packageName;
+        }
         console.log(`Processing token allocation for user: ${userId}, token type: ${tokenType}`);
 
         // Allocate tokens based on the metadata
