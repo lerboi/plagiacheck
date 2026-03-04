@@ -6,12 +6,13 @@ interface TokenStore {
   remainingWords: number
   fetchRemainingWords: (userId: string) => Promise<void>
   decrementWords: (amount: number) => Promise<void>
+  clearTokens: () => void
 }
 
 export const useTokenStore = create<TokenStore>()(
   persist(
     (set) => ({
-      remainingWords: 0, // Initially set to 0, will be fetched from Supabase
+      remainingWords: 0,
 
       fetchRemainingWords: async (userId) => {
         const supabase = createClientComponentClient()
@@ -37,16 +38,21 @@ export const useTokenStore = create<TokenStore>()(
 
         if (!user?.data?.user?.id) return
 
-        const currentState = useTokenStore.getState()
+        // Read the already-decremented local state and sync to DB
+        const newAmount = useTokenStore.getState().remainingWords
 
         const { error } = await supabase
           .from("user_profiles")
-          .update({ tokens: Math.max(0, currentState.remainingWords - amount) })
+          .update({ tokens: newAmount })
           .eq("id", user.data.user.id)
 
         if (error) {
           console.error("Error updating tokens:", error.message)
         }
+      },
+
+      clearTokens: () => {
+        set({ remainingWords: 0 })
       },
     }),
     {

@@ -1,0 +1,6 @@
+DO NOT TOUCH ANY OF THE BELOW FOLDERS
+
+app/api/paymentstuff/*
+app/api/Redirect/*
+app/api/webhook/*
+app/api/discounts/*

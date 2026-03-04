@@ -1,30 +1,28 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, FileText, Sparkles, Zap, Shield, Copy, Check, ListOrdered, AlignLeft } from "lucide-react"
+import { Loader2, FileText, Sparkles, Zap, Copy, Check, ListOrdered, AlignLeft } from "lucide-react"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FeatureShowcase } from "@/components/FeatureShowcase"
-import { Hero } from "@/components/Hero"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
 
 export default function Summarizer() {
   const [text, setText] = useState("")
   const [summary, setSummary] = useState("")
   const [bulletPoints, setBulletPoints] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -32,12 +30,32 @@ export default function Summarizer() {
   const [outputType, setOutputType] = useState("paragraph")
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+  const supabase = createClientComponentClient()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+    }
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+    return () => { authListener.subscription.unsubscribe() }
+  }, [supabase.auth])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
   }
 
   const handleSummarize = async () => {
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
     if (!text.trim()) return
 
     const requiredTokens = calculateRequiredTokens(text)
@@ -47,71 +65,51 @@ export default function Summarizer() {
     }
 
     setIsProcessing(true)
-    setProgress(0)
     setSummary("")
     setBulletPoints([])
     setError(null)
 
     try {
-      const timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(timer)
-            return 95
-          }
-          return prev + 5
-        })
-      }, 100)
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          tool: "summarize",
+          options: { length: summaryLength, format: outputType }
+        }),
+      })
 
-      setTimeout(() => {
-        clearInterval(timer)
-        setProgress(100)
+      const data = await response.json()
 
-        // Split text into sentences
-        const sentences = text.match(/[^.!?]+[.!?]+/g) || [text]
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to summarize text")
+      }
 
-        // Calculate how many sentences to keep based on length setting
-        const keepRatio = summaryLength / 100
-        const sentencesToKeep = Math.max(1, Math.ceil(sentences.length * keepRatio))
+      if (outputType === "paragraph") {
+        setSummary(data.result.summary || "")
+      } else {
+        setBulletPoints(data.result.bulletPoints || [])
+      }
 
-        // Score sentences by length and position (simple heuristic)
-        const scoredSentences = sentences.map((sentence, index) => ({
-          text: sentence.trim(),
-          score: sentence.length + (index === 0 ? 50 : 0) + (index === sentences.length - 1 ? 30 : 0),
-          index
-        }))
+      await decrementWords(requiredTokens)
 
-        // Sort by score and take top sentences
-        const topSentences = [...scoredSentences]
-          .sort((a, b) => b.score - a.score)
-          .slice(0, sentencesToKeep)
-          .sort((a, b) => a.index - b.index)
-
-        if (outputType === "paragraph") {
-          setSummary(topSentences.map(s => s.text).join(" "))
-        } else {
-          setBulletPoints(topSentences.map(s => s.text))
-        }
-
-        decrementWords(requiredTokens)
-        setIsProcessing(false)
-
-        toast({
-          title: "Summary Complete",
-          description: "Your text has been successfully summarized.",
-          variant: "success",
-        })
-      }, 2000)
+      toast({
+        title: "Summary Complete",
+        description: "Your text has been successfully summarized.",
+        variant: "success",
+      })
     } catch (err) {
       console.error("Error summarizing text:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to summarize"
       setError(errorMessage)
-      setIsProcessing(false)
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -144,7 +142,6 @@ export default function Summarizer() {
     <div className="min-h-screen">
       <Nav />
 
-      {/* Hero Section */}
       <section className="container py-16">
         <motion.div
           className="text-center space-y-6 mb-16"
@@ -158,9 +155,7 @@ export default function Summarizer() {
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className="font-bold tracking-tight sm:text-6xl md:text-7xl">
-              AI Summarizer
-            </span>
+            AI Summarizer
           </h1>
 
           <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
@@ -168,7 +163,6 @@ export default function Summarizer() {
             Get the key points in seconds with our AI summarization tool.
           </p>
 
-          {/* Quick Features */}
           <div className="flex flex-wrap justify-center gap-6 pt-4">
             {quickFeatures.map((feature, index) => (
               <motion.div
@@ -185,7 +179,6 @@ export default function Summarizer() {
           </div>
         </motion.div>
 
-        {/* Main Content */}
         <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
           <motion.div
             className="space-y-6"
@@ -193,7 +186,6 @@ export default function Summarizer() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            {/* Input Card */}
             <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -254,30 +246,6 @@ export default function Summarizer() {
               </div>
             </Card>
 
-            {isProcessing && (
-              <motion.div
-                className="space-y-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="p-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Analyzing and summarizing...</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Results Card */}
             {(summary || bulletPoints.length > 0) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -290,19 +258,10 @@ export default function Summarizer() {
                       <h3 className="text-lg font-semibold">Summary</h3>
                       <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground">
-                          {summaryWordCount} words ({Math.round((summaryWordCount / wordCount) * 100) || 0}% of original)
+                          {summaryWordCount} words ({wordCount > 0 ? Math.round((summaryWordCount / wordCount) * 100) : 0}% of original)
                         </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCopy}
-                          className="h-8"
-                        >
-                          {copied ? (
-                            <Check className="h-4 w-4 mr-1 text-green-500" />
-                          ) : (
-                            <Copy className="h-4 w-4 mr-1" />
-                          )}
+                        <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
+                          {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
                           {copied ? "Copied!" : "Copy"}
                         </Button>
                       </div>
@@ -330,22 +289,19 @@ export default function Summarizer() {
             )}
           </motion.div>
 
-          {/* Settings Sidebar */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <Card className="sticky top-6 shadow-lg border-0 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900">
+            <Card className="sticky top-20 shadow-lg border-0 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-gray-800 dark:to-gray-900">
               <CardContent className="p-8">
                 <div className="space-y-8">
                   <div>
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                       Summary Settings
                     </h3>
-
                     <div className="space-y-6">
-                      {/* Summary Length */}
                       <div className="space-y-3">
                         <Label className="text-base font-medium">
                           Summary Length: {summaryLength}%
@@ -364,7 +320,6 @@ export default function Summarizer() {
                         </div>
                       </div>
 
-                      {/* Output Type */}
                       <div className="space-y-3">
                         <Label className="text-base font-medium">Output Format</Label>
                         <Tabs value={outputType} onValueChange={setOutputType}>
@@ -383,22 +338,14 @@ export default function Summarizer() {
                     </div>
                   </div>
 
-                  {/* How It Works */}
                   <div className="space-y-6">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">How It Works</h3>
-
                     {[
                       { step: "1", title: "Paste Text", desc: "Add your long-form content" },
                       { step: "2", title: "Set Length", desc: "Choose summary length" },
                       { step: "3", title: "Get Summary", desc: "Receive concise key points" }
                     ].map((item, index) => (
-                      <motion.div
-                        key={index}
-                        className="flex gap-4"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
-                      >
+                      <div key={index} className="flex gap-4">
                         <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
                           {item.step}
                         </div>
@@ -406,7 +353,7 @@ export default function Summarizer() {
                           <p className="font-semibold text-gray-900 dark:text-white">{item.title}</p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
 
@@ -428,8 +375,6 @@ export default function Summarizer() {
         </div>
       </section>
 
-      <FeatureShowcase />
-      <Hero />
       <FAQ />
     </div>
   )

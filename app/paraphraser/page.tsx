@@ -1,39 +1,58 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, RefreshCw, Sparkles, Zap, Shield, Copy, Check, ArrowRight } from "lucide-react"
+import { Card } from "@/components/ui/card"
+import { Loader2, RefreshCw, Zap, Shield, Copy, Check, ArrowRight } from "lucide-react"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { FeatureShowcase } from "@/components/FeatureShowcase"
-import { Hero } from "@/components/Hero"
 import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
 
 export default function Paraphraser() {
   const [text, setText] = useState("")
   const [paraphrasedText, setParaphrasedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState("standard")
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+  const supabase = createClientComponentClient()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+    }
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+    return () => { authListener.subscription.unsubscribe() }
+  }, [supabase.auth])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
   }
 
   const handleParaphrase = async () => {
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
     if (!text.trim()) return
 
     const requiredTokens = calculateRequiredTokens(text)
@@ -43,90 +62,45 @@ export default function Paraphraser() {
     }
 
     setIsProcessing(true)
-    setProgress(0)
     setParaphrasedText("")
     setError(null)
 
     try {
-      const timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(timer)
-            return 95
-          }
-          return prev + 5
-        })
-      }, 100)
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          tool: "paraphrase",
+          options: { mode }
+        }),
+      })
 
-      setTimeout(() => {
-        clearInterval(timer)
-        setProgress(100)
+      const data = await response.json()
 
-        let result = text
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to paraphrase text")
+      }
 
-        // Apply different paraphrasing modes
-        if (mode === "standard") {
-          result = result
-            .replace(/\b(very)\b/gi, "quite")
-            .replace(/\b(good)\b/gi, "excellent")
-            .replace(/\b(bad)\b/gi, "poor")
-            .replace(/\b(big)\b/gi, "large")
-            .replace(/\b(small)\b/gi, "little")
-            .replace(/\b(important)\b/gi, "crucial")
-            .replace(/\b(help)\b/gi, "assist")
-            .replace(/\b(show)\b/gi, "demonstrate")
-            .replace(/\b(use)\b/gi, "utilize")
-            .replace(/\b(make)\b/gi, "create")
-        } else if (mode === "fluency") {
-          result = result
-            .replace(/\b(therefore)\b/gi, "as a result")
-            .replace(/\b(however)\b/gi, "on the other hand")
-            .replace(/\b(also)\b/gi, "additionally")
-            .replace(/\b(but)\b/gi, "nevertheless")
-            .replace(/\b(so)\b/gi, "consequently")
-            .replace(/\b(because)\b/gi, "since")
-            .replace(/\b(although)\b/gi, "even though")
-        } else if (mode === "creative") {
-          result = result
-            .replace(/\b(said)\b/gi, "expressed")
-            .replace(/\b(think)\b/gi, "believe")
-            .replace(/\b(want)\b/gi, "desire")
-            .replace(/\b(need)\b/gi, "require")
-            .replace(/\b(like)\b/gi, "appreciate")
-            .replace(/\b(see)\b/gi, "observe")
-            .replace(/\b(know)\b/gi, "understand")
-            .replace(/\b(get)\b/gi, "obtain")
-        } else if (mode === "formal") {
-          result = result
-            .replace(/\b(kids)\b/gi, "children")
-            .replace(/\b(lots of)\b/gi, "numerous")
-            .replace(/\b(a lot)\b/gi, "considerably")
-            .replace(/\b(thing)\b/gi, "matter")
-            .replace(/\b(stuff)\b/gi, "materials")
-            .replace(/\b(guy)\b/gi, "individual")
-            .replace(/\b(pretty)\b/gi, "fairly")
-        }
+      setParaphrasedText(data.result.paraphrasedText || text)
+      await decrementWords(requiredTokens)
 
-        setParaphrasedText(result)
-        decrementWords(requiredTokens)
-        setIsProcessing(false)
-
-        toast({
-          title: "Paraphrasing Complete",
-          description: "Your text has been successfully paraphrased.",
-          variant: "success",
-        })
-      }, 2000)
+      toast({
+        title: "Paraphrasing Complete",
+        description: "Your text has been successfully paraphrased.",
+        variant: "success",
+      })
     } catch (err) {
       console.error("Error paraphrasing text:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to paraphrase"
       setError(errorMessage)
-      setIsProcessing(false)
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -158,7 +132,6 @@ export default function Paraphraser() {
     <div className="min-h-screen">
       <Nav />
 
-      {/* Hero Section */}
       <section className="container py-16">
         <motion.div
           className="text-center space-y-6 mb-16"
@@ -172,9 +145,7 @@ export default function Paraphraser() {
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className="font-bold tracking-tight sm:text-6xl md:text-7xl">
-              AI Paraphraser
-            </span>
+            AI Paraphraser
           </h1>
 
           <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
@@ -182,7 +153,6 @@ export default function Paraphraser() {
             Perfect for avoiding plagiarism and improving your writing.
           </p>
 
-          {/* Quick Features */}
           <div className="flex flex-wrap justify-center gap-6 pt-4">
             {quickFeatures.map((feature, index) => (
               <motion.div
@@ -199,7 +169,6 @@ export default function Paraphraser() {
           </div>
         </motion.div>
 
-        {/* Main Content - Side by Side Comparison */}
         <div className="max-w-7xl mx-auto">
           <motion.div
             className="grid lg:grid-cols-2 gap-6"
@@ -207,14 +176,11 @@ export default function Paraphraser() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            {/* Input Section */}
             <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Original Text</h3>
-                  <span className="text-sm text-muted-foreground">
-                    {text.length} characters
-                  </span>
+                  <span className="text-sm text-muted-foreground">{text.length} characters</span>
                 </div>
                 <Textarea
                   placeholder="Enter or paste your text here to paraphrase..."
@@ -225,23 +191,13 @@ export default function Paraphraser() {
               </div>
             </Card>
 
-            {/* Output Section */}
             <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Paraphrased Text</h3>
                   {paraphrasedText && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopy}
-                      className="h-8"
-                    >
-                      {copied ? (
-                        <Check className="h-4 w-4 mr-1 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4 mr-1" />
-                      )}
+                    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
+                      {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
                       {copied ? "Copied!" : "Copy"}
                     </Button>
                   )}
@@ -256,7 +212,6 @@ export default function Paraphraser() {
             </Card>
           </motion.div>
 
-          {/* Controls */}
           <motion.div
             className="mt-6 space-y-6"
             initial={{ opacity: 0, y: 20 }}
@@ -327,25 +282,9 @@ export default function Paraphraser() {
                   </p>
                 </motion.div>
               )}
-
-              {isProcessing && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Paraphrasing content...</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
             </Card>
           </motion.div>
 
-          {/* How It Works */}
           <motion.div
             className="mt-12 grid md:grid-cols-4 gap-6"
             initial={{ opacity: 0, y: 20 }}
@@ -353,10 +292,10 @@ export default function Paraphraser() {
             transition={{ duration: 0.6, delay: 0.5 }}
           >
             {[
-              { step: "1", title: "Enter Text", desc: "Paste or type your original content", icon: "text" },
-              { step: "2", title: "Choose Mode", desc: "Select your preferred style", icon: "settings" },
-              { step: "3", title: "Paraphrase", desc: "AI rewrites your content", icon: "magic" },
-              { step: "4", title: "Copy Result", desc: "Use your unique content", icon: "copy" }
+              { step: "1", title: "Enter Text", desc: "Paste or type your original content" },
+              { step: "2", title: "Choose Mode", desc: "Select your preferred style" },
+              { step: "3", title: "Paraphrase", desc: "AI rewrites your content" },
+              { step: "4", title: "Copy Result", desc: "Use your unique content" }
             ].map((item, index) => (
               <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-gray-800 dark:to-gray-900">
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
@@ -373,8 +312,6 @@ export default function Paraphraser() {
         </div>
       </section>
 
-      <FeatureShowcase />
-      <Hero />
       <FAQ />
     </div>
   )

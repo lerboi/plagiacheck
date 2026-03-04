@@ -73,7 +73,7 @@ export function PlagiarismResults({ isChecking, progress, result, originalText }
       elements.push(
         <span
           key={`highlight-${index}`}
-          className="bg-red-200 text-red-800 px-1 py-0.5 rounded relative group cursor-help"
+          className="bg-red-200 dark:bg-red-900/40 text-red-800 dark:text-red-300 px-1 py-0.5 rounded relative group cursor-help"
           title={match.reason || `${formatNumber(match.similarity)}% similarity`}
         >
           {text.substring(startIndex, endIndex)}

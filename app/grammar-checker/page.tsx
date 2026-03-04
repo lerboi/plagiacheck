@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,12 +8,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, CheckCircle2, Sparkles, Zap, Shield, Copy, Check, AlertTriangle, XCircle, Info } from "lucide-react"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
-import { FeatureShowcase } from "@/components/FeatureShowcase"
-import { Hero } from "@/components/Hero"
 import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
 
 interface GrammarIssue {
   type: "error" | "warning" | "suggestion"
@@ -28,18 +28,37 @@ export default function GrammarChecker() {
   const [correctedText, setCorrectedText] = useState("")
   const [issues, setIssues] = useState<GrammarIssue[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+  const supabase = createClientComponentClient()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+    }
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+    return () => { authListener.subscription.unsubscribe() }
+  }, [supabase.auth])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
   }
 
   const handleCheck = async () => {
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
     if (!text.trim()) return
 
     const requiredTokens = calculateRequiredTokens(text)
@@ -49,97 +68,57 @@ export default function GrammarChecker() {
     }
 
     setIsProcessing(true)
-    setProgress(0)
     setCorrectedText("")
     setIssues([])
     setError(null)
 
     try {
-      const timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(timer)
-            return 95
-          }
-          return prev + 5
-        })
-      }, 100)
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, tool: "grammar" }),
+      })
 
-      setTimeout(() => {
-        clearInterval(timer)
-        setProgress(100)
+      const data = await response.json()
 
-        // Common grammar rules for simulation
-        const grammarRules: { pattern: RegExp; replacement: string; type: "error" | "warning" | "suggestion"; message: string }[] = [
-          { pattern: /\bi\b/g, replacement: "I", type: "error", message: "Capitalize 'I' when referring to yourself" },
-          { pattern: /\bthier\b/gi, replacement: "their", type: "error", message: "Spelling error: 'thier' should be 'their'" },
-          { pattern: /\bteh\b/gi, replacement: "the", type: "error", message: "Spelling error: 'teh' should be 'the'" },
-          { pattern: /\brecieve\b/gi, replacement: "receive", type: "error", message: "Spelling error: 'recieve' should be 'receive'" },
-          { pattern: /\boccured\b/gi, replacement: "occurred", type: "error", message: "Spelling error: 'occured' should be 'occurred'" },
-          { pattern: /\bdefinately\b/gi, replacement: "definitely", type: "error", message: "Spelling error: 'definately' should be 'definitely'" },
-          { pattern: /\bseperate\b/gi, replacement: "separate", type: "error", message: "Spelling error: 'seperate' should be 'separate'" },
-          { pattern: /\byour\s+(?=going|welcome|right|wrong)/gi, replacement: "you're ", type: "error", message: "Use 'you're' (you are) instead of 'your'" },
-          { pattern: /\bits\s+(?=a|an|the|going|been)/gi, replacement: "it's ", type: "warning", message: "Consider using 'it's' (it is) instead of 'its'" },
-          { pattern: /\balot\b/gi, replacement: "a lot", type: "error", message: "'alot' is not a word, use 'a lot'" },
-          { pattern: /\bcould of\b/gi, replacement: "could have", type: "error", message: "'Could of' should be 'could have'" },
-          { pattern: /\bshould of\b/gi, replacement: "should have", type: "error", message: "'Should of' should be 'should have'" },
-          { pattern: /\bwould of\b/gi, replacement: "would have", type: "error", message: "'Would of' should be 'would have'" },
-          { pattern: /\s{2,}/g, replacement: " ", type: "suggestion", message: "Remove extra spaces" },
-          { pattern: /\.\s*,/g, replacement: ",", type: "error", message: "Incorrect punctuation" },
-          { pattern: /\bthen\b(?=\s+(?:me|him|her|them|us))/gi, replacement: "than", type: "error", message: "Use 'than' for comparisons" },
-          { pattern: /\baffect\b(?=\s+(?:on|is|was|has))/gi, replacement: "effect", type: "warning", message: "Consider using 'effect' (noun) instead of 'affect' (verb)" },
-        ]
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to check grammar")
+      }
 
-        let corrected = text
-        const foundIssues: GrammarIssue[] = []
+      setCorrectedText(data.result.correctedText || text)
 
-        grammarRules.forEach((rule) => {
-          let match
-          while ((match = rule.pattern.exec(text)) !== null) {
-            // Avoid duplicate issues at the same position
-            const isDuplicate = foundIssues.some(
-              issue => issue.position.start === match!.index && issue.text === match![0]
-            )
+      const mappedIssues: GrammarIssue[] = (data.result.issues || []).map((issue: any) => ({
+        type: issue.type || "error",
+        text: issue.text || "",
+        replacement: issue.replacement || "",
+        message: issue.message || "Grammar issue detected",
+        position: {
+          start: issue.startIndex || 0,
+          end: issue.endIndex || 0
+        }
+      }))
 
-            if (!isDuplicate) {
-              foundIssues.push({
-                type: rule.type,
-                text: match[0],
-                replacement: rule.replacement,
-                message: rule.message,
-                position: { start: match.index, end: match.index + match[0].length }
-              })
-            }
-          }
-          corrected = corrected.replace(rule.pattern, rule.replacement)
-        })
+      setIssues(mappedIssues)
+      await decrementWords(requiredTokens)
 
-        // Sort issues by position
-        foundIssues.sort((a, b) => a.position.start - b.position.start)
-
-        setCorrectedText(corrected)
-        setIssues(foundIssues)
-        decrementWords(requiredTokens)
-        setIsProcessing(false)
-
-        toast({
-          title: "Check Complete",
-          description: foundIssues.length > 0
-            ? `Found ${foundIssues.length} issue${foundIssues.length > 1 ? 's' : ''} in your text.`
-            : "No issues found! Your text looks great.",
-          variant: foundIssues.length > 0 ? "default" : "success",
-        })
-      }, 2000)
+      toast({
+        title: "Check Complete",
+        description: mappedIssues.length > 0
+          ? `Found ${mappedIssues.length} issue${mappedIssues.length > 1 ? 's' : ''} in your text.`
+          : "No issues found! Your text looks great.",
+        variant: mappedIssues.length > 0 ? "default" : "success",
+      })
     } catch (err) {
       console.error("Error checking grammar:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to check grammar"
       setError(errorMessage)
-      setIsProcessing(false)
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -158,7 +137,6 @@ export default function GrammarChecker() {
     const newText = text.substring(0, issue.position.start) + issue.replacement + text.substring(issue.position.end)
     setText(newText)
 
-    // Update issues by removing the fixed one and adjusting positions
     const lengthDiff = issue.replacement.length - issue.text.length
     const updatedIssues = issues
       .filter(i => i.position.start !== issue.position.start)
@@ -191,23 +169,17 @@ export default function GrammarChecker() {
 
   const getIssueIcon = (type: string) => {
     switch (type) {
-      case "error":
-        return <XCircle className="h-4 w-4 text-red-500" />
-      case "warning":
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />
-      default:
-        return <Info className="h-4 w-4 text-blue-500" />
+      case "error": return <XCircle className="h-4 w-4 text-red-500" />
+      case "warning": return <AlertTriangle className="h-4 w-4 text-yellow-500" />
+      default: return <Info className="h-4 w-4 text-blue-500" />
     }
   }
 
   const getIssueColor = (type: string) => {
     switch (type) {
-      case "error":
-        return "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
-      case "warning":
-        return "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20"
-      default:
-        return "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
+      case "error": return "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
+      case "warning": return "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20"
+      default: return "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
     }
   }
 
@@ -219,7 +191,6 @@ export default function GrammarChecker() {
     <div className="min-h-screen">
       <Nav />
 
-      {/* Hero Section */}
       <section className="container py-16">
         <motion.div
           className="text-center space-y-6 mb-16"
@@ -233,9 +204,7 @@ export default function GrammarChecker() {
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className="font-bold tracking-tight sm:text-6xl md:text-7xl">
-              Grammar Checker
-            </span>
+            Grammar Checker
           </h1>
 
           <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
@@ -243,7 +212,6 @@ export default function GrammarChecker() {
             Write with confidence using our AI-powered grammar checker.
           </p>
 
-          {/* Quick Features */}
           <div className="flex flex-wrap justify-center gap-6 pt-4">
             {quickFeatures.map((feature, index) => (
               <motion.div
@@ -260,7 +228,6 @@ export default function GrammarChecker() {
           </div>
         </motion.div>
 
-        {/* Main Content */}
         <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
           <motion.div
             className="space-y-6"
@@ -268,7 +235,6 @@ export default function GrammarChecker() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            {/* Input Card */}
             <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -329,36 +295,8 @@ export default function GrammarChecker() {
               </div>
             </Card>
 
-            {isProcessing && (
-              <motion.div
-                className="space-y-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="p-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Checking grammar and spelling...</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-3 rounded-full transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Results - Issues List */}
             {issues.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                 <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
@@ -403,12 +341,7 @@ export default function GrammarChecker() {
                                 </p>
                               </div>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => applyFix(issue)}
-                              className="flex-shrink-0"
-                            >
+                            <Button size="sm" variant="outline" onClick={() => applyFix(issue)} className="flex-shrink-0">
                               Fix
                             </Button>
                           </div>
@@ -420,28 +353,14 @@ export default function GrammarChecker() {
               </motion.div>
             )}
 
-            {/* Corrected Text */}
             {correctedText && issues.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
                 <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold">Corrected Text</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleCopy}
-                        className="h-8"
-                      >
-                        {copied ? (
-                          <Check className="h-4 w-4 mr-1 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4 mr-1" />
-                        )}
+                      <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
+                        {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
                         {copied ? "Copied!" : "Copy All"}
                       </Button>
                     </div>
@@ -453,13 +372,8 @@ export default function GrammarChecker() {
               </motion.div>
             )}
 
-            {/* No Issues Found */}
             {correctedText && issues.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-              >
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                 <Card className="p-8 shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20">
                   <div className="text-center space-y-4">
                     <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto">
@@ -475,20 +389,16 @@ export default function GrammarChecker() {
             )}
           </motion.div>
 
-          {/* Sidebar */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <Card className="sticky top-6 shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-gray-800 dark:to-gray-900">
+            <Card className="sticky top-20 shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-gray-800 dark:to-gray-900">
               <CardContent className="p-8">
                 <div className="space-y-8">
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                      What We Check
-                    </h3>
-
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">What We Check</h3>
                     <div className="space-y-4">
                       {[
                         { icon: XCircle, label: "Spelling Errors", color: "text-red-500" },
@@ -502,33 +412,6 @@ export default function GrammarChecker() {
                         </div>
                       ))}
                     </div>
-                  </div>
-
-                  {/* How It Works */}
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">How It Works</h3>
-
-                    {[
-                      { step: "1", title: "Enter Text", desc: "Type or paste your content" },
-                      { step: "2", title: "AI Analysis", desc: "We scan for all issues" },
-                      { step: "3", title: "Review & Fix", desc: "Apply fixes with one click" }
-                    ].map((item, index) => (
-                      <motion.div
-                        key={index}
-                        className="flex gap-4"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
-                      >
-                        <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                          {item.step}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">{item.title}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
-                        </div>
-                      </motion.div>
-                    ))}
                   </div>
 
                   <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -549,8 +432,6 @@ export default function GrammarChecker() {
         </div>
       </section>
 
-      <FeatureShowcase />
-      <Hero />
       <FAQ />
     </div>
   )

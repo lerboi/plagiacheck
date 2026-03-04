@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -17,12 +17,13 @@ import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
 
 export default function AIHumanizer() {
   const [text, setText] = useState("")
   const [humanizedText, setHumanizedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
-  const [progress, setProgress] = useState(0)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -31,12 +32,32 @@ export default function AIHumanizer() {
   const [copied, setCopied] = useState(false)
   const [viewMode, setViewMode] = useState<"split" | "tab">("split")
   const { toast } = useToast()
+  const supabase = createClientComponentClient()
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+    }
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+    return () => { authListener.subscription.unsubscribe() }
+  }, [supabase.auth])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
   }
 
   const handleHumanize = async () => {
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
     if (!text.trim()) return
 
     const requiredTokens = calculateRequiredTokens(text)
@@ -46,101 +67,45 @@ export default function AIHumanizer() {
     }
 
     setIsProcessing(true)
-    setProgress(0)
     setHumanizedText("")
     setError(null)
 
     try {
-      const timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(timer)
-            return 95
-          }
-          return prev + 5
-        })
-      }, 100)
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          tool: "humanize",
+          options: { tone, level: humanizationLevel }
+        }),
+      })
 
-      setTimeout(() => {
-        clearInterval(timer)
-        setProgress(100)
+      const data = await response.json()
 
-        let result = text
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to humanize text")
+      }
 
-        // Apply different transformations based on tone
-        if (tone === "casual") {
-          result = result
-            .replace(/\b(therefore|consequently|thus)\b/gi, "so")
-            .replace(/\b(utilize|employ)\b/gi, "use")
-            .replace(/\b(commence|initiate)\b/gi, "start")
-            .replace(/\b(furthermore|moreover)\b/gi, "also")
-            .replace(/\b(demonstrate)\b/gi, "show")
-            .replace(/\b(approximately)\b/gi, "about")
-            .replace(/\b(sufficient)\b/gi, "enough")
-            .replace(/\b(subsequently)\b/gi, "then")
-        } else if (tone === "professional") {
-          result = result
-            .replace(/\b(use)\b/gi, "utilize")
-            .replace(/\b(but)\b/gi, "however")
-            .replace(/\b(also)\b/gi, "additionally")
-            .replace(/\b(so)\b/gi, "therefore")
-            .replace(/\b(show)\b/gi, "demonstrate")
-        } else if (tone === "academic") {
-          result = result
-            .replace(/\b(show)\b/gi, "demonstrate")
-            .replace(/\b(use)\b/gi, "implement")
-            .replace(/\b(look at)\b/gi, "examine")
-            .replace(/\b(find out)\b/gi, "ascertain")
-            .replace(/\b(talk about)\b/gi, "discuss")
-        } else if (tone === "friendly") {
-          result = result
-            .replace(/\b(therefore)\b/gi, "so basically")
-            .replace(/\b(utilize)\b/gi, "use")
-            .replace(/\b(demonstrate)\b/gi, "show you")
-            .replace(/\b(furthermore)\b/gi, "and also")
-            .replace(/\b(however)\b/gi, "but")
-        } else if (tone === "persuasive") {
-          result = result
-            .replace(/\b(good)\b/gi, "excellent")
-            .replace(/\b(important)\b/gi, "crucial")
-            .replace(/\b(help)\b/gi, "empower")
-            .replace(/\b(change)\b/gi, "transform")
-            .replace(/\b(show)\b/gi, "reveal")
-        }
+      setHumanizedText(data.result.humanizedText || text)
+      await decrementWords(requiredTokens)
 
-        // Apply humanization level transformations
-        if (humanizationLevel < 30) {
-          result = result.replace(/\./g, ". ").replace(/\s+/g, " ").trim()
-        } else if (humanizationLevel > 70) {
-          result = result
-            .replace(/\b(I believe|In my opinion)\b/gi, "I think")
-            .replace(/\b(very)\b/gi, "really")
-            .replace(/\b(extremely)\b/gi, "super")
-            .replace(/\./g, ". ")
-            .replace(/\s+/g, " ")
-            .trim()
-        }
-
-        setHumanizedText(result)
-        decrementWords(requiredTokens)
-        setIsProcessing(false)
-
-        toast({
-          title: "Humanization Complete",
-          description: "Your text has been successfully humanized.",
-          variant: "success",
-        })
-      }, 2000)
+      toast({
+        title: "Humanization Complete",
+        description: "Your text has been successfully humanized.",
+        variant: "success",
+      })
     } catch (err) {
       console.error("Error humanizing text:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to humanize"
       setError(errorMessage)
-      setIsProcessing(false)
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -169,7 +134,6 @@ export default function AIHumanizer() {
     { value: "persuasive", label: "Persuasive", desc: "Compelling and convincing" },
   ]
 
-  // Calculate changes for comparison
   const getChangedWords = () => {
     if (!text || !humanizedText) return { original: 0, changed: 0, percentage: 0 }
     const originalWords = text.toLowerCase().split(/\s+/)
@@ -195,7 +159,6 @@ export default function AIHumanizer() {
     <div className="min-h-screen">
       <Nav />
 
-      {/* Hero Section */}
       <section className="container py-16">
         <motion.div
           className="text-center space-y-6 mb-16"
@@ -209,9 +172,7 @@ export default function AIHumanizer() {
           </div>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className="font-bold tracking-tight sm:text-6xl md:text-7xl">
-              AI Humanizer
-            </span>
+            AI Humanizer
           </h1>
 
           <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
@@ -219,7 +180,6 @@ export default function AIHumanizer() {
             AI detection tools while maintaining quality and meaning.
           </p>
 
-          {/* Quick Features */}
           <div className="flex flex-wrap justify-center gap-6 pt-4">
             {quickFeatures.map((feature, index) => (
               <motion.div
@@ -236,9 +196,7 @@ export default function AIHumanizer() {
           </div>
         </motion.div>
 
-        {/* Main Content - Side by Side Comparison */}
         <div className="max-w-7xl mx-auto">
-          {/* View Toggle */}
           <motion.div
             className="flex justify-end mb-4"
             initial={{ opacity: 0 }}
@@ -266,14 +224,12 @@ export default function AIHumanizer() {
             </div>
           </motion.div>
 
-          {/* Comparison View */}
           <motion.div
-            className={viewMode === "split" ? "grid lg:grid-cols-2 gap-6" : "space-y-6"}
+            className={viewMode === "split" ? "grid lg:grid-cols-2 gap-6 relative" : "space-y-6"}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            {/* Original Input */}
             <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -294,16 +250,6 @@ export default function AIHumanizer() {
               </div>
             </Card>
 
-            {/* Arrow between (only in split view) */}
-            {viewMode === "split" && (
-              <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                <div className="bg-purple-500 text-white p-2 rounded-full shadow-lg">
-                  <ArrowRight className="h-5 w-5" />
-                </div>
-              </div>
-            )}
-
-            {/* Humanized Output */}
             <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -312,17 +258,8 @@ export default function AIHumanizer() {
                     Humanized
                   </h3>
                   {humanizedText && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopy}
-                      className="h-8"
-                    >
-                      {copied ? (
-                        <Check className="h-4 w-4 mr-1 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4 mr-1" />
-                      )}
+                    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
+                      {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
                       {copied ? "Copied!" : "Copy"}
                     </Button>
                   )}
@@ -337,13 +274,8 @@ export default function AIHumanizer() {
             </Card>
           </motion.div>
 
-          {/* Changes Summary */}
           {humanizedText && (
-            <motion.div
-              className="mt-6"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div className="mt-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-0">
                 <div className="flex flex-wrap items-center justify-center gap-8 text-center">
                   <div>
@@ -365,7 +297,6 @@ export default function AIHumanizer() {
             </motion.div>
           )}
 
-          {/* Controls */}
           <motion.div
             className="mt-6"
             initial={{ opacity: 0, y: 20 }}
@@ -374,7 +305,6 @@ export default function AIHumanizer() {
           >
             <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
               <div className="grid md:grid-cols-3 gap-6 items-end">
-                {/* Humanization Level */}
                 <div className="space-y-3">
                   <Label className="text-base font-medium">
                     Humanization Level: {humanizationLevel}%
@@ -394,7 +324,6 @@ export default function AIHumanizer() {
                   </div>
                 </div>
 
-                {/* Tone Selection */}
                 <div className="space-y-3">
                   <Label className="text-base font-medium">Writing Tone</Label>
                   <Select value={tone} onValueChange={setTone}>
@@ -414,7 +343,6 @@ export default function AIHumanizer() {
                   </Select>
                 </div>
 
-                {/* Action Button */}
                 <Button
                   className="h-12 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                   onClick={handleHumanize}
@@ -458,25 +386,9 @@ export default function AIHumanizer() {
                   </p>
                 </motion.div>
               )}
-
-              {isProcessing && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Humanizing content...</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-gradient-to-r from-purple-500 to-pink-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
             </Card>
           </motion.div>
 
-          {/* How It Works */}
           <motion.div
             className="mt-12 grid md:grid-cols-3 gap-6"
             initial={{ opacity: 0, y: 20 }}
@@ -497,34 +409,9 @@ export default function AIHumanizer() {
               </Card>
             ))}
           </motion.div>
-
-          {/* Pro Tip */}
-          <motion.div
-            className="mt-8"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            <Card className="p-6 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 border-0">
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-purple-500 rounded-lg">
-                  <Sparkles className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-semibold text-purple-900 dark:text-purple-200 mb-1">Pro Tip</h4>
-                  <p className="text-sm text-purple-700 dark:text-purple-300">
-                    For best results, use a higher humanization level (70%+) and the &quot;Casual&quot; tone to make text sound most natural.
-                    The comparison view helps you see exactly what changes were made!
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </motion.div>
         </div>
       </section>
 
-      <FeatureShowcase />
-      <Hero />
       <FAQ />
     </div>
   )

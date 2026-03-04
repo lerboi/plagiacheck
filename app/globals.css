@@ -86,19 +86,9 @@
   }
 }
 
-/* Ensure smooth transition when changing themes */
-* {
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/* Override default focus styles for better visibility in both themes */
-:focus {
-  @apply outline-none ring-2 ring-primary ring-opacity-50;
-}
-
-/* Custom scrollbar styles for better theme integration */
+/* Custom scrollbar styles */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -106,9 +96,9 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-primary rounded-full;
+  @apply bg-muted-foreground/30 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-primary/80;
+  @apply bg-muted-foreground/50;
 }

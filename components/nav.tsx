@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function Nav() {
-  const { remainingWords, fetchRemainingWords } = useTokenStore()
+  const { remainingWords, fetchRemainingWords, clearTokens } = useTokenStore()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -126,6 +126,8 @@ export function Nav() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+    clearTokens()
+    setUser(null)
     setIsMobileMenuOpen(false)
   }
 
