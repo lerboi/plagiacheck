@@ -4,7 +4,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash } from 'lucide-react'
+import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash, Image, Mic } from 'lucide-react'
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
@@ -225,6 +225,11 @@ export default function Pricing() {
               })}
             </div>
 
+            {/* Custom Plan Slider - Moved above tools */}
+            <div className="mt-16">
+              <CustomPlanSlider user={user} />
+            </div>
+
             {/* Tools Included Section */}
             <div className="mt-20">
               <div className="text-center mb-10">
@@ -234,7 +239,7 @@ export default function Pricing() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 max-w-4xl mx-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4 max-w-4xl mx-auto">
                 {[
                   { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500" },
                   { name: "AI Detector", icon: Brain, color: "text-purple-500" },
@@ -242,6 +247,8 @@ export default function Pricing() {
                   { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500" },
                   { name: "Summarizer", icon: FileText, color: "text-green-500" },
                   { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500" },
+                  { name: "Image to Text", icon: Image, color: "text-rose-500", badge: "Image Tokens" },
+                  { name: "Speech to Text", icon: Mic, color: "text-indigo-500" },
                   { name: "Word Counter", icon: Hash, color: "text-orange-500", isFree: true },
                 ].map((tool) => (
                   <div
@@ -257,14 +264,14 @@ export default function Pricing() {
                         FREE
                       </span>
                     )}
+                    {tool.badge && (
+                      <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-full">
+                        IMG
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-
-            {/* Custom Plan Slider */}
-            <div className="mt-16">
-              <CustomPlanSlider user={user} />
             </div>
           </div>
         </section>
