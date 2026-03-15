@@ -4,7 +4,7 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, Loader2, Sparkles, Shield, Zap, FileText, Copy, File, Brain, Wand2, RefreshCw, CheckCircle2, Hash, ArrowRight, Check, GraduationCap, Users, Globe } from "lucide-react"
+import { Upload, Loader2, Sparkles, Shield, Zap, FileText, Copy, File, Brain, Wand2, RefreshCw, CheckCircle2, Hash, ArrowRight, Check, GraduationCap, Users, Globe, Image, Mic } from "lucide-react"
 import { PlagiarismResults } from "@/components/plagiarism-results"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
@@ -55,6 +55,8 @@ export default function Home() {
     { name: "Paraphraser", desc: "Rewrite with new words", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bgColor: "bg-cyan-500/10" },
     { name: "Summarizer", desc: "Condense long text", href: "/summarizer", icon: FileText, color: "text-green-500", bgColor: "bg-green-500/10" },
     { name: "Grammar Checker", desc: "Fix grammar & spelling", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500", bgColor: "bg-emerald-500/10" },
+    { name: "Image to Text", desc: "Extract text from images", href: "/image-to-text", icon: Image, color: "text-rose-500", bgColor: "bg-rose-500/10" },
+    { name: "Speech to Text", desc: "Transcribe audio to text", href: "/speech-to-text", icon: Mic, color: "text-indigo-500", bgColor: "bg-indigo-500/10" },
     { name: "Word Counter", desc: "Count words & characters", href: "/word-counter", icon: Hash, color: "text-orange-500", bgColor: "bg-orange-500/10", isFree: true },
   ]
 
@@ -442,7 +444,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
           >
             <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 tracking-wide uppercase mb-3">
-              7 Tools in One Platform
+              9 Tools in One Platform
             </p>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight">
               Everything You Need to Write Better
@@ -452,7 +454,7 @@ export default function Home() {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
             {tools.map((tool, index) => (
               <motion.div
                 key={tool.name}

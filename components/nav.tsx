@@ -18,6 +18,8 @@ import {
   LayoutGrid,
   CreditCard,
   Coins,
+  Image,
+  Mic,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -33,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function Nav() {
-  const { remainingWords, fetchRemainingWords, clearTokens } = useTokenStore()
+  const { remainingWords, remainingImageTokens, fetchRemainingWords, fetchImageTokens, clearTokens } = useTokenStore()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -88,6 +90,23 @@ export function Nav() {
       bgColor: "bg-emerald-500/10",
     },
     {
+      name: "Image to Text",
+      href: "/image-to-text",
+      icon: Image,
+      desc: "Extract text from images",
+      color: "text-rose-500",
+      bgColor: "bg-rose-500/10",
+      usesImageTokens: true,
+    },
+    {
+      name: "Speech to Text",
+      href: "/speech-to-text",
+      icon: Mic,
+      desc: "Transcribe audio to text",
+      color: "text-indigo-500",
+      bgColor: "bg-indigo-500/10",
+    },
+    {
       name: "Word Counter",
       href: "/word-counter",
       icon: Hash,
@@ -107,6 +126,7 @@ export function Nav() {
 
       if (session?.user) {
         await fetchRemainingWords(session.user.id)
+        await fetchImageTokens(session.user.id)
       }
     }
 
@@ -122,7 +142,7 @@ export function Nav() {
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, [supabase.auth, fetchRemainingWords])
+  }, [supabase.auth, fetchRemainingWords, fetchImageTokens])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
