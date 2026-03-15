@@ -243,6 +243,52 @@ async function handleTokenAllocation(userId, tokenType) {
             console.log(`Successfully added ${imageTokensToAdd} imageTokens. New total: ${newImageTokens}`);
         }
 
+        // ========== ADD RECURRING VOICE MINUTES TO SUBSCRIPTION TOKEN ==========
+        const voiceMinutesForPackage = tokenType === '200Image' ? 120 : 500; // Silver=120min, Gold=500min
+
+        const { data: subTokenRows, error: subTokenQueryError } = await supabase
+            .from('SubscriptionToken')
+            .select('id, voiceMinutes')
+            .eq('userId', userId)
+            .order('createdAt', { ascending: true })
+            .limit(1);
+
+        if (subTokenQueryError) {
+            console.error('Error querying SubscriptionToken for recurring voiceMinutes:', subTokenQueryError);
+        } else if (subTokenRows && subTokenRows.length > 0) {
+            const existingSubToken = subTokenRows[0];
+            const { error: subTokenUpdateError } = await supabase
+                .from('SubscriptionToken')
+                .update({ voiceMinutes: voiceMinutesForPackage })
+                .eq('id', existingSubToken.id);
+
+            if (subTokenUpdateError) {
+                console.error('Error updating SubscriptionToken voiceMinutes (recurring):', subTokenUpdateError);
+            } else {
+                console.log(`Recurring: Reset SubscriptionToken voiceMinutes for user ${userId} to ${voiceMinutesForPackage}`);
+            }
+        } else {
+            // User has no SubscriptionToken — create one (handles pre-existing subscribers)
+            const subTokenExpiry = addMonths(new Date(), 1);
+
+            const { error: subTokenInsertError } = await supabase
+                .from('SubscriptionToken')
+                .insert({
+                    userId: userId,
+                    subscriptionId: null,
+                    textTokens: 0,
+                    imageTokens: 0,
+                    voiceMinutes: voiceMinutesForPackage,
+                    expiryDate: subTokenExpiry.toISOString()
+                });
+
+            if (subTokenInsertError) {
+                console.error('Error creating SubscriptionToken for recurring voiceMinutes:', subTokenInsertError);
+            } else {
+                console.log(`Recurring: Created SubscriptionToken with ${voiceMinutesForPackage} voiceMinutes for user ${userId}`);
+            }
+        }
+
         // Calculate the new expiry date (exactly one month from now)
         const currentDate = new Date();
         let newExpiryDate = addMonths(currentDate, 1);
@@ -317,6 +363,23 @@ async function handleSuccessfulPayment(invoice) {
             tokenType = pkgData.packageName;
         }
         console.log(`Processing token allocation for user: ${userId}, token type: ${tokenType}`);
+
+        // ========== IDEMPOTENCY CHECK FOR RECURRING ==========
+        const recurringPaymentId = invoice.id;
+        const { data: existingRecurring, error: recurringCheckError } = await supabase
+            .from('Payment')
+            .select('id')
+            .eq('id', recurringPaymentId)
+            .single();
+
+        if (recurringCheckError && recurringCheckError.code !== 'PGRST116') {
+            console.error('Error checking existing recurring payment:', recurringCheckError);
+        }
+
+        if (existingRecurring) {
+            console.log(`Recurring payment ${recurringPaymentId} already processed. Skipping.`);
+            return;
+        }
 
         // Allocate tokens based on the metadata
         const tokenResult = await handleTokenAllocation(userId, tokenType);
@@ -396,7 +459,7 @@ async function handleTokenPurchase(paymentIntent) {
         // Check if user already has tokens
         const { data: existingToken, error: existingTokenError } = await supabase
             .from('PurchasedToken')
-            .select('textTokens, imageTokens')
+            .select('textTokens, imageTokens, voiceMinutes')
             .eq('userId', userId)
             .single();
 
@@ -407,9 +470,14 @@ async function handleTokenPurchase(paymentIntent) {
 
         if (existingToken) {
             // Update existing tokens
-            const updates = tokenType === 'text' 
-                ? { textTokens: existingToken.textTokens + tokenAmountInt }
-                : { imageTokens: existingToken.imageTokens + tokenAmountInt };
+            let updates;
+            if (tokenType === 'text') {
+                updates = { textTokens: existingToken.textTokens + tokenAmountInt };
+            } else if (tokenType === 'voice') {
+                updates = { voiceMinutes: (existingToken.voiceMinutes || 0) + tokenAmountInt };
+            } else {
+                updates = { imageTokens: existingToken.imageTokens + tokenAmountInt };
+            }
             
             const { error: updateError } = await supabase
                 .from('PurchasedToken')
@@ -430,6 +498,7 @@ async function handleTokenPurchase(paymentIntent) {
                     userId: userId,
                     textTokens: tokenType === 'text' ? tokenAmountInt : 0,
                     imageTokens: tokenType === 'image' ? tokenAmountInt : 0,
+                    voiceMinutes: tokenType === 'voice' ? tokenAmountInt : 0,
                 });
 
             if (insertError) {
@@ -606,6 +675,54 @@ async function handleInitialPackagePayment(invoice) {
             console.log(`Created new token record for user ${userId}: ${tokensToAdd} image tokens`);
         }
 
+        // ========== ADD PACKAGE VOICE MINUTES TO SUBSCRIPTION TOKEN ==========
+        const voiceMinutesForPackage = tokenType === '200Image' ? 120 : 500; // Silver=120min, Gold=500min
+
+        const { data: subTokenRows, error: subTokenQueryError } = await supabase
+            .from('SubscriptionToken')
+            .select('id, voiceMinutes')
+            .eq('userId', userId)
+            .order('createdAt', { ascending: true })
+            .limit(1);
+
+        if (subTokenQueryError) {
+            console.error('Error querying SubscriptionToken:', subTokenQueryError);
+            // Don't throw — imageTokens were already allocated successfully
+        } else if (subTokenRows && subTokenRows.length > 0) {
+            // Update existing SubscriptionToken row — add voiceMinutes
+            const existingSubToken = subTokenRows[0];
+            const { error: subTokenUpdateError } = await supabase
+                .from('SubscriptionToken')
+                .update({ voiceMinutes: voiceMinutesForPackage })
+                .eq('id', existingSubToken.id);
+
+            if (subTokenUpdateError) {
+                console.error('Error updating SubscriptionToken voiceMinutes:', subTokenUpdateError);
+            } else {
+                console.log(`Set SubscriptionToken voiceMinutes for user ${userId} to ${voiceMinutesForPackage}`);
+            }
+        } else {
+            // No SubscriptionToken exists — create one with voiceMinutes only
+            const subTokenExpiry = addMonths(new Date(), 1);
+
+            const { error: subTokenInsertError } = await supabase
+                .from('SubscriptionToken')
+                .insert({
+                    userId: userId,
+                    subscriptionId: null,
+                    textTokens: 0,
+                    imageTokens: 0,
+                    voiceMinutes: voiceMinutesForPackage,
+                    expiryDate: subTokenExpiry.toISOString()
+                });
+
+            if (subTokenInsertError) {
+                console.error('Error creating SubscriptionToken for voiceMinutes:', subTokenInsertError);
+            } else {
+                console.log(`Created SubscriptionToken with ${voiceMinutesForPackage} voiceMinutes for user ${userId}`);
+            }
+        }
+
         // ========== MARK PAYMENT AS PROCESSED ==========
         const { error: markProcessedError } = await supabase
             .from('Payment')
@@ -774,6 +891,18 @@ async function handleSubscriptionCancellation(subscription) {
                 if (updateError) throw updateError;
 
                 console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
+
+                // Clear voiceMinutes from SubscriptionToken on cancellation
+                const { error: voiceClearError } = await supabase
+                    .from('SubscriptionToken')
+                    .update({ voiceMinutes: 0 })
+                    .eq('userId', packageData.userId);
+
+                if (voiceClearError) {
+                    console.error('Error clearing SubscriptionToken voiceMinutes:', voiceClearError);
+                } else {
+                    console.log(`Cleared SubscriptionToken voiceMinutes for user ${packageData.userId}`);
+                }
             }
 
             return;
@@ -804,6 +933,18 @@ async function handleSubscriptionCancellation(subscription) {
         if (updateError) throw updateError;
 
         console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
+
+        // Clear voiceMinutes from SubscriptionToken on cancellation
+        const { error: voiceClearError } = await supabase
+            .from('SubscriptionToken')
+            .update({ voiceMinutes: 0 })
+            .eq('userId', userId);
+
+        if (voiceClearError) {
+            console.error('Error clearing SubscriptionToken voiceMinutes:', voiceClearError);
+        } else {
+            console.log(`Cleared SubscriptionToken voiceMinutes for user ${userId}`);
+        }
 
     } catch (error) {
         console.error('Error in handleSubscriptionCancellation:', error.message);
