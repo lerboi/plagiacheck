@@ -4,8 +4,11 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface TokenStore {
   remainingWords: number
+  remainingImageTokens: number
   fetchRemainingWords: (userId: string) => Promise<void>
+  fetchImageTokens: (userId: string) => Promise<void>
   decrementWords: (amount: number) => Promise<void>
+  decrementImageTokens: (amount: number) => Promise<void>
   clearTokens: () => void
 }
 
@@ -13,6 +16,7 @@ export const useTokenStore = create<TokenStore>()(
   persist(
     (set) => ({
       remainingWords: 0,
+      remainingImageTokens: 0,
 
       fetchRemainingWords: async (userId) => {
         const supabase = createClientComponentClient()
@@ -28,6 +32,23 @@ export const useTokenStore = create<TokenStore>()(
         }
 
         set({ remainingWords: data.tokens })
+      },
+
+      fetchImageTokens: async (userId) => {
+        const supabase = createClientComponentClient()
+        const { data, error } = await supabase
+          .from("PurchasedToken")
+          .select("imageTokens")
+          .eq("userId", userId)
+          .single()
+
+        if (error) {
+          // No purchased tokens record yet — that's fine
+          set({ remainingImageTokens: 0 })
+          return
+        }
+
+        set({ remainingImageTokens: data.imageTokens || 0 })
       },
 
       decrementWords: async (amount) => {
@@ -51,8 +72,28 @@ export const useTokenStore = create<TokenStore>()(
         }
       },
 
+      decrementImageTokens: async (amount) => {
+        set((state) => ({ remainingImageTokens: Math.max(0, state.remainingImageTokens - amount) }))
+
+        const supabase = createClientComponentClient()
+        const user = await supabase.auth.getUser()
+
+        if (!user?.data?.user?.id) return
+
+        const newAmount = useTokenStore.getState().remainingImageTokens
+
+        const { error } = await supabase
+          .from("PurchasedToken")
+          .update({ imageTokens: newAmount })
+          .eq("userId", user.data.user.id)
+
+        if (error) {
+          console.error("Error updating image tokens:", error.message)
+        }
+      },
+
       clearTokens: () => {
-        set({ remainingWords: 0 })
+        set({ remainingWords: 0, remainingImageTokens: 0 })
       },
     }),
     {
