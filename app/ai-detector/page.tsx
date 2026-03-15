@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,6 +8,7 @@ import { Loader2, Search, Brain, Zap, Shield, Download, Copy, Check } from "luci
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import type { User } from "@supabase/auth-helpers-nextjs"
 import { Progress } from "@/components/ui/progress"
 import { FeatureShowcase } from "@/components/FeatureShowcase"
 import { Hero } from "@/components/Hero"
@@ -36,61 +37,34 @@ export default function AIDetector() {
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
+  const [user, setUser] = useState<User | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+    }
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+    return () => { authListener.subscription.unsubscribe() }
+  }, [supabase.auth])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
   }
 
-  const analyzeSentences = (text: string): SentenceAnalysis[] => {
-    // Split into sentences
-    const sentenceRegex = /[^.!?]+[.!?]+/g
-    const sentences = text.match(sentenceRegex) || [text]
-
-    // AI-like patterns
-    const aiPatterns = [
-      /\b(therefore|consequently|thus|hence)\b/gi,
-      /\b(utilize|employ|implement)\b/gi,
-      /\b(commence|initiate|facilitate)\b/gi,
-      /\b(furthermore|moreover|additionally)\b/gi,
-      /\b(demonstrate|illustrate|exemplify)\b/gi,
-      /\b(significant|substantial|considerable)\b/gi,
-      /\b(in conclusion|to summarize|in summary)\b/gi,
-      /\b(it is important to note|it should be noted)\b/gi,
-      /\b(this suggests that|this indicates that)\b/gi,
-      /\b(plays a crucial role|is essential for)\b/gi,
-    ]
-
-    return sentences.map((sentence) => {
-      let patternMatches = 0
-      aiPatterns.forEach((pattern) => {
-        const matches = sentence.match(pattern)
-        if (matches) patternMatches += matches.length
-      })
-
-      // Calculate score based on patterns and sentence characteristics
-      const wordCount = sentence.split(/\s+/).length
-      const avgWordLength = sentence.replace(/\s/g, "").length / wordCount
-
-      // AI tends to use longer words and more formal patterns
-      let score = (patternMatches * 15) + (avgWordLength > 5.5 ? 20 : 0) + (wordCount > 25 ? 15 : 0)
-      score = Math.min(100, Math.max(0, score + Math.random() * 20))
-
-      let type: "human" | "mixed" | "ai" = "human"
-      if (score > 60) type = "ai"
-      else if (score > 30) type = "mixed"
-
-      return {
-        text: sentence.trim(),
-        score: Math.round(score),
-        type,
-      }
-    })
-  }
-
   const handleDetect = async () => {
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
     if (!text.trim()) return
 
     const requiredTokens = calculateRequiredTokens(text)
@@ -105,67 +79,65 @@ export default function AIDetector() {
     setError(null)
 
     try {
+      // Animate progress while waiting for API
       const timer = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 95) {
+          if (prev >= 90) {
             clearInterval(timer)
-            return 95
+            return 90
           }
-          return prev + 5
+          return prev + 3
         })
       }, 100)
 
-      setTimeout(() => {
-        clearInterval(timer)
-        setProgress(100)
+      const response = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, tool: "ai-detect" }),
+      })
 
-        // Analyze sentences
-        const sentenceAnalysis = analyzeSentences(text)
+      clearInterval(timer)
 
-        // Calculate overall score
-        const avgScore = sentenceAnalysis.reduce((sum, s) => sum + s.score, 0) / sentenceAnalysis.length
-        const normalizedScore = Math.round(avgScore)
+      const data = await response.json()
 
-        let humanLikelihood = "Likely Human"
-        let analysis =
-          "The text appears to be written by a human. It contains natural language patterns and few indicators of AI generation."
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to analyze text")
+      }
 
-        if (normalizedScore > 70) {
-          humanLikelihood = "Likely AI"
-          analysis =
-            "The text shows strong indicators of AI generation. It contains formal language patterns and structures commonly found in AI-generated content."
-        } else if (normalizedScore > 40) {
-          humanLikelihood = "Possibly AI"
-          analysis =
-            "The text shows some indicators of AI generation, but also contains human-like elements. It may be AI-generated content that has been edited by a human."
-        }
+      setProgress(100)
 
-        setResult({
-          score: normalizedScore,
-          humanLikelihood,
-          analysis,
-          sentences: sentenceAnalysis,
-        })
+      const aiResult = data.result
+      const sentences: SentenceAnalysis[] = (aiResult.sentences || []).map((s: any) => ({
+        text: s.text || "",
+        score: Math.max(0, Math.min(100, s.score || 0)),
+        type: s.type || (s.score > 60 ? "ai" : s.score > 30 ? "mixed" : "human"),
+      }))
 
-        decrementWords(requiredTokens)
-        setIsAnalyzing(false)
+      setResult({
+        score: Math.max(0, Math.min(100, aiResult.overallScore || 0)),
+        humanLikelihood: aiResult.verdict || "Unknown",
+        analysis: aiResult.analysis || "Analysis complete.",
+        sentences,
+      })
 
-        toast({
-          title: "Analysis Complete",
-          description: `Text analyzed: ${humanLikelihood}`,
-          variant: "success",
-        })
-      }, 2000)
+      await decrementWords(requiredTokens)
+
+      toast({
+        title: "Analysis Complete",
+        description: `Text analyzed: ${aiResult.verdict}`,
+        variant: "success",
+      })
     } catch (err) {
       console.error("Error analyzing text:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to analyze"
       setError(errorMessage)
-      setIsAnalyzing(false)
       toast({
         title: "Error",
         description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setIsAnalyzing(false)
     }
   }
 
