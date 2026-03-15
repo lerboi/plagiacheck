@@ -4,7 +4,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash, Image, Mic } from 'lucide-react'
+import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash, Image, Mic, BarChart3, ImagePlus, PieChart, Volume2, FileEdit, FileAudio } from 'lucide-react'
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
@@ -239,7 +239,7 @@ export default function Pricing() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 md:gap-4 max-w-4xl mx-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 max-w-5xl mx-auto">
                 {[
                   { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500" },
                   { name: "AI Detector", icon: Brain, color: "text-purple-500" },
@@ -247,8 +247,14 @@ export default function Pricing() {
                   { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500" },
                   { name: "Summarizer", icon: FileText, color: "text-green-500" },
                   { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500" },
-                  { name: "Image to Text", icon: Image, color: "text-rose-500", badge: "Image Tokens" },
+                  { name: "Image to Text", icon: Image, color: "text-rose-500", badge: "IMG" },
                   { name: "Speech to Text", icon: Mic, color: "text-indigo-500" },
+                  { name: "Infographic Generator", icon: BarChart3, color: "text-amber-500", badge: "IMG" },
+                  { name: "Thumbnail Generator", icon: ImagePlus, color: "text-violet-500", badge: "IMG" },
+                  { name: "Chart Generator", icon: PieChart, color: "text-teal-500", badge: "IMG" },
+                  { name: "Text to Speech", icon: Volume2, color: "text-sky-500", isFree: true },
+                  { name: "Voice to Essay", icon: FileEdit, color: "text-sky-600" },
+                  { name: "Audio Summarizer", icon: FileAudio, color: "text-orange-600" },
                   { name: "Word Counter", icon: Hash, color: "text-orange-500", isFree: true },
                 ].map((tool) => (
                   <div

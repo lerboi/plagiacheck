@@ -6,7 +6,7 @@ import { motion } from "framer-motion"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { loadStripe } from "@stripe/stripe-js"
-import { FileText, Image, Mic } from "lucide-react"
+import { FileText, Image as ImageIcon, Mic } from "lucide-react"
 import type { User } from "@supabase/auth-helpers-nextjs"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -131,7 +131,7 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-                <Image className="h-4 w-4 text-rose-500" />
+                <ImageIcon className="h-4 w-4 text-rose-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
