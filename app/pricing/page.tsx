@@ -4,7 +4,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash, Image, Mic, BarChart3, ImagePlus, PieChart, Volume2, FileEdit, FileAudio } from 'lucide-react'
+import { Check, Sparkles, Zap, Shield, Brain, Wand2, RefreshCw, FileText, CheckCircle2, Hash, Image, Mic, BarChart3, ImagePlus, PieChart, Volume2, FileEdit, FileAudio, Pen, ImageIcon, AudioLines } from 'lucide-react'
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
@@ -232,51 +232,104 @@ export default function Pricing() {
 
             {/* Tools Included Section */}
             <div className="mt-20">
-              <div className="text-center mb-10">
+              <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold mb-4">All Plans Include These Tools</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Get access to our complete suite of writing tools with any plan
+                  Get access to our complete suite of writing, image, and voice tools with any plan
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 max-w-5xl mx-auto">
-                {[
-                  { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500" },
-                  { name: "AI Detector", icon: Brain, color: "text-purple-500" },
-                  { name: "AI Humanizer", icon: Wand2, color: "text-pink-500" },
-                  { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500" },
-                  { name: "Summarizer", icon: FileText, color: "text-green-500" },
-                  { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500" },
-                  { name: "Image to Text", icon: Image, color: "text-rose-500", badge: "IMG" },
-                  { name: "Speech to Text", icon: Mic, color: "text-indigo-500" },
-                  { name: "Infographic Generator", icon: BarChart3, color: "text-amber-500", badge: "IMG" },
-                  { name: "Thumbnail Generator", icon: ImagePlus, color: "text-violet-500", badge: "IMG" },
-                  { name: "Chart Generator", icon: PieChart, color: "text-teal-500", badge: "IMG" },
-                  { name: "Text to Speech", icon: Volume2, color: "text-sky-500", isFree: true },
-                  { name: "Voice to Essay", icon: FileEdit, color: "text-sky-600" },
-                  { name: "Audio Summarizer", icon: FileAudio, color: "text-orange-600" },
-                  { name: "Word Counter", icon: Hash, color: "text-orange-500", isFree: true },
-                ].map((tool) => (
-                  <div
-                    key={tool.name}
-                    className="group relative flex flex-col items-center p-5 md:p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-300"
-                  >
-                    <div className="relative mb-3">
-                      <tool.icon className={`h-7 w-7 md:h-8 md:w-8 ${tool.color} transition-transform duration-300 group-hover:scale-110`} />
+              <div className="max-w-5xl mx-auto space-y-10">
+                {/* Writing Tools */}
+                <div>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded-lg bg-blue-500/10">
+                      <Pen className="h-4 w-4 text-blue-500" />
                     </div>
-                    <h3 className="font-medium text-sm md:text-base text-center text-gray-900 dark:text-gray-100">{tool.name}</h3>
-                    {tool.isFree && (
-                      <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">
-                        FREE
-                      </span>
-                    )}
-                    {tool.badge && (
-                      <span className="absolute top-2 right-2 text-[9px] font-semibold px-1.5 py-0.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-full">
-                        IMG
-                      </span>
-                    )}
+                    <h3 className="text-lg font-semibold text-foreground">Writing Tools</h3>
+                    <div className="flex-1 h-px bg-border ml-2" />
                   </div>
-                ))}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+                    {[
+                      { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500" },
+                      { name: "AI Detector", icon: Brain, color: "text-purple-500" },
+                      { name: "AI Humanizer", icon: Wand2, color: "text-pink-500" },
+                      { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500" },
+                      { name: "Summarizer", icon: FileText, color: "text-green-500" },
+                      { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500" },
+                      { name: "Word Counter", icon: Hash, color: "text-orange-500", isFree: true },
+                    ].map((tool) => (
+                      <div
+                        key={tool.name}
+                        className="group relative flex flex-col items-center p-4 md:p-5 rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-200"
+                      >
+                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 group-hover:scale-110`} />
+                        <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
+                        {tool.isFree && (
+                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">FREE</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Image & Visual Tools */}
+                <div>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded-lg bg-rose-500/10">
+                      <ImageIcon className="h-4 w-4 text-rose-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground">Image & Visual</h3>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 rounded-full">Uses Image Tokens</span>
+                    <div className="flex-1 h-px bg-border ml-2" />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { name: "Image to Text", icon: Image, color: "text-rose-500" },
+                      { name: "Infographic Generator", icon: BarChart3, color: "text-amber-500" },
+                      { name: "Thumbnail Generator", icon: ImagePlus, color: "text-violet-500" },
+                      { name: "Chart Generator", icon: PieChart, color: "text-teal-500" },
+                    ].map((tool) => (
+                      <div
+                        key={tool.name}
+                        className="group flex flex-col items-center p-4 md:p-5 rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-200"
+                      >
+                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 group-hover:scale-110`} />
+                        <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Voice & Audio Tools */}
+                <div>
+                  <div className="flex items-center gap-2.5 mb-4">
+                    <div className="p-1.5 rounded-lg bg-indigo-500/10">
+                      <AudioLines className="h-4 w-4 text-indigo-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground">Voice & Audio</h3>
+                    <div className="flex-1 h-px bg-border ml-2" />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { name: "Speech to Text", icon: Mic, color: "text-indigo-500" },
+                      { name: "Text to Speech", icon: Volume2, color: "text-sky-500", isFree: true },
+                      { name: "Voice to Essay", icon: FileEdit, color: "text-sky-600" },
+                      { name: "Audio Summarizer", icon: FileAudio, color: "text-orange-600" },
+                    ].map((tool) => (
+                      <div
+                        key={tool.name}
+                        className="group relative flex flex-col items-center p-4 md:p-5 rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-200"
+                      >
+                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 group-hover:scale-110`} />
+                        <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
+                        {tool.isFree && (
+                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">FREE</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

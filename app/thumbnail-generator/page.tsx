@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, ImagePlus, Sparkles, Zap, Download, Copy, Palette, Image } from "lucide-react"
+import { Loader2, ImagePlus, Sparkles, Zap, Download, Copy, Palette, Image as ImageIcon } from "lucide-react"
 import { useTokenStore } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
@@ -131,7 +131,7 @@ export default function ThumbnailGenerator() {
           </div>
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50 text-sm">
-              <Image className="h-4 w-4 text-violet-500" />
+              <ImageIcon className="h-4 w-4 text-violet-500" />
               <span className="font-semibold">{user ? remainingImageTokens : 0}</span>
               <span className="text-muted-foreground">image tokens remaining</span>
             </div>
