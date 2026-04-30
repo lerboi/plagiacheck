@@ -117,6 +117,15 @@ async function handleFailedPayment(invoice) {
         if (invoices.data.length >= 2) {
             console.log(`Detected ${invoices.data.length} consecutive failed payments for subscription: ${subscriptionId}`);
 
+            // Cancel the Stripe subscription so it stops retrying and silently charging
+            // the user without crediting tokens (handleTokenAllocation skips CANCELED packages).
+            try {
+                await stripe.subscriptions.cancel(subscriptionId);
+                console.log(`Canceled Stripe subscription ${subscriptionId} due to consecutive payment failures`);
+            } catch (cancelErr) {
+                console.error(`Error canceling Stripe subscription ${subscriptionId}:`, cancelErr.message);
+            }
+
             // Update package status to CANCELED
             const { error: updateError } = await supabase
                 .from('Package')
@@ -153,16 +162,18 @@ async function handleFailedPayment(invoice) {
     }
 }
 
-async function handleTokenAllocation(userId, tokenType) {
-    console.log(`Allocating tokens for user ${userId} with token type: ${tokenType}`);
+async function handleTokenAllocation(userId, tokenType, subscriptionId) {
+    console.log(`Allocating tokens for user ${userId} with token type: ${tokenType} (sub: ${subscriptionId})`);
 
     try {
-        // First, check if the package is active
+        // Look up the Package by stripeSubscriptionId — this is unique per row and prevents
+        // .single() failures when re-subscribers have an old CANCELED row plus a new ACTIVE row
+        // for the same (userId, packageName).
         const { data: packageData, error: packageError } = await supabase
             .from('Package')
             .select('*')
             .eq('userId', userId)
-            .eq('packageName', tokenType)
+            .eq('stripeSubscriptionId', subscriptionId)
             .single();
 
         if (packageError) {
@@ -382,7 +393,7 @@ async function handleSuccessfulPayment(invoice) {
         }
 
         // Allocate tokens based on the metadata
-        const tokenResult = await handleTokenAllocation(userId, tokenType);
+        const tokenResult = await handleTokenAllocation(userId, tokenType, subscriptionId);
 
         // If token allocation was skipped, don't log payment
         if (tokenResult.skipped) {
