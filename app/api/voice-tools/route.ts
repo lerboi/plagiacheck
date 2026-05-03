@@ -1,8 +1,14 @@
 import { Mistral } from '@mistralai/mistralai';
+import { getUserFromRequest } from '@/lib/server-auth';
+import { calculateTextTokenCost, deductTextTokens, refundTextTokens } from '@/lib/server-tokens';
+import { recordToolUse } from '@/lib/server-history';
+import type { ToolHistoryTool } from '@/lib/server-history';
 
 const mistralClient = process.env.MISTRAL_API_KEY
   ? new Mistral({ apiKey: process.env.MISTRAL_API_KEY })
   : null;
+
+const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 
 function extractJSON(content: string): any {
   try {
@@ -69,6 +75,9 @@ Return ONLY a valid JSON object:
 };
 
 export async function POST(req: Request) {
+  const user = await getUserFromRequest(req);
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const { text, tool } = await req.json();
 
@@ -84,6 +93,12 @@ export async function POST(req: Request) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
+    const cost = calculateTextTokenCost(text);
+    const newBalance = await deductTextTokens(user.id, cost);
+    if (newBalance === null) {
+      return Response.json({ error: 'Insufficient tokens', code: 'INSUFFICIENT_TOKENS' }, { status: 402 });
+    }
+
     let userPrompt = '';
     switch (tool) {
       case 'voice-to-essay':
@@ -94,33 +109,56 @@ export async function POST(req: Request) {
         break;
     }
 
-    const completion = await mistralClient.chat.complete({
-      model: 'mistral-medium',
-      messages: [
-        { role: 'system', content: TOOL_PROMPTS[tool] },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.3,
-    });
+    try {
+      const completion = await mistralClient.chat.complete({
+        model: MISTRAL_MODEL,
+        messages: [
+          { role: 'system', content: TOOL_PROMPTS[tool] },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+      });
 
-    if (!completion.choices || !completion.choices[0]?.message?.content) {
-      return Response.json({ error: 'No response from AI' }, { status: 500 });
+      if (!completion.choices || !completion.choices[0]?.message?.content) {
+        await refundTextTokens(user.id, cost);
+        return Response.json({ error: 'No response from AI' }, { status: 500 });
+      }
+
+      const content = completion.choices[0].message.content;
+      const contentString = typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.map((chunk: any) => chunk.text || '').join('')
+          : String(content);
+
+      const result = extractJSON(contentString);
+
+      if (!result) {
+        await refundTextTokens(user.id, cost);
+        return Response.json({ error: 'Failed to parse AI response' }, { status: 500 });
+      }
+
+      const outputPreview = tool === 'audio-summarize'
+        ? (result.overview || result.detailedSummary?.slice(0, 200))
+        : (result.title ? `${result.title} — ${String(result.essay || '').slice(0, 100)}` : String(result.essay || '').slice(0, 200));
+
+      await recordToolUse({
+        userId: user.id,
+        tool: tool as ToolHistoryTool,
+        input: text,
+        output: outputPreview,
+        tokensUsed: cost,
+      });
+
+      return Response.json({ result, remainingTokens: newBalance, tokensUsed: cost });
+    } catch (error: any) {
+      await refundTextTokens(user.id, cost);
+      console.error('Voice tools API error:', error);
+      return Response.json(
+        { error: error.message || 'Internal server error' },
+        { status: 500 }
+      );
     }
-
-    const content = completion.choices[0].message.content;
-    const contentString = typeof content === 'string'
-      ? content
-      : Array.isArray(content)
-        ? content.map((chunk: any) => chunk.text || '').join('')
-        : String(content);
-
-    const result = extractJSON(contentString);
-
-    if (!result) {
-      return Response.json({ error: 'Failed to parse AI response' }, { status: 500 });
-    }
-
-    return Response.json({ result });
   } catch (error: any) {
     console.error('Voice tools API error:', error);
     return Response.json(

@@ -4,23 +4,22 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card } from "@/components/ui/card"
-import { Loader2, RefreshCw, Zap, Shield, Copy, Check, ArrowRight } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, RefreshCw, Copy, Check, Download, Shield, Zap } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 export default function Paraphraser() {
   const [text, setText] = useState("")
   const [paraphrasedText, setParaphrasedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -49,9 +48,10 @@ export default function Paraphraser() {
 
   const handleParaphrase = async () => {
     if (!user) {
-      router.push("/signin")
+      setNeedsSignIn(true)
       return
     }
+    setNeedsSignIn(false)
 
     if (!text.trim()) return
 
@@ -66,15 +66,25 @@ export default function Paraphraser() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/ai-tools", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({
           text,
           tool: "paraphrase",
           options: { mode }
         }),
       })
+
+      if (response.status === 401) {
+        router.push("/signin")
+        return
+      }
+      if (response.status === 402) {
+        router.push("/pricing")
+        return
+      }
 
       const data = await response.json()
 
@@ -115,200 +125,199 @@ export default function Paraphraser() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const quickFeatures = [
-    { icon: RefreshCw, text: "Smart Rewriting", color: "text-blue-600" },
-    { icon: Zap, text: "Instant Results", color: "text-green-600" },
-    { icon: Shield, text: "Plagiarism Free", color: "text-purple-600" }
-  ]
-
-  const modes = [
-    { value: "standard", label: "Standard", desc: "Balanced paraphrasing" },
-    { value: "fluency", label: "Fluency", desc: "Improve readability" },
-    { value: "creative", label: "Creative", desc: "More expressive" },
-    { value: "formal", label: "Formal", desc: "Professional tone" },
-  ]
+  const handleDownload = () => {
+    const blob = new Blob([paraphrasedText], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "paraphrased.txt"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={RefreshCw}
+        title="Paraphraser"
+        description="Rewrite any text in a different style while keeping the original meaning. Choose from Standard, Fluency, Formal, Simple, Creative, or Academic modes."
+        category="Writing Tools"
+        gradient="from-cyan-500/[0.07]"
+        iconColor="text-cyan-500"
+        iconBg="bg-cyan-500/10 border-cyan-500/20"
+        categoryColor="text-cyan-600 dark:text-cyan-400"
+      />
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        {needsSignIn && !user && <ToolSignInPrompt />}
 
-      <section className="container py-16">
-        <motion.div
-          className="text-center space-y-6 mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm font-medium">
-            <RefreshCw className="h-4 w-4" />
-            AI-Powered Text Rewriting
-          </div>
-
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            AI Paraphraser
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Rewrite your content with different words while keeping the original meaning.
-            Perfect for avoiding plagiarism and improving your writing.
+        {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
+            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
           </p>
+        )}
 
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+        {error && (
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
+
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* LEFT — input */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { value: "standard", label: "Standard" },
+                { value: "fluency", label: "Fluency" },
+                { value: "formal", label: "Formal" },
+                { value: "simple", label: "Simple" },
+                { value: "creative", label: "Creative" },
+                { value: "academic", label: "Academic" },
+              ].map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => setMode(m.value)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    mode === m.value
+                      ? "bg-cyan-500/15 border-cyan-500/50 text-cyan-600 dark:text-cyan-400 font-medium"
+                      : "border-border text-muted-foreground hover:border-cyan-400/40 hover:text-foreground"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <Textarea
+              placeholder="Enter or paste your text here to paraphrase..."
+              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-cyan-500/30 focus-visible:ring-offset-0"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">{text.length} chars</span>
+              <Button
+                onClick={handleParaphrase}
+                disabled={isProcessing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                className="h-9 px-5 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium shadow-none"
               >
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            className="grid lg:grid-cols-2 gap-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Original Text</h3>
-                  <span className="text-sm text-muted-foreground">{text.length} characters</span>
-                </div>
-                <Textarea
-                  placeholder="Enter or paste your text here to paraphrase..."
-                  className="min-h-[300px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-              </div>
-            </Card>
-
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Paraphrased Text</h3>
-                  {paraphrasedText && (
-                    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
-                      {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
-                      {copied ? "Copied!" : "Copy"}
-                    </Button>
-                  )}
-                </div>
-                <Textarea
-                  placeholder="Paraphrased text will appear here..."
-                  className="min-h-[300px] resize-none border-2 border-gray-200 dark:border-gray-700 text-base leading-relaxed bg-gray-50 dark:bg-gray-800/50"
-                  value={paraphrasedText}
-                  readOnly
-                />
-              </div>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            className="mt-6 space-y-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="flex flex-col md:flex-row gap-6 items-end">
-                <div className="flex-1 space-y-3">
-                  <Label htmlFor="mode" className="text-base font-medium">Paraphrasing Mode</Label>
-                  <Select value={mode} onValueChange={setMode}>
-                    <SelectTrigger id="mode" className="h-11">
-                      <SelectValue placeholder="Select mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {modes.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          <div className="flex flex-col">
-                            <span>{m.label}</span>
-                            <span className="text-xs text-muted-foreground">{m.desc}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  className="h-12 px-8 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                  onClick={handleParaphrase}
-                  disabled={isProcessing || !text.trim() || calculateRequiredTokens(text) > remainingWords}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Paraphrasing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="mr-2 h-5 w-5" />
-                      Paraphrase ({calculateRequiredTokens(text)} words)
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
-                >
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                </motion.div>
-              )}
-
-              {calculateRequiredTokens(text) > remainingWords && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
-                >
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Not enough words remaining.
-                    <Link href="/pricing" className="font-semibold underline ml-1">
-                      Upgrade your plan
-                    </Link>
-                  </p>
-                </motion.div>
-              )}
-            </Card>
-          </motion.div>
-
-          <motion.div
-            className="mt-12 grid md:grid-cols-4 gap-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-          >
-            {[
-              { step: "1", title: "Enter Text", desc: "Paste or type your original content" },
-              { step: "2", title: "Choose Mode", desc: "Select your preferred style" },
-              { step: "3", title: "Paraphrase", desc: "AI rewrites your content" },
-              { step: "4", title: "Copy Result", desc: "Use your unique content" }
-            ].map((item, index) => (
-              <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-gray-800 dark:to-gray-900">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                  {item.step}
-                </div>
-                <h4 className="font-semibold mb-2">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-                {index < 3 && (
-                  <ArrowRight className="h-5 w-5 text-blue-400 mx-auto mt-4 hidden md:block" />
+                {isProcessing ? (
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
+                ) : (
+                  `Paraphrase (${calculateRequiredTokens(text)} tokens)`
                 )}
-              </Card>
-            ))}
-          </motion.div>
+              </Button>
+            </div>
+          </div>
+
+          {/* RIGHT — output */}
+          <div className="space-y-3">
+            {paraphrasedText && (
+              <div className="flex items-center gap-4 px-3.5 py-2 rounded-lg border border-border bg-card text-xs flex-wrap">
+                <span className="text-muted-foreground capitalize font-medium text-cyan-600 dark:text-cyan-400">{mode}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="text-muted-foreground">
+                  <span className="font-medium text-foreground tabular-nums">{text.split(/\s+/).filter(Boolean).length}</span>{" "}
+                  →{" "}
+                  <span className="font-medium text-foreground tabular-nums">{paraphrasedText.split(/\s+/).filter(Boolean).length}</span>{" "}
+                  words
+                </span>
+                <div className="ml-auto flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopy}>
+                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}>
+                    <Download className="h-3 w-3" />Save
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="min-h-[360px] max-h-[520px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-[1.75] whitespace-pre-wrap relative">
+              {paraphrasedText || (
+                <span className="absolute inset-0 flex items-center justify-center text-muted-foreground/40 text-sm">
+                  {isProcessing ? "Rewriting..." : "Paraphrased text appears here"}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
+
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-cyan-500" />
+                <h3 className="text-sm font-semibold">Six Writing Modes</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Standard, Fluency, Formal, Simple, Creative, and Academic — each mode rewrites with a distinct voice and purpose.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-cyan-500" />
+                <h3 className="text-sm font-semibold">Meaning Preserved</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">The core ideas and facts stay intact. Only phrasing, structure, and vocabulary are changed.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4 text-cyan-500" />
+                <h3 className="text-sm font-semibold">Instant Results</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">No waiting. Results appear in seconds so you can iterate and compare modes quickly.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                  Students avoiding unintentional self-plagiarism between drafts
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                  Content marketers creating SEO variations of existing articles
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                  Non-native English speakers polishing their writing
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                  Academics translating informal notes into formal prose
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
+                  Bloggers refreshing older posts without rewriting from scratch
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-cyan-500 font-bold shrink-0">→</span>
+                  Use Academic mode for thesis papers and formal reports — it elevates vocabulary and sentence complexity.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-cyan-500 font-bold shrink-0">→</span>
+                  Creative mode works best for social media captions and casual blog posts.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-cyan-500 font-bold shrink-0">→</span>
+                  Run the same text through multiple modes to find the version that fits your voice.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-cyan-500 font-bold shrink-0">→</span>
+                  Shorter inputs (under 300 words) tend to produce the cleanest rewrites.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

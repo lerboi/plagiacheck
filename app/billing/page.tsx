@@ -38,13 +38,26 @@ interface PackageRecord {
   startDate: string
 }
 
+const PLAN_DETAILS: Record<string, { label: string; price: string }> = {
+  "200Image": { label: "200 Image Package", price: "$9.99" },
+  "1000Image": { label: "1000 Image Package", price: "$29.99" },
+  Plus: { label: "Plus", price: "$9.99" },
+  Premium: { label: "Premium", price: "$19.99" },
+  Pro: { label: "Pro", price: "$29.99" },
+  Custom: { label: "Custom Plan", price: "—" },
+}
+
 export default function Billing() {
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [activePackage, setActivePackage] = useState<PackageRecord | null>(null)
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null)
+  const [billingError, setBillingError] = useState<string | null>(null)
+  const [portalLoading, setPortalLoading] = useState(false)
   const { remainingWords } = useTokenStore()
+  const displayedTokens = tokenBalance ?? remainingWords
 
   useEffect(() => {
     const checkSession = async () => {
@@ -69,48 +82,74 @@ export default function Billing() {
     return () => { authListener.subscription.unsubscribe() }
   }, [supabase.auth])
 
-  const fetchBillingData = async (userId: string) => {
-    // Fetch payment history
-    const { data: paymentData } = await supabase
-      .from('Payment')
-      .select('id, amount, status, createdAt, paymentType')
-      .eq('userId', userId)
-      .order('createdAt', { ascending: false })
-      .limit(10)
+  const fetchBillingData = async (_userId: string) => {
+    setBillingError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) return
 
-    if (paymentData) {
-      setPayments(paymentData)
-    }
+      const res = await fetch("/api/billing-data", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
 
-    // Fetch active package
-    const { data: packageData } = await supabase
-      .from('Package')
-      .select('id, packageName, status, expiryDate, startDate')
-      .eq('userId', userId)
-      .eq('status', 'ACTIVE')
-      .order('startDate', { ascending: false })
-      .limit(1)
-      .single()
+      if (!res.ok) {
+        setBillingError("Could not load billing data. Try refreshing.")
+        return
+      }
 
-    if (packageData) {
-      setActivePackage(packageData)
+      const data = await res.json()
+      setPayments(data.payments ?? [])
+      setActivePackage(data.activePackage ?? null)
+      if (typeof data.tokens === "number") setTokenBalance(data.tokens)
+      // Only surface an error if user_profiles also fails — Payment/Package
+      // tables may simply be empty (new account) which is not an error.
+      if (data.errors?.includes("token balance")) {
+        setBillingError("Could not load token balance. Try refreshing.")
+      }
+    } catch {
+      setBillingError("Could not load billing data. Try refreshing.")
     }
   }
 
   const getPlanName = () => {
-    if (activePackage) {
-      if (activePackage.packageName === '200Image') return '200 Image Package'
-      if (activePackage.packageName === '1000Image') return '1000 Image Package'
-      return activePackage.packageName
-    }
-    return 'Free Plan'
+    if (!activePackage) return 'Free Plan'
+    return PLAN_DETAILS[activePackage.packageName]?.label || activePackage.packageName
   }
 
   const getPlanPrice = () => {
     if (!activePackage) return '$0.00'
-    if (activePackage.packageName === '200Image') return '$9.99'
-    if (activePackage.packageName === '1000Image') return '$29.99'
-    return '$0.00'
+    return PLAN_DETAILS[activePackage.packageName]?.price || '—'
+  }
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) {
+        setBillingError("Session expired. Please sign in again.")
+        return
+      }
+
+      const response = await fetch("/api/billing-portal", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.url) {
+        setBillingError(data.error || "Could not open the billing portal.")
+        return
+      }
+
+      window.location.href = data.url
+    } catch (err: any) {
+      setBillingError(err?.message || "Could not open the billing portal.")
+    } finally {
+      setPortalLoading(false)
+    }
   }
 
   if (loading) {
@@ -153,13 +192,35 @@ export default function Billing() {
                 Manage your subscription, view usage, and download invoices
               </p>
             </div>
-            <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" asChild>
-              <Link href="/pricing">
-                <Crown className="mr-2 h-4 w-4" />
-                Upgrade Plan
-              </Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {activePackage && (
+                <Button
+                  variant="outline"
+                  onClick={handleManageSubscription}
+                  disabled={portalLoading}
+                >
+                  {portalLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="mr-2 h-4 w-4" />
+                  )}
+                  Manage Subscription
+                </Button>
+              )}
+              <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" asChild>
+                <Link href="/pricing">
+                  <Crown className="mr-2 h-4 w-4" />
+                  {activePackage ? "Change Plan" : "Upgrade Plan"}
+                </Link>
+              </Button>
+            </div>
           </div>
+
+          {billingError && (
+            <Card className="p-4 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
+              <p className="text-sm text-red-700 dark:text-red-300">{billingError}</p>
+            </Card>
+          )}
 
           {/* Current Plan */}
           <Card className="border-2 border-blue-100 dark:border-blue-900/30 bg-gradient-to-br from-blue-50/50 to-purple-50/50 dark:from-blue-950/20 dark:to-purple-950/20">
@@ -185,8 +246,8 @@ export default function Billing() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Words Remaining</span>
-                      <span className="font-medium">{remainingWords.toLocaleString()}</span>
+                      <span className="text-muted-foreground">Tokens Remaining</span>
+                      <span className="font-medium">{displayedTokens.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -201,7 +262,7 @@ export default function Billing() {
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-500" />
-                        {remainingWords.toLocaleString()} words remaining
+                        {displayedTokens.toLocaleString()} tokens remaining
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-500" />
@@ -225,13 +286,13 @@ export default function Billing() {
           <div className="grid md:grid-cols-3 gap-6">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-muted-foreground">Words Remaining</CardTitle>
+                <CardTitle className="text-base font-medium text-muted-foreground">Tokens Remaining</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-blue-600" />
                   <span className="text-2xl font-bold text-foreground">
-                    {remainingWords.toLocaleString()}
+                    {displayedTokens.toLocaleString()}
                   </span>
                 </div>
               </CardContent>

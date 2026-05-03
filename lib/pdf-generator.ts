@@ -8,12 +8,19 @@ interface PlagiarismReportData {
   date: Date
 }
 
+interface AIDetectorSentence {
+  text: string
+  score: number
+  type: "human" | "mixed" | "ai"
+}
+
 interface AIDetectorReportData {
   text: string
   aiScore: number
   humanLikelihood: string
   analysis: string
   date: Date
+  sentences?: AIDetectorSentence[]
 }
 
 interface GrammarReportData {
@@ -322,13 +329,32 @@ export function generateAIDetectorReport(data: AIDetectorReportData): void {
       <div class="section">
         <div class="section-title">Analysis Summary</div>
         <div class="analysis-box">
-          <p>${data.analysis}</p>
+          <p>${escapeHtml(data.analysis)}</p>
         </div>
       </div>
 
+      ${data.sentences && data.sentences.length > 0 ? `
+      <div class="section">
+        <div class="section-title">Sentence-by-Sentence Breakdown</div>
+        ${data.sentences.map((s) => {
+          const cls = s.type === "ai" ? "issue-error" : s.type === "mixed" ? "issue-warning" : "issue-suggestion"
+          const labelColor = s.type === "ai" ? "#b91c1c" : s.type === "mixed" ? "#b45309" : "#1d4ed8"
+          return `
+            <div class="issue-item ${cls}">
+              <div class="issue-message">${escapeHtml(s.text)}</div>
+              <div class="issue-fix">
+                <strong style="color: ${labelColor}; text-transform: uppercase;">${s.type}</strong>
+                <span style="margin-left: 8px; color: #6b7280;">AI score: ${s.score}%</span>
+              </div>
+            </div>
+          `
+        }).join("")}
+      </div>
+      ` : ""}
+
       <div class="section">
         <div class="section-title">Analyzed Text</div>
-        <div class="text-box">${data.text.substring(0, 1000)}${data.text.length > 1000 ? "..." : ""}</div>
+        <div class="text-box">${escapeHtml(data.text.substring(0, 1000))}${data.text.length > 1000 ? "..." : ""}</div>
       </div>
 
       <div class="footer">
@@ -340,6 +366,15 @@ export function generateAIDetectorReport(data: AIDetectorReportData): void {
   `
 
   openPrintWindow(html, "AI_Detection_Report")
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
 }
 
 export function generateGrammarReport(data: GrammarReportData): void {

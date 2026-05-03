@@ -4,16 +4,16 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card } from "@/components/ui/card"
-import { Loader2, PieChart, Sparkles, Zap, Download, Copy, Image } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, PieChart, Download, Copy, Sparkles } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 const CHART_TYPES = [
   { value: "auto-detect", label: "Auto-Detect" },
@@ -30,6 +30,7 @@ export default function ChartGenerator() {
   const [svgOutput, setSvgOutput] = useState("")
   const [chartInfo, setChartInfo] = useState<{ chartType?: string; title?: string; description?: string } | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { remainingImageTokens, decrementImageTokens } = useTokenStore()
   const router = useRouter()
@@ -52,7 +53,8 @@ export default function ChartGenerator() {
   }, [supabase.auth])
 
   const handleGenerate = async () => {
-    if (!user) { router.push("/signin"); return }
+    if (!user) { setNeedsSignIn(true); return }
+    setNeedsSignIn(false)
     if (!text.trim()) return
 
     if (IMAGE_TOKEN_COST > remainingImageTokens) {
@@ -67,12 +69,15 @@ export default function ChartGenerator() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/generate-image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text, tool: "chart", options: { chartType } }),
       })
 
+      if (response.status === 401) { router.push("/signin"); return }
+      if (response.status === 402) { router.push("/pricing"); return }
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to generate chart")
 
@@ -111,171 +116,188 @@ export default function ChartGenerator() {
     toast({ title: "Copied!", description: "SVG code copied to clipboard", variant: "success" })
   }
 
-  const quickFeatures = [
-    { icon: PieChart, text: "Multiple Chart Types", color: "text-teal-600" },
-    { icon: Zap, text: "Instant Results", color: "text-green-600" },
-    { icon: Sparkles, text: "AI-Powered", color: "text-purple-600" },
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={PieChart}
+        title="Chart Generator"
+        description="Describe your data or concept in plain English and get professional charts, flowcharts, mind maps, and diagrams as downloadable SVGs."
+        category="Visual Tools"
+        gradient="from-teal-500/[0.07]"
+        iconColor="text-teal-500"
+        iconBg="bg-teal-500/10 border-teal-500/20"
+        categoryColor="text-teal-600 dark:text-teal-400"
+      />
 
-      <section className="container py-16">
-        <motion.div className="text-center space-y-6 mb-16" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-4 py-2 rounded-full text-sm font-medium">
-            <PieChart className="h-4 w-4" />
-            Turn data & concepts into visuals
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* Left: Input */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <span className="text-sm font-medium">Describe Your Chart</span>
+
+            <Textarea
+              placeholder={`Describe the data or concept you want to visualize. Examples:\n\n• 'Sales by quarter: Q1 $50k, Q2 $75k, Q3 $60k, Q4 $90k'\n• 'User signup flow: landing page → register → verify email → dashboard'\n• 'Compare React vs Vue vs Angular in terms of speed, ecosystem, learning curve'`}
+              className="min-h-[200px] resize-none text-sm leading-relaxed"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+
+            {/* Chart type selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">Chart Type</label>
+              <div className="flex flex-wrap gap-2">
+                {CHART_TYPES.map((ct) => (
+                  <button
+                    key={ct.value}
+                    onClick={() => setChartType(ct.value)}
+                    className={`text-xs px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
+                      chartType === ct.value
+                        ? "bg-teal-500/10 border-teal-500 text-teal-600 dark:text-teal-400"
+                        : "border-border hover:border-teal-400"
+                    }`}
+                  >
+                    {ct.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-xs text-destructive">{error}</p>
+            )}
+
+            {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Need {IMAGE_TOKEN_COST} image tokens — you have {remainingImageTokens}.{" "}
+                <Link href="/pricing" className="underline font-medium">Get more</Link>
+              </p>
+            )}
+
+            {needsSignIn && !user && <ToolSignInPrompt />}
+
+            <Button
+              className="h-9 px-5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium"
+              onClick={handleGenerate}
+              disabled={isProcessing || !text.trim() || (!!user && IMAGE_TOKEN_COST > remainingImageTokens)}
+            >
+              {isProcessing ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+              ) : (
+                <><PieChart className="mr-2 h-4 w-4" />Generate Chart ({IMAGE_TOKEN_COST} image tokens)</>
+              )}
+            </Button>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">Chart & Diagram Generator</h1>
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Describe your data or concept in plain text and get professional charts, flowcharts, mind maps, and diagrams instantly.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div key={index} className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}>
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800/50 text-sm">
-              <Image className="h-4 w-4 text-teal-500" />
-              <span className="font-semibold">{user ? remainingImageTokens : 0}</span>
-              <span className="text-muted-foreground">image tokens remaining</span>
+
+          {/* Right: Output */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <span className="text-sm font-medium">Generated Chart</span>
+
+            {/* Metadata strip + SVG container */}
+            {svgOutput && chartInfo && (
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-t-xl border border-b-0 border-border bg-card text-xs">
+                {chartInfo.chartType && (
+                  <span className="px-2 py-1 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium capitalize">{chartInfo.chartType}</span>
+                )}
+                {chartInfo.title && <span className="font-medium text-foreground">{chartInfo.title}</span>}
+                {chartInfo.description && <span className="text-muted-foreground hidden sm:inline">{chartInfo.description}</span>}
+                <div className="ml-auto flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}>
+                    <Copy className="h-3 w-3" />SVG
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}>
+                    <Download className="h-3 w-3" />Download
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className={`overflow-hidden bg-white dark:bg-gray-950 p-4 ${svgOutput && chartInfo ? "rounded-b-xl border border-border" : "rounded-xl border border-border"} ${!svgOutput ? "min-h-[280px] flex items-center justify-center" : ""}`}>
+              {svgOutput
+                ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full" />
+                : <div className="text-center text-muted-foreground/40"><PieChart className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">Chart appears here</p></div>
+              }
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <div className="max-w-6xl mx-auto">
-          <motion.div className="grid lg:grid-cols-2 gap-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-            {/* Left: Input */}
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-teal-500" />
-                  Describe Your Chart
-                </h3>
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
 
-                <Textarea
-                  placeholder="Describe the data or concept you want to visualize. Examples:&#10;&#10;• 'Sales by quarter: Q1 $50k, Q2 $75k, Q3 $60k, Q4 $90k'&#10;• 'User signup flow: landing page → register → verify email → dashboard'&#10;• 'Compare React vs Vue vs Angular in terms of speed, ecosystem, learning curve'"
-                  className="min-h-[200px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-teal-500 dark:focus:border-teal-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-
-                {/* Chart type selector */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Chart Type</label>
-                  <div className="flex flex-wrap gap-2">
-                    {CHART_TYPES.map((ct) => (
-                      <button
-                        key={ct.value}
-                        onClick={() => setChartType(ct.value)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          chartType === ct.value
-                            ? "bg-teal-500 text-white shadow-lg"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                        }`}
-                      >
-                        {ct.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {error && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </motion.div>
-                )}
-
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-semibold shadow-lg transition-all rounded-xl"
-                  onClick={handleGenerate}
-                  disabled={isProcessing || !text.trim() || IMAGE_TOKEN_COST > remainingImageTokens}
-                >
-                  {isProcessing ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Generating Chart...</>
-                  ) : (
-                    <><PieChart className="mr-2 h-5 w-5" />Generate Chart ({IMAGE_TOKEN_COST} image tokens)</>
-                  )}
-                </Button>
-
-                {IMAGE_TOKEN_COST > remainingImageTokens && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Not enough image tokens. <Link href="/pricing" className="font-semibold underline ml-1">Get more tokens</Link>
-                    </p>
-                  </motion.div>
-                )}
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <PieChart className="h-4 w-4 text-teal-500" />
+                <h3 className="text-sm font-semibold">Auto Chart Type Detection</h3>
               </div>
-            </Card>
-
-            {/* Right: Output */}
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500" />
-                    Generated Chart
-                  </h3>
-                  {svgOutput && (
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={handleCopySvg} className="h-8">
-                        <Copy className="h-4 w-4 mr-1" /> SVG
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={handleDownload} className="h-8">
-                        <Download className="h-4 w-4 mr-1" /> Download
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {svgOutput ? (
-                  <div className="space-y-3">
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-950 p-4" dangerouslySetInnerHTML={{ __html: svgOutput }} />
-                    {chartInfo && (
-                      <div className="flex flex-wrap gap-2">
-                        {chartInfo.chartType && (
-                          <span className="text-xs px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 font-medium">
-                            {chartInfo.chartType}
-                          </span>
-                        )}
-                        {chartInfo.description && (
-                          <p className="text-sm text-muted-foreground">{chartInfo.description}</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="min-h-[300px] flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                    <div className="text-center text-muted-foreground">
-                      <PieChart className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                      <p>Your chart will appear here</p>
-                      <p className="text-sm mt-1">Describe your data and click Generate</p>
-                    </div>
-                  </div>
-                )}
+              <p className="text-sm text-muted-foreground leading-relaxed">Describe your data and the AI picks the best visualisation: bar, line, pie, flowchart, mind map, timeline, or comparison chart.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4 text-teal-500" />
+                <h3 className="text-sm font-semibold">SVG Export</h3>
               </div>
-            </Card>
-          </motion.div>
+              <p className="text-sm text-muted-foreground leading-relaxed">All charts are generated as scalable SVG — resize them to any resolution without quality loss for presentations or print.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-teal-500" />
+                <h3 className="text-sm font-semibold">Natural Language Input</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">No data upload, no formatting required. Just describe what you want to visualise in plain English.</p>
+            </div>
+          </div>
 
-          {/* How it works */}
-          <motion.div className="mt-12 grid md:grid-cols-3 gap-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
-            {[
-              { step: "1", title: "Describe Your Data", desc: "Type data points, describe a process, or explain a concept", color: "from-teal-500 to-teal-600" },
-              { step: "2", title: "AI Creates Chart", desc: "Our AI picks the best chart type and generates a professional visual", color: "from-cyan-500 to-cyan-600" },
-              { step: "3", title: "Download & Use", desc: "Download as SVG or copy for your reports and presentations", color: "from-blue-500 to-blue-600" },
-            ].map((item, index) => (
-              <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-gray-800 dark:to-gray-900">
-                <div className={`w-12 h-12 bg-gradient-to-r ${item.color} text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4`}>{item.step}</div>
-                <h4 className="font-semibold mb-2">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </Card>
-            ))}
-          </motion.div>
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                  Creating data charts for business presentations and reports
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                  Visualising processes and workflows as flowcharts
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                  Mapping relationships between concepts as mind maps
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                  Building comparison tables for product or feature analysis
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                  Generating quick timeline graphics for project overviews
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-teal-500 font-bold shrink-0">→</span>
+                  Include specific numbers for data charts: &apos;Q1 $50k, Q2 $75k, Q3 $60k&apos; produces a more accurate bar chart than a vague description.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-teal-500 font-bold shrink-0">→</span>
+                  For flowcharts, describe the steps sequentially: &apos;User visits page → clicks button → form appears → submits → confirmation shown.&apos;
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-teal-500 font-bold shrink-0">→</span>
+                  Use &apos;Auto-Detect&apos; for your first attempt — then switch to a specific type if the result isn&apos;t what you expected.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-teal-500 font-bold shrink-0">→</span>
+                  SVGs can be opened in Figma, Illustrator, or any vector editor for further customisation.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

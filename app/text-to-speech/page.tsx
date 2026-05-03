@@ -5,11 +5,11 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Volume2, Pause, Play, Square, Sparkles, Zap, Shield } from "lucide-react"
+import { Volume2, Pause, Play, Square, Sparkles, Sliders } from "lucide-react"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/hooks/use-toast"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 const VOICES = [
   { value: "default", label: "Default" },
@@ -60,7 +60,6 @@ export default function TextToSpeech() {
     if (!text.trim()) return
     if (!window.speechSynthesis) return
 
-    // Cancel any current speech
     window.speechSynthesis.cancel()
 
     const utterance = new SpeechSynthesisUtterance(text)
@@ -126,124 +125,123 @@ export default function TextToSpeech() {
   const wordCount = text.split(/\s+/).filter(Boolean).length
   const estimatedTime = Math.ceil(wordCount / (150 * rate))
 
-  const quickFeatures = [
-    { icon: Volume2, text: "Natural Voices", color: "text-sky-600" },
-    { icon: Zap, text: "Instant Playback", color: "text-green-600" },
-    { icon: Shield, text: "Free to Use", color: "text-blue-600" },
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={Volume2}
+        title="Text to Speech"
+        description="Paste any text and hear it read aloud with natural voices. Adjust speed and pitch. Great for proofreading by ear or accessibility. Free — no tokens needed."
+        category="Voice Tools"
+        gradient="from-sky-500/[0.07]"
+        iconColor="text-sky-500"
+        iconBg="bg-sky-500/10 border-sky-500/20"
+        categoryColor="text-sky-600 dark:text-sky-400"
+      />
 
-      <section className="container py-16">
-        <motion.div className="text-center space-y-6 mb-16" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 px-4 py-2 rounded-full text-sm font-medium">
-            <Volume2 className="h-4 w-4" />
-            Listen to your text read aloud
+      {!isSupported && (
+        <div className="container max-w-5xl mx-auto px-4 pt-4">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+            <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">Your browser does not support the Web Speech Synthesis API.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Please use Chrome, Edge, or Safari.</p>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">Text to Speech</h1>
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Paste any text and listen to it read aloud. Perfect for proofreading by ear, accessibility, or turning articles into audio.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div key={index} className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}>
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 text-sm">
-              <Sparkles className="h-4 w-4 text-green-500" />
-              <span className="font-semibold text-green-700 dark:text-green-300">Free — no tokens required</span>
-            </div>
-          </div>
-        </motion.div>
+        </div>
+      )}
 
-        {!isSupported && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto mb-8 p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-center">
-            <p className="text-amber-700 dark:text-amber-300 font-medium">Your browser does not support the Web Speech Synthesis API.</p>
-            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">Please use Chrome, Edge, or Safari.</p>
-          </motion.div>
-        )}
-
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-8 items-start max-w-6xl mx-auto">
-          <motion.div className="space-y-6" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-            <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-6">
+      <section className="container max-w-5xl mx-auto px-4 py-6">
+        <div className="grid lg:grid-cols-[2fr,1fr] gap-4 items-start">
+          {/* Main text + controls */}
+          <div className="space-y-4">
+            <Card className="rounded-xl border border-border bg-card p-6">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Your Text</h3>
-                  <span className="text-sm text-muted-foreground">{wordCount} words | ~{estimatedTime} min</span>
+                  <h3 className="text-sm font-semibold">Your Text</h3>
+                  <span className="text-xs text-muted-foreground">{wordCount} words · ~{estimatedTime} min</span>
                 </div>
 
                 <Textarea
                   placeholder="Paste your essay, article, or any text here to hear it read aloud. Great for catching errors your eyes might miss..."
-                  className="min-h-[300px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-sky-500 dark:focus:border-sky-400 text-base leading-relaxed"
+                  className="min-h-[280px] resize-none text-sm leading-relaxed"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                 />
 
                 {/* Progress bar */}
                 {isSpeaking && (
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div className="bg-sky-500 h-2 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                  <div className="w-full bg-muted rounded-full h-1.5">
+                    <div className="bg-sky-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                  </div>
+                )}
+
+                {/* Live waveform visualization */}
+                {isSpeaking && (
+                  <div className="flex items-end justify-center gap-0.5 h-10 py-1">
+                    {Array.from({ length: 18 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-1 rounded-full bg-sky-500 ${i % 2 === 0 ? "animate-bounce" : ""}`}
+                        style={{
+                          height: `${8 + Math.abs(Math.sin(i * 0.8)) * 20}px`,
+                          animationDuration: `${0.5 + (i % 5) * 0.15}s`,
+                          opacity: 0.7 + (i % 3) * 0.1,
+                        }}
+                      />
+                    ))}
                   </div>
                 )}
 
                 {/* Controls */}
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   {!isSpeaking ? (
                     <Button
-                      className="flex-1 h-12 bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-semibold shadow-lg transition-all rounded-xl"
+                      className="h-9 px-5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-medium"
                       onClick={handleSpeak}
                       disabled={!text.trim() || !isSupported}
                     >
-                      <Play className="mr-2 h-5 w-5" /> Play
+                      <Play className="mr-2 h-4 w-4" /> Play
                     </Button>
                   ) : (
                     <>
                       <Button
-                        className="flex-1 h-12 font-semibold rounded-xl"
+                        className="h-9 px-5 text-sm font-medium"
                         variant="outline"
                         onClick={isPaused ? handleResume : handlePause}
                       >
-                        {isPaused ? <><Play className="mr-2 h-5 w-5" /> Resume</> : <><Pause className="mr-2 h-5 w-5" /> Pause</>}
+                        {isPaused ? <><Play className="mr-2 h-4 w-4" /> Resume</> : <><Pause className="mr-2 h-4 w-4" /> Pause</>}
                       </Button>
                       <Button
-                        className="h-12 px-6 font-semibold rounded-xl"
+                        className="h-9 px-4 text-sm font-medium"
                         variant="destructive"
                         onClick={handleStop}
                       >
-                        <Square className="mr-2 h-4 w-4" /> Stop
+                        <Square className="mr-2 h-3.5 w-3.5" /> Stop
                       </Button>
                     </>
                   )}
                 </div>
               </div>
             </Card>
-          </motion.div>
+          </div>
 
           {/* Settings Sidebar */}
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.4 }}>
-            <Card className="sticky top-20 shadow-lg border-0 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-gray-800 dark:to-gray-900">
-              <CardContent className="p-8">
-                <div className="space-y-8">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Voice Settings</h3>
+          <div>
+            <Card className="rounded-xl border border-border bg-card sticky top-20">
+              <CardContent className="p-5">
+                <div className="space-y-6">
+                  <h3 className="text-sm font-semibold">Voice Settings</h3>
 
                   {/* Voice selection */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">Voice</label>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Voice</label>
+                    <div className="flex flex-wrap gap-1.5">
                       {VOICES.map((v) => (
                         <button
                           key={v.value}
                           onClick={() => setSelectedVoice(v.value)}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                             selectedVoice === v.value
                               ? "bg-sky-500 text-white"
-                              : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                         >
                           {v.label}
@@ -253,8 +251,8 @@ export default function TextToSpeech() {
                   </div>
 
                   {/* Speed */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">Speed: {rate}x</label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Speed: {rate}x</label>
                     <Slider min={0.5} max={2} step={0.1} value={[rate]} onValueChange={(v) => setRate(v[0])} />
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>0.5x</span>
@@ -264,8 +262,8 @@ export default function TextToSpeech() {
                   </div>
 
                   {/* Pitch */}
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium">Pitch: {pitch}</label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pitch: {pitch}</label>
                     <Slider min={0.5} max={2} step={0.1} value={[pitch]} onValueChange={(v) => setPitch(v[0])} />
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Low</span>
@@ -274,13 +272,13 @@ export default function TextToSpeech() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="bg-sky-100 dark:bg-sky-900/30 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="h-4 w-4 text-sky-600" />
-                        <h4 className="font-semibold text-sky-900 dark:text-sky-300">Pro Tip</h4>
+                  <div className="pt-2 border-t border-border">
+                    <div className="bg-sky-50 dark:bg-sky-900/20 rounded-lg p-3">
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-sky-600" />
+                        <h4 className="text-xs font-semibold text-sky-900 dark:text-sky-300">Pro Tip</h4>
                       </div>
-                      <p className="text-sm text-sky-700 dark:text-sky-400">
+                      <p className="text-xs text-sky-700 dark:text-sky-400">
                         Listening to your essay read aloud helps catch awkward phrasing, run-on sentences, and errors your eyes skip over.
                       </p>
                     </div>
@@ -288,7 +286,89 @@ export default function TextToSpeech() {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
+        </div>
+      </section>
+
+      <section className="container max-w-5xl mx-auto px-4 pb-6">
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
+
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-sky-500" />
+                <h3 className="text-sm font-semibold">Multiple Voices</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Choose from Default, Male, or Female voice profiles. The browser selects the best available system voice for your chosen preference.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-sky-500" />
+                <h3 className="text-sm font-semibold">Speed &amp; Pitch Control</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Adjust playback speed from 0.5× to 2× and pitch from low to high to find the most comfortable listening experience.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-sky-500" />
+                <h3 className="text-sm font-semibold">Free — No Account Needed</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Text to speech is completely free and requires no sign-in. No tokens are consumed, no limits on text length.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                  Proofreading your writing by hearing it read back — your ears catch mistakes your eyes miss
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                  Making written content accessible to people with reading difficulties
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                  Previewing how a script or narration sounds before recording
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                  Listening to articles or notes while doing something else
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                  Language learners checking pronunciation of words and phrases
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-sky-500 font-bold shrink-0">→</span>
+                  Slow the speed to 0.75× when proofreading technical or complex content — it&apos;s easier to catch errors.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-sky-500 font-bold shrink-0">→</span>
+                  Listen to the first paragraph at normal speed to check the flow, then scan the rest.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-sky-500 font-bold shrink-0">→</span>
+                  For long text, paste one section at a time to keep the playback focused.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-sky-500 font-bold shrink-0">→</span>
+                  If a voice sounds robotic, try a different browser — Chrome typically has the best voices.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

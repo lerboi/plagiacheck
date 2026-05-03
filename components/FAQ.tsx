@@ -1,6 +1,5 @@
 import type React from "react"
 import { motion } from "framer-motion"
-import { useTheme } from "next-themes"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 const faqs = [
@@ -12,60 +11,59 @@ const faqs = [
   {
     question: "How does the plagiarism checker work?",
     answer:
-      "Our plagiarism checker uses advanced algorithms to compare your text against billions of web pages, academic papers, and other sources to identify potential instances of plagiarism.",
+      "Plagiacheck uses a language model to review your text for similarity signals — phrasing patterns, repetition, and stylistic markers that suggest text may not be wholly original. It's a writing aid, not a definitive verdict.",
   },
   {
-    question: "Is my content safe and confidential when I use the plagiarism checker?",
+    question: "Is my content safe and confidential?",
     answer:
-      "Yes, we take your privacy seriously. Your content is encrypted and not stored after the check is complete. We do not share or publish your work.",
+      "Yes. Your content is sent over HTTPS and is not stored after the check completes. We do not share or publish your work.",
   },
   {
-    question: "How accurate is the plagiarism detection?",
+    question: "How accurate is the detection?",
     answer:
-      "Our plagiarism checker is highly accurate, but it's important to review the results carefully. Some matches may be coincidental or common phrases.",
+      "Treat the score as a signal worth investigating, not a verdict. Some matches may be coincidental or common phrases — always review the highlighted passages yourself.",
   },
   {
     question: "Can I check multiple documents at once?",
     answer:
-      "Currently, our system checks one document at a time for the most accurate results. However, you can run multiple checks in succession.",
+      "Currently you can check one document at a time. You can run multiple checks back-to-back.",
   },
   {
     question: "What file formats are supported for upload?",
     answer:
-      "We support various file formats including .txt, .doc, .docx, .pdf, and more. You can also paste text directly into the checker.",
+      "Plain-text files (.txt, .md) can be uploaded directly. For Word, Google Docs, or PDF, paste the text into the editor — full document parsing is on the roadmap.",
   },
   {
     question: "How long does it take to check a document?",
     answer:
-      "The time varies depending on the length of your document and current system load, but most checks are completed within a few minutes.",
+      "Most checks finish within a few seconds. Longer documents may take up to a minute.",
   },
   {
     question: "Can I use this for academic papers?",
     answer:
-      "Yes, our plagiarism checker is suitable for academic use. However, always follow your institution's guidelines for academic integrity.",
+      "Yes — but always follow your institution's guidelines for academic integrity. The score is a writing aid, not a substitute for proper citation practices.",
   },
   {
-    question: "What should I do if plagiarism is detected in my work?",
+    question: "What should I do if matches are flagged in my work?",
     answer:
-      "If plagiarism is detected, review the highlighted sections, add proper citations, or rephrase the content to make it original. Always ensure you're not unintentionally copying others' work.",
+      "Review the highlighted passages, add citations where appropriate, or rephrase to make the wording your own. Make sure you're not unintentionally borrowing others' phrasing.",
   },
   {
     question: "Is there a limit to how many checks I can perform?",
     answer:
-      "The number of checks you can perform depends on your subscription plan. Free users have a limited number of checks, while premium users enjoy unlimited checks.",
+      "Each check costs tokens based on the length of your text. Your token balance is shown in the navbar. You can top up or subscribe on the pricing page.",
   },
 ]
 
 export const FAQ: React.FC = () => {
-  const { theme } = useTheme()
-
   return (
-    <section className={`${theme === "light" ? "text-gray-800" : "text-white"} py-16 backdrop-blur-sm`}>
+    <section className="text-foreground py-16 backdrop-blur-sm">
       <div className="container mx-auto px-4">
         <motion.h2
           className="text-3xl font-bold text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
           Frequently Asked Questions
@@ -75,12 +73,17 @@ export const FAQ: React.FC = () => {
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.4, delay: Math.min(index, 5) * 0.05 }}
             >
               <AccordionItem value={`item-${index}`}>
-                <AccordionTrigger className="hover:text-blue-400">{faq.question}</AccordionTrigger>
-                <AccordionContent className="">{faq.answer}</AccordionContent>
+                <AccordionTrigger className="hover:text-blue-500 dark:hover:text-blue-400">
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  {faq.answer}
+                </AccordionContent>
               </AccordionItem>
             </motion.div>
           ))}
@@ -89,4 +92,3 @@ export const FAQ: React.FC = () => {
     </section>
   )
 }
-

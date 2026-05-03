@@ -1,6 +1,6 @@
 "use client"
 
-import { LogOut, CreditCard, Crown } from "lucide-react"
+import { LogOut, CreditCard, Crown, Clock, Tag } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -78,7 +78,7 @@ export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
               <div className="flex items-center space-x-2">
                 <Crown className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                  {remainingWords.toLocaleString()} words
+                  {remainingWords.toLocaleString()} tokens
                 </span>
               </div>
             </div>
@@ -86,9 +86,21 @@ export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/history" className="flex items-center w-full">
+            <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+            <span>History</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/billing" className="flex items-center w-full">
             <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
             <span>Billing</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/pricing" className="flex items-center w-full">
+            <Tag className="mr-2 h-4 w-4 text-muted-foreground" />
+            <span>Pricing</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

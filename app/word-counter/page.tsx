@@ -3,14 +3,13 @@
 import { useState, useMemo } from "react"
 import { Nav } from "@/components/nav"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { FileText, Clock, Hash, AlignLeft, Type, BookOpen, Copy, Check, BarChart3 } from "lucide-react"
-import { FeatureShowcase } from "@/components/FeatureShowcase"
-import { Hero } from "@/components/Hero"
+import { Copy, Check, Hash, Clock, TrendingUp } from "lucide-react"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
+import { ToolPageHeader } from "@/components/tool-page-header"
+
+const STOPWORDS = new Set(["the","a","an","and","or","but","in","on","at","to","for","of","with","by","is","are","was","were","it","i","you","he","she","we","they","this","that"])
 
 export default function WordCounter() {
   const [text, setText] = useState("")
@@ -70,6 +69,16 @@ export default function WordCounter() {
     }
   }, [text])
 
+  const topWords = useMemo(() => {
+    const freq: Record<string, number> = {}
+    const words = text.toLowerCase().match(/\b\w{3,}\b/g) || []
+    words.forEach(w => { if (!STOPWORDS.has(w)) freq[w] = (freq[w] || 0) + 1 })
+    return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([word, count]) => ({ word, count }))
+  }, [text])
+
+  const readingTime = stats.words === 0 ? "—" : stats.words < 200 ? "< 1 min" : Math.ceil(stats.words / 200) + " min"
+  const speakingTime = stats.words === 0 ? "—" : stats.words < 130 ? "< 1 min" : Math.ceil(stats.words / 130) + " min"
+
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text)
     setCopied(true)
@@ -81,250 +90,226 @@ export default function WordCounter() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const mainStats = [
-    { label: "Words", value: stats.words, icon: Type, color: "from-blue-500 to-blue-600" },
-    { label: "Characters", value: stats.characters, icon: Hash, color: "from-purple-500 to-purple-600" },
-    { label: "Sentences", value: stats.sentences, icon: AlignLeft, color: "from-green-500 to-green-600" },
-    { label: "Paragraphs", value: stats.paragraphs, icon: FileText, color: "from-orange-500 to-orange-600" },
-  ]
-
-  const additionalStats = [
-    { label: "Characters (no spaces)", value: stats.charactersNoSpaces },
-    { label: "Unique Words", value: stats.uniqueWords },
-    { label: "Average Word Length", value: `${stats.avgWordLength} chars` },
-    { label: "Lines", value: stats.lines },
-    { label: "Longest Word", value: stats.longestWord || "-" },
-  ]
-
-  const timeStats = [
-    { label: "Reading Time", value: `${stats.readingTimeMinutes} min`, icon: BookOpen, desc: "~200 words/min" },
-    { label: "Speaking Time", value: `${stats.speakingTimeMinutes} min`, icon: Clock, desc: "~150 words/min" },
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
-
-      {/* Hero Section */}
-      <section className="container py-16">
-        <motion.div
-          className="text-center space-y-6 mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm font-medium">
-            <BarChart3 className="h-4 w-4" />
-            Free Online Tool
+      <ToolPageHeader
+        icon={Hash}
+        title="Word Counter"
+        description="Instant word, character, sentence, and paragraph counts for any text. See reading time, top keywords, and unique word frequency — all free."
+        category="Utility"
+        gradient="from-orange-500/[0.07]"
+        iconColor="text-orange-500"
+        iconBg="bg-orange-500/10 border-orange-500/20"
+        categoryColor="text-orange-600 dark:text-orange-400"
+      />
+      <section className="container max-w-5xl mx-auto px-4 py-6">
+        <div className="grid lg:grid-cols-[1fr,auto] gap-4 items-start">
+          {/* LEFT — textarea */}
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Start typing or paste your text here to see word count and other statistics..."
+              className="min-h-[420px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCopy}
+                disabled={!text}
+                className="h-7 text-xs"
+              >
+                {copied ? (
+                  <><Check className="h-3 w-3 mr-1 text-green-500" />Copied</>
+                ) : (
+                  <><Copy className="h-3 w-3 mr-1" />Copy</>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setText("")}
+                disabled={!text}
+                className="h-7 text-xs"
+              >
+                Clear
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setText(text.toLowerCase())}
+                disabled={!text}
+                className="h-7 text-xs"
+              >
+                lowercase
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setText(text.toUpperCase())}
+                disabled={!text}
+                className="h-7 text-xs"
+              >
+                UPPERCASE
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setText(
+                    text.replace(/\S+/g, (word) =>
+                      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                    )
+                  )
+                }
+                disabled={!text}
+                className="h-7 text-xs"
+              >
+                Title Case
+              </Button>
+            </div>
           </div>
 
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className="font-bold tracking-tight sm:text-6xl md:text-7xl">
-              Word Counter
-            </span>
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Count words, characters, sentences, and more instantly.
-            Perfect for essays, articles, and social media posts.
-          </p>
-        </motion.div>
-
-        {/* Main Stats Cards */}
-        <motion.div
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-        >
-          {mainStats.map((stat, index) => (
-            <Card key={index} className="p-6 border-0 shadow-lg bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="text-center">
-                <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center mx-auto mb-3`}>
-                  <stat.icon className="h-6 w-6 text-white" />
+          {/* RIGHT — stats panel */}
+          <div className="w-64 space-y-3">
+            {/* Primary stats — 2x2 grid with large numbers */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "Words", value: stats.words, color: "text-orange-500" },
+                { label: "Characters", value: stats.characters, color: "text-blue-500" },
+                { label: "Sentences", value: stats.sentences, color: "text-purple-500" },
+                { label: "Paragraphs", value: stats.paragraphs, color: "text-green-500" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="rounded-xl border border-border bg-card px-4 py-3">
+                  <div className={`text-2xl font-bold tabular-nums ${color}`}>{value.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
                 </div>
-                <p className="text-3xl font-bold">{stat.value.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-              </div>
-            </Card>
-          ))}
-        </motion.div>
-
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
-          <motion.div
-            className="space-y-6"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            {/* Text Area Card */}
-            <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Your Text</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCopy}
-                    disabled={!text}
-                    className="h-8"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 mr-1 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4 mr-1" />
-                    )}
-                    {copied ? "Copied!" : "Copy"}
-                  </Button>
-                </div>
-                <Textarea
-                  placeholder="Start typing or paste your text here to see word count and other statistics..."
-                  className="min-h-[350px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-
-                {/* Quick Actions */}
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setText("")}
-                    disabled={!text}
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setText(text.toLowerCase())}
-                    disabled={!text}
-                  >
-                    lowercase
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setText(text.toUpperCase())}
-                    disabled={!text}
-                  >
-                    UPPERCASE
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setText(text.split(' ').map(word =>
-                      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                    ).join(' '))}
-                    disabled={!text}
-                  >
-                    Title Case
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            {/* Time Estimates */}
-            <div className="grid grid-cols-2 gap-4">
-              {timeStats.map((stat, index) => (
-                <Card key={index} className="p-6 border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                      <stat.icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
-                      <p className="text-xs text-muted-foreground">{stat.desc}</p>
-                    </div>
-                  </div>
-                </Card>
               ))}
             </div>
-          </motion.div>
 
-          {/* Sidebar with Additional Stats */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Card className="sticky top-6 shadow-lg border-0 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
-              <CardContent className="p-8">
-                <div className="space-y-8">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                      Detailed Statistics
-                    </h3>
-
-                    <div className="space-y-4">
-                      {additionalStats.map((stat, index) => (
-                        <div key={index} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
-                          <span className="text-sm text-muted-foreground">{stat.label}</span>
-                          <span className="font-semibold">{typeof stat.value === "number" ? stat.value.toLocaleString() : stat.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Character Limits */}
-                  <div>
-                    <h4 className="text-lg font-semibold mb-4">Common Limits</h4>
-                    <div className="space-y-3">
-                      {[
-                        { platform: "Twitter/X", limit: 280, unit: "chars" },
-                        { platform: "Instagram Bio", limit: 150, unit: "chars" },
-                        { platform: "LinkedIn Post", limit: 3000, unit: "chars" },
-                        { platform: "SMS", limit: 160, unit: "chars" },
-                        { platform: "Meta Description", limit: 160, unit: "chars" },
-                      ].map((item, index) => {
-                        const current = stats.characters
-                        const percentage = Math.min(100, (current / item.limit) * 100)
-                        const isOver = current > item.limit
-
-                        return (
-                          <div key={index} className="space-y-1">
-                            <div className="flex items-center justify-between text-sm">
-                              <span>{item.platform}</span>
-                              <span className={isOver ? "text-red-500 font-medium" : ""}>
-                                {current}/{item.limit}
-                              </span>
-                            </div>
-                            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${isOver
-                                  ? "bg-red-500"
-                                  : percentage > 80
-                                    ? "bg-yellow-500"
-                                    : "bg-green-500"
-                                  }`}
-                                style={{ width: `${Math.min(100, percentage)}%` }}
-                              />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4">
-                      <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Free Tool</h4>
-                      <p className="text-sm text-blue-700 dark:text-blue-400">
-                        This word counter is completely free and doesn&apos;t use any of your word credits!
-                      </p>
-                    </div>
-                  </div>
+            {/* Secondary stats */}
+            <div className="rounded-xl border border-border bg-card divide-y divide-border/60">
+              {[
+                { label: "Reading time", value: readingTime },
+                { label: "Speaking time", value: speakingTime },
+                { label: "Chars (no spaces)", value: stats.charactersNoSpaces.toLocaleString() },
+                { label: "Unique words", value: stats.uniqueWords.toLocaleString() },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-xs text-muted-foreground">{label}</span>
+                  <span className="text-sm font-medium tabular-nums">{value}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+              ))}
+            </div>
+
+            {/* Keyword frequency — top 5 words */}
+            {stats.words > 0 && (
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Words</span>
+                </div>
+                <div className="p-3 space-y-1.5">
+                  {topWords.map(({ word, count: wc }) => (
+                    <div key={word} className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground w-20 truncate">{word}</span>
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-orange-500/60 rounded-full"
+                          style={{ width: `${(wc / (topWords[0]?.count || 1)) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs tabular-nums text-muted-foreground w-6 text-right">{wc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
+
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4 text-orange-500" />
+                <h3 className="text-sm font-semibold">Real-Time Counting</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Every stat updates instantly as you type — no submit button needed. Words, characters, sentences, and paragraphs.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-orange-500" />
+                <h3 className="text-sm font-semibold">Reading &amp; Speaking Time</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Estimated reading time (200 wpm) and speaking time (130 wpm) are calculated automatically.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-orange-500" />
+                <h3 className="text-sm font-semibold">Top Keywords</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">The most frequent non-trivial words are shown with proportional frequency bars — useful for checking keyword density.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Writers checking they meet or stay under a word limit for submissions
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Students verifying essay length requirements before submitting
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Podcasters or speakers estimating how long their script will take
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  SEO writers checking keyword frequency and density
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Editors reviewing content length and reading complexity at a glance
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  Average blog posts read in 7–10 minutes — aim for 1,400–2,000 words for that range.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  Check the top keywords list to spot over-repetition before your editor does.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  Speaking time assumes 130 wpm — adjust if you speak faster or slower in practice.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  Use character count (no spaces) when working with platforms that count differently.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      <FeatureShowcase />
-      <Hero />
       <FAQ />
     </div>
   )

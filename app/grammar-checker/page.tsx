@@ -4,16 +4,16 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, CheckCircle2, Sparkles, Zap, Shield, Copy, Check, AlertTriangle, XCircle, Info } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, CheckCircle2, Copy, Check, MousePointerClick, FileText } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 interface GrammarIssue {
   type: "error" | "warning" | "suggestion"
@@ -28,6 +28,7 @@ export default function GrammarChecker() {
   const [correctedText, setCorrectedText] = useState("")
   const [issues, setIssues] = useState<GrammarIssue[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -55,9 +56,10 @@ export default function GrammarChecker() {
 
   const handleCheck = async () => {
     if (!user) {
-      router.push("/signin")
+      setNeedsSignIn(true)
       return
     }
+    setNeedsSignIn(false)
 
     if (!text.trim()) return
 
@@ -73,11 +75,21 @@ export default function GrammarChecker() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/ai-tools", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text, tool: "grammar" }),
       })
+
+      if (response.status === 401) {
+        router.push("/signin")
+        return
+      }
+      if (response.status === 402) {
+        router.push("/pricing")
+        return
+      }
 
       const data = await response.json()
 
@@ -87,7 +99,7 @@ export default function GrammarChecker() {
 
       setCorrectedText(data.result.correctedText || text)
 
-      const mappedIssues: GrammarIssue[] = (data.result.issues || []).map((issue: any) => ({
+      const mappedIssues: GrammarIssue[] = (data.result.issues || []).map((issue: { type?: string; text?: string; replacement?: string; message?: string; startIndex?: number; endIndex?: number }) => ({
         type: issue.type || "error",
         text: issue.text || "",
         replacement: issue.replacement || "",
@@ -134,20 +146,44 @@ export default function GrammarChecker() {
   }
 
   const applyFix = (issue: GrammarIssue) => {
-    const newText = text.substring(0, issue.position.start) + issue.replacement + text.substring(issue.position.end)
+    const { start, end } = issue.position
+    let newText: string
+    let appliedAt: number
+
+    // Trust the model's offsets only if they actually point at the
+    // issue text. LLMs return wrong character offsets routinely.
+    const slice = text.substring(start, end)
+    if (slice === issue.text && issue.text.length > 0) {
+      newText = text.substring(0, start) + issue.replacement + text.substring(end)
+      appliedAt = start
+    } else {
+      // Fall back to first-occurrence replacement of the original text.
+      const idx = issue.text.length > 0 ? text.indexOf(issue.text) : -1
+      if (idx === -1) {
+        toast({
+          title: "Unable to apply fix",
+          description: "The original text no longer appears in your input. Edit manually or re-check.",
+          variant: "destructive",
+        })
+        return
+      }
+      newText = text.substring(0, idx) + issue.replacement + text.substring(idx + issue.text.length)
+      appliedAt = idx
+    }
+
     setText(newText)
 
     const lengthDiff = issue.replacement.length - issue.text.length
     const updatedIssues = issues
-      .filter(i => i.position.start !== issue.position.start)
+      .filter(i => !(i.position.start === issue.position.start && i.text === issue.text))
       .map(i => {
-        if (i.position.start > issue.position.start) {
+        if (i.position.start > appliedAt) {
           return {
             ...i,
             position: {
               start: i.position.start + lengthDiff,
-              end: i.position.end + lengthDiff
-            }
+              end: i.position.end + lengthDiff,
+            },
           }
         }
         return i
@@ -161,274 +197,228 @@ export default function GrammarChecker() {
     })
   }
 
-  const quickFeatures = [
-    { icon: CheckCircle2, text: "Grammar Check", color: "text-green-600" },
-    { icon: Zap, text: "Instant Results", color: "text-yellow-600" },
-    { icon: Shield, text: "Spelling Fix", color: "text-blue-600" }
-  ]
-
-  const getIssueIcon = (type: string) => {
-    switch (type) {
-      case "error": return <XCircle className="h-4 w-4 text-red-500" />
-      case "warning": return <AlertTriangle className="h-4 w-4 text-yellow-500" />
-      default: return <Info className="h-4 w-4 text-blue-500" />
-    }
-  }
-
-  const getIssueColor = (type: string) => {
-    switch (type) {
-      case "error": return "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
-      case "warning": return "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20"
-      default: return "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
-    }
-  }
-
-  const errorCount = issues.filter(i => i.type === "error").length
-  const warningCount = issues.filter(i => i.type === "warning").length
-  const suggestionCount = issues.filter(i => i.type === "suggestion").length
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={CheckCircle2}
+        title="Grammar Checker"
+        description="Identify and fix grammar errors, spelling mistakes, and style issues. Review each correction individually and apply fixes with one click."
+        category="Writing Tools"
+        gradient="from-emerald-500/[0.07]"
+        iconColor="text-emerald-500"
+        iconBg="bg-emerald-500/10 border-emerald-500/20"
+        categoryColor="text-emerald-600 dark:text-emerald-400"
+      />
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        {needsSignIn && !user && <ToolSignInPrompt />}
 
-      <section className="container py-16">
-        <motion.div
-          className="text-center space-y-6 mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-4 py-2 rounded-full text-sm font-medium">
-            <CheckCircle2 className="h-4 w-4" />
-            AI-Powered Grammar & Spelling
-          </div>
-
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            Grammar Checker
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Fix grammar, spelling, and punctuation errors instantly.
-            Write with confidence using our AI-powered grammar checker.
+        {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
+            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
           </p>
+        )}
 
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+        {error && (
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
+
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* LEFT — input */}
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Type or paste your text here to check for grammar and spelling errors..."
+              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-0"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">{text.split(/\s+/).filter(Boolean).length} words · {text.length} chars</span>
+              <Button
+                onClick={handleCheck}
+                disabled={isProcessing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                className="h-9 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-none"
               >
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
-          <motion.div
-            className="space-y-6"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Your Text</h3>
-                  <span className="text-sm text-muted-foreground">
-                    {text.split(/\s+/).filter(Boolean).length} words
-                  </span>
-                </div>
-                <Textarea
-                  placeholder="Type or paste your text here to check for grammar and spelling errors..."
-                  className="min-h-[250px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-emerald-500 dark:focus:border-emerald-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
-                  >
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </motion.div>
+                {isProcessing ? (
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Checking...</>
+                ) : (
+                  `Check Grammar (${calculateRequiredTokens(text)} tokens)`
                 )}
+              </Button>
+            </div>
+          </div>
 
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                  onClick={handleCheck}
-                  disabled={isProcessing || !text.trim() || calculateRequiredTokens(text) > remainingWords}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="mr-2 h-5 w-5" />
-                      Check Grammar ({calculateRequiredTokens(text)} words)
-                    </>
-                  )}
-                </Button>
-
-                {calculateRequiredTokens(text) > remainingWords && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
-                  >
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Not enough words remaining.
-                      <Link href="/pricing" className="font-semibold underline ml-1">
-                        Upgrade your plan
-                      </Link>
-                    </p>
-                  </motion.div>
+          {/* RIGHT — results */}
+          <div className="space-y-3">
+            {/* Summary bar — only when results exist */}
+            {(correctedText || issues.length > 0) && (
+              <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-border bg-card text-sm flex-wrap">
+                {issues.length === 0 ? (
+                  <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
+                    <Check className="h-3.5 w-3.5" /> No issues found
+                  </span>
+                ) : (
+                  <div className="flex gap-3">
+                    {[
+                      { type: "error", color: "bg-red-500", label: "errors" },
+                      { type: "warning", color: "bg-amber-500", label: "warnings" },
+                      { type: "suggestion", color: "bg-blue-500", label: "suggestions" },
+                    ].map(({ type, color, label }) => {
+                      const count = issues.filter((i) => i.type === type).length
+                      return count > 0 ? (
+                        <span key={type} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className={`w-2 h-2 rounded-full ${color}`} />
+                          <span className="font-semibold text-foreground">{count}</span> {label}
+                        </span>
+                      ) : null
+                    })}
+                  </div>
+                )}
+                {correctedText && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 ml-auto" onClick={handleCopy}>
+                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy corrected</>}
+                  </Button>
                 )}
               </div>
-            </Card>
-
-            {issues.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-                <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Issues Found</h3>
-                      <div className="flex gap-3 text-sm">
-                        {errorCount > 0 && (
-                          <span className="flex items-center gap-1 text-red-600">
-                            <XCircle className="h-4 w-4" /> {errorCount} errors
-                          </span>
-                        )}
-                        {warningCount > 0 && (
-                          <span className="flex items-center gap-1 text-yellow-600">
-                            <AlertTriangle className="h-4 w-4" /> {warningCount} warnings
-                          </span>
-                        )}
-                        {suggestionCount > 0 && (
-                          <span className="flex items-center gap-1 text-blue-600">
-                            <Info className="h-4 w-4" /> {suggestionCount} suggestions
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                      {issues.map((issue, index) => (
-                        <motion.div
-                          key={index}
-                          className={`p-4 rounded-lg border ${getIssueColor(issue.type)}`}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3">
-                              {getIssueIcon(issue.type)}
-                              <div>
-                                <p className="text-sm font-medium">{issue.message}</p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  <span className="line-through text-red-500">{issue.text}</span>
-                                  <span className="mx-2">→</span>
-                                  <span className="text-green-600 font-medium">{issue.replacement}</span>
-                                </p>
-                              </div>
-                            </div>
-                            <Button size="sm" variant="outline" onClick={() => applyFix(issue)} className="flex-shrink-0">
-                              Fix
-                            </Button>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
             )}
 
-            {correctedText && issues.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
-                <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Corrected Text</h3>
-                      <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
-                        {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
-                        {copied ? "Copied!" : "Copy All"}
+            {/* Corrected text — styled document view */}
+            {correctedText ? (
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs font-medium">Corrected Text</span>
+                </div>
+                <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap max-h-52 overflow-y-auto">{correctedText}</div>
+              </div>
+            ) : (
+              <div className="min-h-[160px] rounded-xl border border-border bg-muted/30 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground/50">Corrected text appears here</p>
+              </div>
+            )}
+
+            {/* Issues list */}
+            {issues.length > 0 && (
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {issues.length} {issues.length === 1 ? "Issue" : "Issues"}
+                  </span>
+                </div>
+                <div className="divide-y divide-border max-h-72 overflow-y-auto">
+                  {issues.map((issue, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3.5">
+                      <div
+                        className={`w-1 rounded-full shrink-0 self-stretch min-h-[1.5rem] ${
+                          issue.type === "error" ? "bg-red-500" : issue.type === "warning" ? "bg-amber-500" : "bg-blue-500"
+                        }`}
+                      />
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono bg-red-500/10 text-red-600 dark:text-red-400 px-1.5 py-0.5 rounded line-through">
+                            {issue.text}
+                          </span>
+                          <span className="text-xs text-muted-foreground">→</span>
+                          <span className="text-xs font-mono bg-green-500/10 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded">
+                            {issue.replacement}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{issue.message}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs shrink-0"
+                        onClick={() => applyFix(issue)}
+                      >
+                        Fix
                       </Button>
                     </div>
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                      <p className="text-base leading-relaxed whitespace-pre-wrap">{correctedText}</p>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-
-            {correctedText && issues.length === 0 && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-                <Card className="p-8 shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20">
-                  <div className="text-center space-y-4">
-                    <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto">
-                      <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-emerald-900 dark:text-emerald-100">Perfect!</h3>
-                    <p className="text-emerald-700 dark:text-emerald-300">
-                      No grammar or spelling issues found. Your text looks great!
-                    </p>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Card className="sticky top-20 shadow-lg border-0 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-gray-800 dark:to-gray-900">
-              <CardContent className="p-8">
-                <div className="space-y-8">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">What We Check</h3>
-                    <div className="space-y-4">
-                      {[
-                        { icon: XCircle, label: "Spelling Errors", color: "text-red-500" },
-                        { icon: AlertTriangle, label: "Grammar Issues", color: "text-yellow-500" },
-                        { icon: Info, label: "Style Suggestions", color: "text-blue-500" },
-                        { icon: CheckCircle2, label: "Punctuation", color: "text-green-500" },
-                      ].map((item, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          <item.icon className={`h-5 w-5 ${item.color}`} />
-                          <span className="text-gray-700 dark:text-gray-300">{item.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="bg-emerald-100 dark:bg-emerald-900/30 rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="h-4 w-4 text-emerald-600" />
-                        <h4 className="font-semibold text-emerald-900 dark:text-emerald-300">Pro Tip</h4>
-                      </div>
-                      <p className="text-sm text-emerald-700 dark:text-emerald-400">
-                        Click the &quot;Fix&quot; button on each issue to automatically apply corrections to your text.
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
+
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <h3 className="text-sm font-semibold">Three Severity Levels</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Issues are categorised as errors (must fix), warnings (should review), and suggestions (optional improvements).</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <MousePointerClick className="h-4 w-4 text-emerald-500" />
+                <h3 className="text-sm font-semibold">One-Click Fixes</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Each issue shows the exact before → after change. Apply it instantly or skip it — you stay in control.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-emerald-500" />
+                <h3 className="text-sm font-semibold">Full Corrected Text</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">A clean corrected version is generated alongside the issue list so you can copy it directly without applying fixes one by one.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Polishing professional emails before sending to clients or executives
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Proofreading essays, cover letters, and academic submissions
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Non-native English speakers checking grammar before publishing
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Bloggers doing a final pass before hitting publish
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  Teams reviewing shared documents for consistency and correctness
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-emerald-500 font-bold shrink-0">→</span>
+                  Write first, check grammar after — editing as you type disrupts flow and produces worse writing.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-emerald-500 font-bold shrink-0">→</span>
+                  Review suggestions carefully; stylistic recommendations may not always fit your intended voice.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-emerald-500 font-bold shrink-0">→</span>
+                  Run it twice: once after writing, once after making your own edits.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-emerald-500 font-bold shrink-0">→</span>
+                  For long documents, paste in sections to get more focused, accurate feedback.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

@@ -113,11 +113,10 @@ export default function Pricing() {
     }
 
     if (!priceId) {
-      console.log(`User ${user.id} selected ${planName} plan (Free)`)
+      // Free plan: logged-in users are already on it (or above) — nothing to do.
       return
     }
 
-    // Direct navigation instead of fetch
     window.location.href = `/api/create-checkout-session?priceId=${priceId}&planName=${planName}`
   }
 
@@ -131,7 +130,7 @@ export default function Pricing() {
             <div className="grid gap-6 text-center max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mx-auto">
                 <Sparkles className="h-4 w-4" />
-                Trusted by 10M+ users worldwide
+                Plain pricing — cancel anytime
               </div>
               <h1 className="text-4xl font-bold tracking-tighter sm:text-6xl bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                 Choose Your Perfect Plan
@@ -180,7 +179,7 @@ export default function Pricing() {
                         {plan.yearlyPrice && (
                           <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">
-                              ${plan.yearlyPrice} when billed yearly
+                              {plan.yearlyPrice} when billed yearly
                             </p>
                             {plan.savings && (
                               <div className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs font-medium">
@@ -367,15 +366,15 @@ export default function Pricing() {
             </div>
             <div className="space-y-6">
               <div>
-                <h3 className="font-semibold mb-2">What sources do you check against?</h3>
+                <h3 className="font-semibold mb-2">How does plagiarism detection work?</h3>
                 <p className="text-sm text-muted-foreground">
-                  We check against billions of web pages, academic papers, and published content.
+                  We use a language model to flag passages that read like common patterns and surface similarity signals worth a closer look. It is a writing aid, not a verdict.
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">How accurate is the detection?</h3>
+                <h3 className="font-semibold mb-2">How accurate is AI detection?</h3>
                 <p className="text-sm text-muted-foreground">
-                  Our AI-powered system maintains a 99.9% accuracy rate with minimal false positives.
+                  AI detection is an estimate based on writing style. Treat the score as a signal worth investigating, not a definitive label.
                 </p>
               </div>
               <div>

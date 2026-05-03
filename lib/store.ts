@@ -5,10 +5,20 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 interface TokenStore {
   remainingWords: number
   remainingImageTokens: number
+  /** Free-trial token count for non-logged-in visitors. Starts at 200, persisted in localStorage. */
+  guestTokens: number
   fetchRemainingWords: (userId: string) => Promise<void>
   fetchImageTokens: (userId: string) => Promise<void>
-  decrementWords: (amount: number) => Promise<void>
-  decrementImageTokens: (amount: number) => Promise<void>
+  /**
+   * Refresh the locally-displayed token balance from the server. The server
+   * is authoritative for token deductions — this just reconciles the cached
+   * display value. The `_amount` parameter is accepted for backward
+   * compatibility with existing callers but is no longer used for math.
+   */
+  decrementWords: (_amount?: number) => Promise<void>
+  decrementImageTokens: (_amount?: number) => Promise<void>
+  setRemainingWords: (value: number) => void
+  setRemainingImageTokens: (value: number) => void
   clearTokens: () => void
 }
 
@@ -17,6 +27,7 @@ export const useTokenStore = create<TokenStore>()(
     (set) => ({
       remainingWords: 0,
       remainingImageTokens: 0,
+      guestTokens: 200,
 
       fetchRemainingWords: async (userId) => {
         const supabase = createClientComponentClient()
@@ -43,7 +54,6 @@ export const useTokenStore = create<TokenStore>()(
           .single()
 
         if (error) {
-          // No purchased tokens record yet — that's fine
           set({ remainingImageTokens: 0 })
           return
         }
@@ -51,47 +61,53 @@ export const useTokenStore = create<TokenStore>()(
         set({ remainingImageTokens: data.imageTokens || 0 })
       },
 
-      decrementWords: async (amount) => {
-        set((state) => ({ remainingWords: Math.max(0, state.remainingWords - amount) }))
-
+      decrementWords: async () => {
         const supabase = createClientComponentClient()
-        const user = await supabase.auth.getUser()
+        const { data: userResult } = await supabase.auth.getUser()
+        const userId = userResult?.user?.id
+        if (!userId) return
 
-        if (!user?.data?.user?.id) return
-
-        // Read the already-decremented local state and sync to DB
-        const newAmount = useTokenStore.getState().remainingWords
-
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("user_profiles")
-          .update({ tokens: newAmount })
-          .eq("id", user.data.user.id)
+          .select("tokens")
+          .eq("id", userId)
+          .single()
 
         if (error) {
-          console.error("Error updating tokens:", error.message)
+          console.error("Error refreshing tokens:", error.message)
+          return
         }
+
+        set({ remainingWords: data.tokens ?? 0 })
+        notifyTokensChanged()
       },
 
-      decrementImageTokens: async (amount) => {
-        set((state) => ({ remainingImageTokens: Math.max(0, state.remainingImageTokens - amount) }))
-
+      decrementImageTokens: async () => {
         const supabase = createClientComponentClient()
-        const user = await supabase.auth.getUser()
+        const { data: userResult } = await supabase.auth.getUser()
+        const userId = userResult?.user?.id
+        if (!userId) return
 
-        if (!user?.data?.user?.id) return
-
-        const newAmount = useTokenStore.getState().remainingImageTokens
-
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("PurchasedToken")
-          .update({ imageTokens: newAmount })
-          .eq("userId", user.data.user.id)
+          .select("imageTokens")
+          .eq("userId", userId)
+          .single()
 
         if (error) {
-          console.error("Error updating image tokens:", error.message)
+          set({ remainingImageTokens: 0 })
+          return
         }
+
+        set({ remainingImageTokens: data.imageTokens || 0 })
+        notifyTokensChanged()
       },
 
+      setRemainingWords: (value) => set({ remainingWords: value }),
+      setRemainingImageTokens: (value) => set({ remainingImageTokens: value }),
+
+      // guestTokens deliberately preserved on logout — they represent the
+      // visitor's remaining free trial and should persist across sessions.
       clearTokens: () => {
         set({ remainingWords: 0, remainingImageTokens: 0 })
       },
@@ -101,3 +117,26 @@ export const useTokenStore = create<TokenStore>()(
     }
   )
 )
+
+/**
+ * Helper for client tool pages: attach the current Supabase access token
+ * as a Bearer header so the API route can authenticate and atomically
+ * deduct on the server.
+ */
+export async function getAuthHeader(): Promise<Record<string, string>> {
+  const supabase = createClientComponentClient()
+  const { data } = await supabase.auth.getSession()
+  const token = data?.session?.access_token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/**
+ * Tool pages call this after a successful run so the nav (and any other
+ * subscribed component) can refresh the token balance display.
+ */
+export const TOKENS_CHANGED_EVENT = "plagiacheck:tokens-changed"
+
+export function notifyTokensChanged() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent(TOKENS_CHANGED_EVENT))
+}

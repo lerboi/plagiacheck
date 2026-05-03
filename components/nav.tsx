@@ -3,7 +3,7 @@
 import { PiLetterCircleP } from "react-icons/pi"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useTokenStore } from "@/lib/store"
+import { useTokenStore, TOKENS_CHANGED_EVENT } from "@/lib/store"
 import {
   Menu,
   X,
@@ -30,6 +30,7 @@ import {
   Pen,
   ImageIcon,
   AudioLines,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
@@ -58,7 +59,7 @@ interface ToolCategory {
 }
 
 export function Nav() {
-  const { remainingWords, remainingImageTokens, fetchRemainingWords, fetchImageTokens, clearTokens } = useTokenStore()
+  const { remainingWords, remainingImageTokens, guestTokens, fetchRemainingWords, fetchImageTokens, clearTokens } = useTokenStore()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -110,11 +111,14 @@ export function Nav() {
   ]
 
   useEffect(() => {
+    let activeUserId: string | null = null
+
     const checkSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
       setUser(session?.user || null)
+      activeUserId = session?.user?.id || null
 
       if (session?.user) {
         await fetchRemainingWords(session.user.id)
@@ -126,13 +130,25 @@ export function Nav() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null)
+      activeUserId = session?.user?.id || null
       if (session?.user) {
         fetchRemainingWords(session.user.id)
+        fetchImageTokens(session.user.id)
       }
     })
 
+    const handleTokensChanged = () => {
+      if (activeUserId) {
+        fetchRemainingWords(activeUserId)
+        fetchImageTokens(activeUserId)
+      }
+    }
+
+    window.addEventListener(TOKENS_CHANGED_EVENT, handleTokensChanged)
+
     return () => {
       authListener.subscription.unsubscribe()
+      window.removeEventListener(TOKENS_CHANGED_EVENT, handleTokensChanged)
     }
   }, [supabase.auth, fetchRemainingWords, fetchImageTokens])
 
@@ -305,11 +321,8 @@ export function Nav() {
 
         {/* Desktop Right Side */}
         <div className="hidden lg:flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/50 dark:border-blue-800/50">
-            <Coins className="w-4 h-4 text-blue-500" />
-            <span className="text-sm font-semibold">{user ? remainingWords.toLocaleString() : "1,000"}</span>
-            <span className="text-xs text-muted-foreground">words</span>
-          </div>
+          {/* Token display */}
+          <TokenBadge user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} />
 
           {user ? (
             <ProfileDropdown user={user} onLogout={handleLogout} />
@@ -327,10 +340,7 @@ export function Nav() {
 
         {/* Mobile Menu Button */}
         <div className="lg:hidden flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/50 dark:border-blue-800/50">
-            <Coins className="w-3.5 h-3.5 text-blue-500" />
-            <span className="text-xs font-semibold">{user ? remainingWords.toLocaleString() : "1,000"}</span>
-          </div>
+          <MobileTokenBadge user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} />
 
           <button
             onClick={toggleMobileMenu}
@@ -348,6 +358,10 @@ export function Nav() {
           <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={closeMobileMenu} />
           <div className="fixed top-14 left-0 right-0 bg-background border-b shadow-lg z-50 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
             <div className="p-4 space-y-2">
+
+              {/* Mobile token summary */}
+              <MobileTokenSummary user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} />
+
               {/* Categorized Tool Sections */}
               {toolCategories.map((category) => {
                 const isExpanded = expandedMobileCategory === category.label
@@ -459,5 +473,125 @@ export function Nav() {
         </div>
       )}
     </nav>
+  )
+}
+
+// ── Token display sub-components ────────────────────────────────────────────
+
+interface TokenBadgeProps {
+  user: User | null
+  remainingWords: number
+  remainingImageTokens: number
+  guestTokens: number
+}
+
+function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
+  if (!user) {
+    return (
+      <Link
+        href="/pricing"
+        className="group flex items-center gap-1.5 h-8 px-3 rounded-full bg-gradient-to-r from-blue-500/10 via-violet-500/10 to-blue-500/10 border border-blue-200/60 dark:border-blue-800/60 hover:border-blue-400/60 dark:hover:border-blue-600/60 hover:from-blue-500/15 hover:via-violet-500/15 hover:to-blue-500/15 transition-all duration-200"
+        title="Try free — 200 tokens included"
+      >
+        <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+        <span className="text-xs font-semibold tabular-nums text-foreground">{guestTokens}</span>
+        <span className="text-xs text-muted-foreground">free tokens</span>
+      </Link>
+    )
+  }
+
+  return (
+    <div
+      className="flex items-center h-8 rounded-full border border-border bg-muted/50 dark:bg-muted/30 divide-x divide-border overflow-hidden"
+      title={`${remainingWords.toLocaleString()} text tokens · ${remainingImageTokens} image tokens`}
+    >
+      {/* Text tokens */}
+      <div className="flex items-center gap-1.5 px-3 h-full">
+        <Coins className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+        <span className="text-xs font-semibold tabular-nums">
+          {remainingWords.toLocaleString()}
+        </span>
+        <span className="text-xs text-muted-foreground hidden xl:inline">tok</span>
+      </div>
+      {/* Image tokens */}
+      <Link
+        href="/pricing"
+        className="flex items-center gap-1.5 px-3 h-full hover:bg-accent/60 transition-colors"
+        title="Image tokens — used for visual tools"
+      >
+        <ImageIcon className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+        <span className="text-xs font-semibold tabular-nums">{remainingImageTokens}</span>
+        <span className="text-xs text-muted-foreground hidden xl:inline">img</span>
+      </Link>
+    </div>
+  )
+}
+
+function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
+  if (!user) {
+    return (
+      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/50 dark:border-blue-800/50">
+        <Sparkles className="h-3 w-3 text-blue-500" />
+        <span className="text-xs font-semibold">{guestTokens}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1 h-7 rounded-full border border-border bg-muted/50 dark:bg-muted/30 divide-x divide-border overflow-hidden">
+      <div className="flex items-center gap-1 px-2 h-full">
+        <Coins className="h-3 w-3 text-blue-500" />
+        <span className="text-xs font-semibold tabular-nums">{remainingWords.toLocaleString()}</span>
+      </div>
+      <div className="flex items-center gap-1 px-2 h-full">
+        <ImageIcon className="h-3 w-3 text-rose-500" />
+        <span className="text-xs font-semibold tabular-nums">{remainingImageTokens}</span>
+      </div>
+    </div>
+  )
+}
+
+function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
+  if (!user) {
+    return (
+      <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/40 dark:border-blue-800/40">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-blue-500" />
+          <div>
+            <p className="text-sm font-semibold">{guestTokens} free tokens</p>
+            <p className="text-xs text-muted-foreground">Sign in to get more</p>
+          </div>
+        </div>
+        <Link
+          href="/pricing"
+          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          Upgrade →
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2 mb-1">
+      <div className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-500/8 dark:bg-blue-500/10 border border-blue-200/40 dark:border-blue-800/40">
+        <div className="p-1.5 rounded-lg bg-blue-500/15">
+          <Coins className="h-4 w-4 text-blue-500" />
+        </div>
+        <div>
+          <p className="text-sm font-bold tabular-nums">{remainingWords.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground">text tokens</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-500/8 dark:bg-rose-500/10 border border-rose-200/40 dark:border-rose-800/40">
+        <div className="p-1.5 rounded-lg bg-rose-500/15">
+          <ImageIcon className="h-4 w-4 text-rose-500" />
+        </div>
+        <div>
+          <p className="text-sm font-bold tabular-nums">{remainingImageTokens}</p>
+          <p className="text-xs text-muted-foreground">image tokens</p>
+        </div>
+      </div>
+    </div>
   )
 }

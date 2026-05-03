@@ -1,8 +1,14 @@
 import { Mistral } from '@mistralai/mistralai';
+import { getUserFromRequest } from '@/lib/server-auth';
+import { IMAGE_TOKEN_COST, deductImageTokens, refundImageTokens } from '@/lib/server-tokens';
+import { recordToolUse } from '@/lib/server-history';
+import type { ToolHistoryTool } from '@/lib/server-history';
 
 const mistralClient = process.env.MISTRAL_API_KEY
   ? new Mistral({ apiKey: process.env.MISTRAL_API_KEY })
   : null;
+
+const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 
 function extractJSON(content: string): any {
   try {
@@ -86,7 +92,16 @@ Return ONLY a valid JSON object:
 }`,
 };
 
+const TOOL_COST: Record<string, number> = {
+  chart: IMAGE_TOKEN_COST.chart,
+  infographic: IMAGE_TOKEN_COST.infographic,
+  thumbnail: IMAGE_TOKEN_COST.thumbnail,
+};
+
 export async function POST(req: Request) {
+  const user = await getUserFromRequest(req);
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const { text, tool, options } = await req.json();
 
@@ -102,6 +117,12 @@ export async function POST(req: Request) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
+    const cost = TOOL_COST[tool] ?? 2;
+    const newBalance = await deductImageTokens(user.id, cost);
+    if (newBalance === null) {
+      return Response.json({ error: 'Insufficient image tokens', code: 'INSUFFICIENT_IMAGE_TOKENS' }, { status: 402 });
+    }
+
     let userPrompt = '';
     switch (tool) {
       case 'infographic':
@@ -115,33 +136,52 @@ export async function POST(req: Request) {
         break;
     }
 
-    const completion = await mistralClient.chat.complete({
-      model: 'mistral-medium',
-      messages: [
-        { role: 'system', content: TOOL_PROMPTS[tool] },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.4,
-    });
+    try {
+      const completion = await mistralClient.chat.complete({
+        model: MISTRAL_MODEL,
+        messages: [
+          { role: 'system', content: TOOL_PROMPTS[tool] },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.4,
+      });
 
-    if (!completion.choices || !completion.choices[0]?.message?.content) {
-      return Response.json({ error: 'No response from AI' }, { status: 500 });
+      if (!completion.choices || !completion.choices[0]?.message?.content) {
+        await refundImageTokens(user.id, cost);
+        return Response.json({ error: 'No response from AI' }, { status: 500 });
+      }
+
+      const content = completion.choices[0].message.content;
+      const contentString = typeof content === 'string'
+        ? content
+        : Array.isArray(content)
+          ? content.map((chunk: any) => chunk.text || '').join('')
+          : String(content);
+
+      const result = extractJSON(contentString);
+
+      if (!result) {
+        await refundImageTokens(user.id, cost);
+        return Response.json({ error: 'Failed to parse AI response' }, { status: 500 });
+      }
+
+      await recordToolUse({
+        userId: user.id,
+        tool: tool as ToolHistoryTool,
+        input: text,
+        output: result.title || String(result.svg || '').slice(0, 100),
+        tokensUsed: cost,
+      });
+
+      return Response.json({ result, remainingImageTokens: newBalance, tokensUsed: cost });
+    } catch (error: any) {
+      await refundImageTokens(user.id, cost);
+      console.error('Generate image API error:', error);
+      return Response.json(
+        { error: error.message || 'Internal server error' },
+        { status: 500 }
+      );
     }
-
-    const content = completion.choices[0].message.content;
-    const contentString = typeof content === 'string'
-      ? content
-      : Array.isArray(content)
-        ? content.map((chunk: any) => chunk.text || '').join('')
-        : String(content);
-
-    const result = extractJSON(contentString);
-
-    if (!result) {
-      return Response.json({ error: 'Failed to parse AI response' }, { status: 500 });
-    }
-
-    return Response.json({ result });
   } catch (error: any) {
     console.error('Generate image API error:', error);
     return Response.json(

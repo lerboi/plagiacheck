@@ -2,11 +2,11 @@
 
 import type React from "react"
 import { useState } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { loadStripe } from "@stripe/stripe-js"
-import { FileText, Image as ImageIcon, Mic } from "lucide-react"
+import { FileText, Image as ImageIcon } from "lucide-react"
 import type { User } from "@supabase/auth-helpers-nextjs"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -15,34 +15,36 @@ interface CustomPlanSliderProps {
   user: User | null
 }
 
+type TokenType = "words" | "images"
+
+const WORD_MIN = 250
+const WORD_MAX = 10000
+const WORD_STEP = 50
+
+const IMAGE_MIN = 50
+const IMAGE_MAX = 2000
+const IMAGE_STEP = 50
+
+function calculateWordPrice(words: number): number {
+  return Math.round(((words - WORD_MIN) / (WORD_MAX - WORD_MIN)) * (100 - 5) + 5)
+}
+
+function calculateImagePrice(images: number): number {
+  // $5 base up to 50 images, then $0.05 per image (rounded to nearest dollar, minimum $5)
+  return Math.max(5, Math.round(images * 0.05))
+}
+
 export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
-  const [wordCount, setWordCount] = useState(250)
-  const [imageTokens, setImageTokens] = useState(0)
-  const [voiceMinutes, setVoiceMinutes] = useState(0)
+  const [tokenType, setTokenType] = useState<TokenType>("words")
+  const [wordCount, setWordCount] = useState(2500)
+  const [imageCount, setImageCount] = useState(200)
   const [isLoading, setIsLoading] = useState(false)
 
-  const calculateWordPrice = (words: number) => {
-    return Math.round(((words - 250) / (10000 - 250)) * (100 - 5) + 5)
-  }
-
-  const calculateImagePrice = (tokens: number) => {
-    if (tokens === 0) return 0
-    // $0.05 per image token, minimum $1
-    return Math.max(1, Math.round(tokens * 0.05))
-  }
-
-  const calculateVoicePrice = (minutes: number) => {
-    if (minutes === 0) return 0
-    // $0.10 per minute, minimum $1
-    return Math.max(1, Math.round(minutes * 0.10))
-  }
-
   const wordPrice = calculateWordPrice(wordCount)
-  const imagePrice = calculateImagePrice(imageTokens)
-  const voicePrice = calculateVoicePrice(voiceMinutes)
-  const totalPrice = wordPrice + imagePrice + voicePrice
+  const imagePrice = calculateImagePrice(imageCount)
+  const totalPrice = tokenType === "words" ? wordPrice : imagePrice
 
-  const handleCustomPurchase = async () => {
+  const handlePurchase = async () => {
     try {
       setIsLoading(true)
 
@@ -51,18 +53,15 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
         return
       }
 
-      // Create Checkout Session with all token types
+      const body =
+        tokenType === "words"
+          ? { wordCount, price: totalPrice }
+          : { imageTokens: imageCount, price: totalPrice }
+
       const response = await fetch("/api/create-custom-checkout-session", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          wordCount,
-          imageTokens,
-          voiceMinutes,
-          price: totalPrice,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       })
 
       const { url, error } = await response.json()
@@ -85,146 +84,197 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
   return (
     <div className="flex justify-center w-full">
       <motion.div
-        className="p-8 md:p-10 w-full max-w-3xl rounded-2xl border border-gray-200/60 dark:border-gray-800 bg-white/50 dark:bg-gray-900/30 backdrop-blur-sm"
+        className="p-8 md:p-10 w-full max-w-3xl rounded-2xl border border-border bg-card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
+        {/* Header */}
         <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground">Customize Your Token Pack</h2>
-          <p className="text-muted-foreground mt-2">Mix and match the tokens you need. One-time purchase, no subscription.</p>
+          <h2 className="text-2xl md:text-3xl font-bold">Customize Your Tokens</h2>
+          <p className="text-muted-foreground mt-2 text-sm">
+            One-time purchase, no subscription. Pick exactly what you need.
+          </p>
         </div>
 
-        <div className="space-y-8">
-          {/* Word Tokens Slider */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-                <FileText className="h-4 w-4 text-blue-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">Word Tokens</h3>
-                  <div className="text-right">
-                    <span className="text-lg font-bold text-foreground">{wordCount.toLocaleString()}</span>
-                    <span className="text-sm text-muted-foreground ml-1">words</span>
-                  </div>
+        {/* Token type toggle */}
+        <div className="flex rounded-xl border border-border p-1 mb-8 bg-muted/40">
+          {(["words", "images"] as TokenType[]).map((type) => {
+            const isActive = tokenType === type
+            const Icon = type === "words" ? FileText : ImageIcon
+            const label = type === "words" ? "Word Tokens" : "Image Tokens"
+            const description =
+              type === "words"
+                ? "For all writing & analysis tools"
+                : "For image, chart & infographic tools"
+            return (
+              <button
+                key={type}
+                onClick={() => setTokenType(type)}
+                className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+                  isActive
+                    ? type === "words"
+                      ? "bg-background shadow-sm border border-border"
+                      : "bg-background shadow-sm border border-border"
+                    : "hover:bg-background/50"
+                }`}
+              >
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                    isActive
+                      ? type === "words"
+                        ? "bg-blue-500/15"
+                        : "bg-rose-500/15"
+                      : "bg-muted"
+                  }`}
+                >
+                  <Icon
+                    className={`h-4 w-4 transition-colors ${
+                      isActive
+                        ? type === "words"
+                          ? "text-blue-500"
+                          : "text-rose-500"
+                        : "text-muted-foreground"
+                    }`}
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground">For plagiarism checking, AI detection, paraphrasing, summarizing, grammar checking, and speech cleanup</p>
-              </div>
-            </div>
-            <Slider
-              min={250}
-              max={10000}
-              step={50}
-              value={[wordCount]}
-              onValueChange={(v) => setWordCount(v[0])}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>250</span>
-              <span>5,000</span>
-              <span>10,000</span>
-            </div>
-          </div>
+                <div className="min-w-0">
+                  <p
+                    className={`text-sm font-semibold leading-none ${
+                      isActive ? "text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {label}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-tight">
+                    {description}
+                  </p>
+                </div>
+              </button>
+            )
+          })}
+        </div>
 
-          {/* Image Tokens Slider */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-rose-500/10 flex items-center justify-center flex-shrink-0">
-                <ImageIcon className="h-4 w-4 text-rose-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">Image Tokens</h3>
-                  <div className="text-right">
-                    <span className="text-lg font-bold text-foreground">{imageTokens}</span>
-                    <span className="text-sm text-muted-foreground ml-1">images</span>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">For Image-to-Text OCR — extract text from photos, screenshots, and documents</p>
-              </div>
-            </div>
-            <Slider
-              min={0}
-              max={500}
-              step={10}
-              value={[imageTokens]}
-              onValueChange={(v) => setImageTokens(v[0])}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span>250</span>
-              <span>500</span>
-            </div>
-          </div>
-
-          {/* Voice Minutes Slider */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                <Mic className="h-4 w-4 text-indigo-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-foreground">Voice Minutes</h3>
-                  <div className="text-right">
-                    <span className="text-lg font-bold text-foreground">{voiceMinutes}</span>
-                    <span className="text-sm text-muted-foreground ml-1">minutes</span>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">For Speech-to-Text — transcribe lectures, interviews, and voice notes (recording is free, AI cleanup uses word tokens)</p>
-              </div>
-            </div>
-            <Slider
-              min={0}
-              max={300}
-              step={5}
-              value={[voiceMinutes]}
-              onValueChange={(v) => setVoiceMinutes(v[0])}
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>0</span>
-              <span>150</span>
-              <span>300</span>
-            </div>
-          </div>
-
-          {/* Price Summary */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <div className="space-y-2 mb-4">
-              {wordCount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{wordCount.toLocaleString()} word tokens</span>
-                  <span className="font-medium">${wordPrice}</span>
-                </div>
-              )}
-              {imageTokens > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{imageTokens} image tokens</span>
-                  <span className="font-medium">${imagePrice}</span>
-                </div>
-              )}
-              {voiceMinutes > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{voiceMinutes} voice minutes</span>
-                  <span className="font-medium">${voicePrice}</span>
-                </div>
-              )}
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                <span className="font-semibold text-foreground">Total</span>
-                <span className="text-3xl font-bold text-foreground">${totalPrice}</span>
-              </div>
-              <p className="text-xs text-muted-foreground text-right">One-time purchase</p>
-            </div>
-
-            <Button
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
-              onClick={handleCustomPurchase}
-              disabled={isLoading || totalPrice === 0}
+        {/* Slider section */}
+        <AnimatePresence mode="wait">
+          {tokenType === "words" ? (
+            <motion.div
+              key="words"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
             >
-              {isLoading ? "Processing..." : `Buy Now — $${totalPrice}`}
-            </Button>
+              {/* Count display */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-medium">Word Tokens</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold tabular-nums">{wordCount.toLocaleString()}</span>
+                  <span className="text-sm text-muted-foreground ml-1">words</span>
+                </div>
+              </div>
+
+              <Slider
+                min={WORD_MIN}
+                max={WORD_MAX}
+                step={WORD_STEP}
+                value={[wordCount]}
+                onValueChange={(v) => setWordCount(v[0])}
+                className="[&_[role=slider]]:bg-blue-500 [&_[role=slider]]:border-blue-500 [&_.relative>.absolute]:bg-blue-500"
+              />
+
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>250</span>
+                <span>5,000</span>
+                <span>10,000</span>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Used by: plagiarism checker, AI detector, AI humanizer, paraphraser, summarizer, grammar checker, speech-to-text, and voice tools.
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="images"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              {/* Count display */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-rose-500" />
+                  <span className="text-sm font-medium">Image Tokens</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-2xl font-bold tabular-nums">{imageCount.toLocaleString()}</span>
+                  <span className="text-sm text-muted-foreground ml-1">images</span>
+                </div>
+              </div>
+
+              <Slider
+                min={IMAGE_MIN}
+                max={IMAGE_MAX}
+                step={IMAGE_STEP}
+                value={[imageCount]}
+                onValueChange={(v) => setImageCount(v[0])}
+                className="[&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-500 [&_.relative>.absolute]:bg-rose-500"
+              />
+
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>50</span>
+                <span>1,000</span>
+                <span>2,000</span>
+              </div>
+
+              {/* Cost per token hint */}
+              <div className="flex gap-4 text-xs text-muted-foreground">
+                <span>Image to Text: <strong className="text-foreground">1 token</strong> per image</span>
+                <span>Charts / Infographics / Thumbnails: <strong className="text-foreground">2 tokens</strong> per generation</span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Pricing summary + buy button */}
+        <div className="border-t border-border mt-8 pt-6 space-y-4">
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">
+                {tokenType === "words"
+                  ? `${wordCount.toLocaleString()} word tokens`
+                  : `${imageCount.toLocaleString()} image tokens`}
+              </span>
+              <span className="font-medium">${totalPrice}</span>
+            </div>
+            <div className="flex justify-between items-baseline pt-2 border-t border-border">
+              <span className="font-semibold">Total</span>
+              <div className="text-right">
+                <span className="text-3xl font-bold">${totalPrice}</span>
+                <p className="text-xs text-muted-foreground">One-time purchase</p>
+              </div>
+            </div>
           </div>
+
+          <Button
+            className={`w-full h-11 font-semibold text-white transition-colors ${
+              tokenType === "words"
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-rose-600 hover:bg-rose-700"
+            }`}
+            onClick={handlePurchase}
+            disabled={isLoading || totalPrice === 0}
+          >
+            {isLoading
+              ? "Processing..."
+              : `Buy ${tokenType === "words" ? "Word" : "Image"} Tokens — $${totalPrice}`}
+          </Button>
         </div>
       </motion.div>
     </div>

@@ -4,9 +4,9 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, Loader2, Sparkles, Shield, Zap, FileText, Copy, File, Brain, Wand2, RefreshCw, CheckCircle2, Hash, ArrowRight, Check, GraduationCap, Users, Globe, Image, Mic } from "lucide-react"
+import { Upload, Loader2, Sparkles, Shield, Zap, FileText, Copy, File, Brain, Wand2, RefreshCw, CheckCircle2, Hash, ArrowRight, Check, GraduationCap, Image, Mic } from "lucide-react"
 import { PlagiarismResults } from "@/components/plagiarism-results"
-import { useTokenStore } from "@/lib/store"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
@@ -32,10 +32,12 @@ type PlagiarismResult = PlagiarismMatchResult | null
 
 export default function Home() {
   const [text, setText] = useState("")
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [targetProgress, setTargetProgress] = useState(0)
   const [result, setResult] = useState<PlagiarismResult>(null)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, decrementWords, fetchRemainingWords } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -66,18 +68,43 @@ export default function Home() {
         data: { session },
       } = await supabase.auth.getSession()
       setUser(session?.user || null)
+      if (session?.user?.id) {
+        fetchRemainingWords(session.user.id)
+      }
     }
 
     checkSession()
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null)
+      if (session?.user?.id) {
+        fetchRemainingWords(session.user.id)
+      }
     })
 
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, [supabase.auth])
+  }, [supabase.auth, fetchRemainingWords])
+
+  // Smoothly animate the progress bar toward the latest target reported by SSE,
+  // with a slow creep up to a ceiling so the UI never appears frozen while
+  // Mistral is thinking.
+  useEffect(() => {
+    if (!isChecking) return
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev < targetProgress) return Math.min(targetProgress, prev + 2)
+        const ceiling =
+          targetProgress < 30 ? 28 :
+          targetProgress < 80 ? 78 :
+          targetProgress < 100 ? 95 : 100
+        if (prev < ceiling) return Math.min(ceiling, prev + 0.4)
+        return prev
+      })
+    }, 120)
+    return () => clearInterval(interval)
+  }, [isChecking, targetProgress])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
@@ -87,9 +114,10 @@ export default function Home() {
 
   const handlePlagiarismCheck = async () => {
     if (!user) {
-      router.push("/signin")
+      setNeedsSignIn(true)
       return
     }
+    setNeedsSignIn(false)
 
     if (!text.trim()) return
 
@@ -101,15 +129,27 @@ export default function Home() {
 
     setIsChecking(true)
     setProgress(0)
+    setTargetProgress(0)
     setResult(null)
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/check-plagiarism", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text }),
       })
+
+      if (response.status === 401) {
+        router.push("/signin")
+        return
+      }
+
+      if (response.status === 402) {
+        router.push("/pricing")
+        return
+      }
 
       if (!response.ok) {
         throw new Error("Failed to check plagiarism")
@@ -121,28 +161,51 @@ export default function Home() {
       }
 
       const decoder = new TextDecoder()
+      let resultReceived = false
+      let buffer = ""
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n").filter((line) => line.startsWith("data: "))
+        buffer += decoder.decode(value, { stream: true })
+
+        // Process complete lines only; keep the trailing partial line in `buffer`.
+        const newlineIndex = buffer.lastIndexOf("\n")
+        if (newlineIndex === -1) continue
+        const completeChunk = buffer.slice(0, newlineIndex)
+        buffer = buffer.slice(newlineIndex + 1)
+
+        const lines = completeChunk.split("\n").filter((line) => line.startsWith("data: "))
 
         for (const line of lines) {
           try {
             const data = JSON.parse(line.slice(6))
 
             if (typeof data.progress === "number") {
-              setProgress(data.progress)
+              setTargetProgress(data.progress)
+              if (data.progress >= 100) {
+                setProgress(100)
+              }
             }
 
-            if (data.result) {
+            if (data.error) {
+              setError(data.error)
+              toast({
+                title: "Error",
+                description: data.error,
+                variant: "destructive",
+              })
+            }
+
+            if (data.result && !resultReceived) {
+              resultReceived = true
               setResult({
                 plagiarismPercentage: data.result.plagiarismPercentage,
                 matches: data.result.matches || [],
               })
-              await decrementWords(requiredTokens)
+              // Refresh from server (server already deducted atomically).
+              await decrementWords()
               toast({
                 title: "Check Complete",
                 description: `Plagiarism score: ${data.result.plagiarismPercentage}%`,
@@ -170,14 +233,35 @@ export default function Home() {
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        setText(content)
-      }
-      reader.readAsText(file)
+    if (!file) return
+
+    const ext = file.name.toLowerCase().split(".").pop() || ""
+    const isPlainText = file.type.startsWith("text/") || ext === "txt" || ext === "md"
+
+    if (!isPlainText) {
+      toast({
+        title: "Unsupported file format",
+        description: `Only plain text (.txt, .md) is currently supported. For ${ext.toUpperCase()} files, copy and paste the text directly.`,
+        variant: "destructive",
+      })
+      event.target.value = ""
+      return
     }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const content = e.target?.result as string
+      setText(content)
+    }
+    reader.onerror = () => {
+      toast({
+        title: "Failed to read file",
+        description: "Please try again or paste the text directly.",
+        variant: "destructive",
+      })
+    }
+    reader.readAsText(file)
+    event.target.value = ""
   }
 
   const handleCopy = async () => {
@@ -192,9 +276,10 @@ export default function Home() {
       <Nav />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        {/* Subtle background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-50/50 via-transparent to-transparent dark:from-blue-950/20 dark:via-transparent pointer-events-none" />
+      <section className="relative">
+        {/* Full-viewport-width gradient — uses left-1/2 -translate-x-1/2 w-screen
+            to escape the parent container's max-width constraint */}
+        <div className="absolute left-1/2 -translate-x-1/2 w-screen top-0 bottom-0 bg-gradient-to-b from-blue-50/60 via-transparent to-transparent dark:from-blue-950/20 dark:via-transparent pointer-events-none" />
 
         <div className="container mx-auto px-4 pt-16 pb-8 md:pt-24 md:pb-12 relative">
           <motion.div
@@ -250,26 +335,24 @@ export default function Home() {
               </Button>
             </motion.div>
 
-            {/* Stats Row */}
+            {/* Trust pills */}
             <motion.div
-              className="flex flex-wrap justify-center gap-8 md:gap-12 pt-6"
+              className="flex flex-wrap justify-center gap-3 md:gap-4 pt-6"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.4, delay: 0.5 }}
             >
               {[
-                { icon: Users, value: "500K+", label: "Active Users" },
-                { icon: Globe, value: "50B+", label: "Sources Checked" },
-                { icon: Zap, value: "<30s", label: "Avg. Results" },
-              ].map((stat, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                    <stat.icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                  </div>
+                { icon: Zap, label: "Fast results" },
+                { icon: Shield, label: "Private by default" },
+                { icon: GraduationCap, label: "Built for students & writers" },
+              ].map((pill, index) => (
+                <div
+                  key={index}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200/80 dark:border-gray-800 bg-white/50 dark:bg-gray-900/30 text-sm text-gray-700 dark:text-gray-300"
+                >
+                  <pill.icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  {pill.label}
                 </div>
               ))}
             </motion.div>
@@ -309,7 +392,7 @@ export default function Home() {
                   {/* Textarea */}
                   <div className="relative group">
                     <Textarea
-                      placeholder="Paste your text here to check for plagiarism. You can also upload a .txt, .doc, or .pdf file using the button below..."
+                      placeholder="Paste your text here to check for plagiarism. You can also upload a .txt or .md file using the button below..."
                       className="min-h-[220px] md:min-h-[280px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 text-base leading-relaxed rounded-xl transition-colors duration-200 pr-12"
                       value={text}
                       onChange={(e) => setText(e.target.value)}
@@ -331,7 +414,7 @@ export default function Home() {
                       <div className="relative">
                         <input
                           type="file"
-                          accept=".txt,.doc,.docx,.pdf"
+                          accept=".txt,.md,text/plain"
                           onChange={handleFileUpload}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           title="Upload file"
@@ -375,12 +458,37 @@ export default function Home() {
                     </motion.div>
                   )}
 
+                  {/* Sign-in prompt */}
+                  {needsSignIn && !user && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center justify-between gap-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center shrink-0">
+                          <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Sign in to check for plagiarism</p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">Your text will be here when you get back.</p>
+                        </div>
+                      </div>
+                      <Link
+                        href="/signin?next=/"
+                        className="shrink-0 h-9 px-4 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Sign In
+                      </Link>
+                    </motion.div>
+                  )}
+
                   {/* Action Row */}
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button
                       className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-600/20 hover:shadow-xl transition-all duration-200 rounded-xl text-base"
                       onClick={handlePlagiarismCheck}
-                      disabled={isChecking || !text.trim() || calculateRequiredTokens(text) > remainingWords}
+                      disabled={isChecking || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
                     >
                       {isChecking ? (
                         <div className="flex items-center gap-2">
@@ -402,7 +510,7 @@ export default function Home() {
                     <div className="relative sm:hidden">
                       <input
                         type="file"
-                        accept=".txt,.doc,.docx,.pdf"
+                        accept=".txt,.md,text/plain"
                         onChange={handleFileUpload}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
@@ -515,7 +623,7 @@ export default function Home() {
               {
                 step: "02",
                 title: "AI Analysis",
-                desc: "Our AI scans your content against billions of sources in seconds.",
+                desc: "Our AI reviews your text for stylistic patterns and similarity signals in seconds.",
                 icon: Brain,
               },
               {
@@ -565,7 +673,7 @@ export default function Home() {
               Why Plagiacheck
             </p>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Built for Accuracy & Speed
+              Built for Clarity & Speed
             </h2>
           </motion.div>
 
@@ -573,29 +681,29 @@ export default function Home() {
             {[
               {
                 icon: Shield,
-                title: "Deep Scanning",
-                desc: "Check against billions of web pages, academic papers, and published content.",
+                title: "Similarity Analysis",
+                desc: "Spot phrases that read like common patterns and flag passages worth a second look.",
                 color: "text-blue-600",
                 bg: "bg-blue-500/10",
               },
               {
                 icon: Zap,
-                title: "Lightning Fast",
-                desc: "Get comprehensive results in under 30 seconds with real-time streaming.",
+                title: "Streaming Results",
+                desc: "Watch your analysis build progress in real time — no static spinners, no surprises.",
                 color: "text-amber-600",
                 bg: "bg-amber-500/10",
               },
               {
                 icon: GraduationCap,
-                title: "Academic Grade",
-                desc: "Trusted by students, researchers, and educators for academic integrity.",
+                title: "Built for Writers",
+                desc: "A focused workspace for students, content creators, and researchers — not a black box.",
                 color: "text-green-600",
                 bg: "bg-green-500/10",
               },
               {
                 icon: Sparkles,
                 title: "AI-Powered",
-                desc: "Advanced AI models provide nuanced analysis beyond simple text matching.",
+                desc: "Modern language models read context — useful for nuanced analysis beyond keyword matching.",
                 color: "text-purple-600",
                 bg: "bg-purple-500/10",
               },

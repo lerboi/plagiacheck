@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import {
   Shield,
   Brain,
@@ -11,441 +12,366 @@ import {
   RefreshCw,
   FileText,
   CheckCircle2,
-  Hash,
-  ArrowRight,
-  Sparkles,
-  Zap,
+  Search,
+  Trash2,
   Clock,
-  Image,
+  ArrowRight,
+  Loader2,
+  FileAudio,
+  FileEdit,
   Mic,
+  Image,
+  PieChart,
   BarChart3,
   ImagePlus,
-  PieChart,
-  Volume2,
-  FileEdit,
-  FileAudio,
-  Pen,
-  ImageIcon,
-  AudioLines,
-  Coins,
   type LucideIcon,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
-import { useTokenStore } from "@/lib/store"
+import { useToast } from "@/hooks/use-toast"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
-interface Tool {
-  name: string
-  description: string
-  href: string
-  icon: LucideIcon
-  color: string
-  bgColor: string
-  iconColor: string
-  isFree?: boolean
-  usesImageTokens?: boolean
+interface ToolHistoryRow {
+  id: string
+  tool: string
+  input_preview: string
+  output_preview: string | null
+  metadata: Record<string, unknown> | null
+  tokens_used: number
+  created_at: string
 }
 
-interface ToolCategory {
-  label: string
-  description: string
-  icon: LucideIcon
-  accentColor: string
-  accentBg: string
-  tools: Tool[]
+const TOOL_META: Record<
+  string,
+  { label: string; href: string; icon: LucideIcon; color: string; bg: string }
+> = {
+  plagiarism: { label: "Plagiarism Checker", href: "/", icon: Shield, color: "text-blue-500", bg: "bg-blue-500/10" },
+  "ai-detect": { label: "AI Detector", href: "/ai-detector", icon: Brain, color: "text-purple-500", bg: "bg-purple-500/10" },
+  humanize: { label: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500", bg: "bg-pink-500/10" },
+  paraphrase: { label: "Paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+  summarize: { label: "Summarizer", href: "/summarizer", icon: FileText, color: "text-green-500", bg: "bg-green-500/10" },
+  grammar: { label: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  "audio-summarize": { label: "Audio Summarizer", href: "/audio-summarizer", icon: FileAudio, color: "text-orange-600", bg: "bg-orange-600/10" },
+  "voice-to-essay": { label: "Voice to Essay", href: "/voice-to-essay", icon: FileEdit, color: "text-sky-600", bg: "bg-sky-600/10" },
+  "speech-to-text": { label: "Speech to Text", href: "/speech-to-text", icon: Mic, color: "text-indigo-500", bg: "bg-indigo-500/10" },
+  "image-to-text": { label: "Image to Text", href: "/image-to-text", icon: Image, color: "text-rose-500", bg: "bg-rose-500/10" },
+  chart: { label: "Chart Generator", href: "/chart-generator", icon: PieChart, color: "text-teal-500", bg: "bg-teal-500/10" },
+  infographic: { label: "Infographic Generator", href: "/infographic-generator", icon: BarChart3, color: "text-amber-500", bg: "bg-amber-500/10" },
+  thumbnail: { label: "Thumbnail Generator", href: "/thumbnail-generator", icon: ImagePlus, color: "text-violet-500", bg: "bg-violet-500/10" },
+}
+
+const PAGE_SIZE = 20
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime()
+  const diff = Date.now() - then
+  const sec = Math.floor(diff / 1000)
+  if (sec < 60) return "Just now"
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`
+  const days = Math.floor(hr / 24)
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`
+  return new Date(iso).toLocaleDateString()
 }
 
 export default function HistoryPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const { remainingWords, remainingImageTokens } = useTokenStore()
   const supabase = createClientComponentClient()
   const router = useRouter()
+  const { toast } = useToast()
+
+  const [user, setUser] = useState<User | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [rows, setRows] = useState<ToolHistoryRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState<string>("all")
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
 
   useEffect(() => {
-    const checkSession = async () => {
+    const init = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      setUser(session?.user || null)
-
-      if (!session?.user) {
+      const u = session?.user || null
+      setUser(u)
+      setAuthChecked(true)
+      if (!u) {
         router.push("/signin")
+      }
+    }
+    init()
+  }, [supabase, router])
+
+  useEffect(() => {
+    if (!user) return
+    const fetchHistory = async () => {
+      setLoading(true)
+      setError(null)
+      let query = supabase
+        .from("tool_history")
+        .select("id, tool, input_preview, output_preview, metadata, tokens_used, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+
+      if (filter !== "all") query = query.eq("tool", filter)
+
+      const { data, error: fetchError } = await query
+
+      if (fetchError) {
+        setError("Could not load your history. Please try again.")
+        setRows([])
+        setLoading(false)
         return
       }
 
-      setIsLoading(false)
+      const fetched = (data || []) as ToolHistoryRow[]
+      setHasMore(fetched.length > PAGE_SIZE)
+      setRows(fetched.slice(0, PAGE_SIZE))
+      setLoading(false)
     }
+    fetchHistory()
+  }, [supabase, user, filter, page])
 
-    checkSession()
-  }, [supabase.auth, router])
+  const filteredRows = useMemo(() => {
+    if (!search.trim()) return rows
+    const needle = search.toLowerCase()
+    return rows.filter(
+      (r) =>
+        r.input_preview.toLowerCase().includes(needle) ||
+        (r.output_preview && r.output_preview.toLowerCase().includes(needle))
+    )
+  }, [rows, search])
 
-  const categories: ToolCategory[] = [
-    {
-      label: "Writing Tools",
-      description: "Analyze, improve, and transform your text",
-      icon: Pen,
-      accentColor: "text-blue-500",
-      accentBg: "bg-blue-500/10",
-      tools: [
-        {
-          name: "Plagiarism Checker",
-          description: "Check your text for plagiarism against billions of sources",
-          href: "/",
-          icon: Shield,
-          color: "from-blue-500 to-blue-600",
-          bgColor: "bg-blue-50 dark:bg-blue-950/40",
-          iconColor: "text-blue-600 dark:text-blue-400",
-        },
-        {
-          name: "AI Detector",
-          description: "Detect if text was written by AI or a human",
-          href: "/ai-detector",
-          icon: Brain,
-          color: "from-purple-500 to-purple-600",
-          bgColor: "bg-purple-50 dark:bg-purple-950/40",
-          iconColor: "text-purple-600 dark:text-purple-400",
-        },
-        {
-          name: "AI Humanizer",
-          description: "Transform AI-generated text to sound more human",
-          href: "/ai-humanizer",
-          icon: Wand2,
-          color: "from-pink-500 to-pink-600",
-          bgColor: "bg-pink-50 dark:bg-pink-950/40",
-          iconColor: "text-pink-600 dark:text-pink-400",
-        },
-        {
-          name: "Paraphraser",
-          description: "Rewrite your text with different words and style",
-          href: "/paraphraser",
-          icon: RefreshCw,
-          color: "from-cyan-500 to-cyan-600",
-          bgColor: "bg-cyan-50 dark:bg-cyan-950/40",
-          iconColor: "text-cyan-600 dark:text-cyan-400",
-        },
-        {
-          name: "Summarizer",
-          description: "Condense long text into key points",
-          href: "/summarizer",
-          icon: FileText,
-          color: "from-green-500 to-green-600",
-          bgColor: "bg-green-50 dark:bg-green-950/40",
-          iconColor: "text-green-600 dark:text-green-400",
-        },
-        {
-          name: "Grammar Checker",
-          description: "Fix spelling and grammar errors instantly",
-          href: "/grammar-checker",
-          icon: CheckCircle2,
-          color: "from-emerald-500 to-emerald-600",
-          bgColor: "bg-emerald-50 dark:bg-emerald-950/40",
-          iconColor: "text-emerald-600 dark:text-emerald-400",
-        },
-        {
-          name: "Word Counter",
-          description: "Count words, characters, sentences, and reading time",
-          href: "/word-counter",
-          icon: Hash,
-          color: "from-orange-500 to-orange-600",
-          bgColor: "bg-orange-50 dark:bg-orange-950/40",
-          iconColor: "text-orange-600 dark:text-orange-400",
-          isFree: true,
-        },
-      ],
-    },
-    {
-      label: "Image & Visual",
-      description: "Generate and extract visuals with image tokens",
-      icon: ImageIcon,
-      accentColor: "text-rose-500",
-      accentBg: "bg-rose-500/10",
-      tools: [
-        {
-          name: "Image to Text",
-          description: "Extract text from photos, screenshots, and documents",
-          href: "/image-to-text",
-          icon: Image,
-          color: "from-rose-500 to-rose-600",
-          bgColor: "bg-rose-50 dark:bg-rose-950/40",
-          iconColor: "text-rose-600 dark:text-rose-400",
-          usesImageTokens: true,
-        },
-        {
-          name: "Infographic Generator",
-          description: "Turn articles and essays into visual infographics",
-          href: "/infographic-generator",
-          icon: BarChart3,
-          color: "from-amber-500 to-amber-600",
-          bgColor: "bg-amber-50 dark:bg-amber-950/40",
-          iconColor: "text-amber-600 dark:text-amber-400",
-          usesImageTokens: true,
-        },
-        {
-          name: "Thumbnail Generator",
-          description: "Create cover images for blogs and social media",
-          href: "/thumbnail-generator",
-          icon: ImagePlus,
-          color: "from-violet-500 to-violet-600",
-          bgColor: "bg-violet-50 dark:bg-violet-950/40",
-          iconColor: "text-violet-600 dark:text-violet-400",
-          usesImageTokens: true,
-        },
-        {
-          name: "Chart Generator",
-          description: "Create bar charts, pie charts, flowcharts, and diagrams",
-          href: "/chart-generator",
-          icon: PieChart,
-          color: "from-teal-500 to-teal-600",
-          bgColor: "bg-teal-50 dark:bg-teal-950/40",
-          iconColor: "text-teal-600 dark:text-teal-400",
-          usesImageTokens: true,
-        },
-      ],
-    },
-    {
-      label: "Voice & Audio",
-      description: "Record, transcribe, and transform speech",
-      icon: AudioLines,
-      accentColor: "text-indigo-500",
-      accentBg: "bg-indigo-500/10",
-      tools: [
-        {
-          name: "Speech to Text",
-          description: "Transcribe audio to text with live recording",
-          href: "/speech-to-text",
-          icon: Mic,
-          color: "from-indigo-500 to-indigo-600",
-          bgColor: "bg-indigo-50 dark:bg-indigo-950/40",
-          iconColor: "text-indigo-600 dark:text-indigo-400",
-        },
-        {
-          name: "Text to Speech",
-          description: "Listen to your text read aloud for proofreading",
-          href: "/text-to-speech",
-          icon: Volume2,
-          color: "from-sky-500 to-sky-600",
-          bgColor: "bg-sky-50 dark:bg-sky-950/40",
-          iconColor: "text-sky-600 dark:text-sky-400",
-          isFree: true,
-        },
-        {
-          name: "Voice to Essay",
-          description: "Speak your ideas and get a structured, polished essay",
-          href: "/voice-to-essay",
-          icon: FileEdit,
-          color: "from-sky-600 to-sky-700",
-          bgColor: "bg-sky-50 dark:bg-sky-950/40",
-          iconColor: "text-sky-700 dark:text-sky-400",
-        },
-        {
-          name: "Audio Summarizer",
-          description: "Summarize lectures, meetings, and podcasts",
-          href: "/audio-summarizer",
-          icon: FileAudio,
-          color: "from-orange-500 to-orange-600",
-          bgColor: "bg-orange-50 dark:bg-orange-950/40",
-          iconColor: "text-orange-600 dark:text-orange-400",
-        },
-      ],
-    },
-  ]
+  const handleDelete = async (id: string) => {
+    if (!user) return
+    const { error: delError } = await supabase
+      .from("tool_history")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id)
 
-  if (isLoading) {
+    if (delError) {
+      toast({
+        title: "Could not delete",
+        description: delError.message,
+        variant: "destructive",
+      })
+      return
+    }
+    setRows((prev) => prev.filter((r) => r.id !== id))
+    toast({
+      title: "Deleted",
+      description: "History entry removed.",
+      variant: "success",
+    })
+  }
+
+  if (!authChecked) {
     return (
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-background">
         <Nav />
-        <section className="container py-12">
-          <div className="max-w-6xl mx-auto space-y-8">
-            <Skeleton className="h-10 w-64" />
-            <Skeleton className="h-6 w-96" />
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-48 rounded-xl" />
-              ))}
-            </div>
-          </div>
-        </section>
+        <div className="container mx-auto px-4 py-16 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
       </div>
     )
   }
 
+  if (!user) return null
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
 
-      <section className="container py-12">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <motion.div
-            className="text-center mb-10"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Sparkles className="h-4 w-4" />
-              15 Tools in One Place
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-3">
-              What would you like to do?
+      <section className="container mx-auto px-4 py-12">
+        <motion.div
+          className="max-w-5xl mx-auto"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <div className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Your Activity
             </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Choose a tool below to get started. Everything you need to write, visualize, and record — all in one platform.
+            <p className="text-muted-foreground mt-2">
+              Recent tool runs and their results.
             </p>
-          </motion.div>
-
-          {/* Token Stats */}
-          <motion.div
-            className="mb-10 grid sm:grid-cols-2 gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <Card className="p-5 bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-white/20 rounded-xl">
-                    <Coins className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-white/70 text-xs font-medium uppercase tracking-wide">Word Tokens</p>
-                    <p className="text-xl font-bold">{remainingWords.toLocaleString()}</p>
-                  </div>
-                </div>
-                <Button asChild variant="secondary" size="sm" className="bg-white/20 text-white hover:bg-white/30 border-0">
-                  <Link href="/pricing">
-                    Get More
-                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-                  </Link>
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-5 bg-gradient-to-r from-rose-500 to-pink-600 text-white border-0 shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-white/20 rounded-xl">
-                    <ImageIcon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-white/70 text-xs font-medium uppercase tracking-wide">Image Tokens</p>
-                    <p className="text-xl font-bold">{remainingImageTokens.toLocaleString()}</p>
-                  </div>
-                </div>
-                <Button asChild variant="secondary" size="sm" className="bg-white/20 text-white hover:bg-white/30 border-0">
-                  <Link href="/pricing">
-                    Get More
-                    <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
-                  </Link>
-                </Button>
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Tool Categories */}
-          <div className="space-y-10">
-            {categories.map((category, catIndex) => (
-              <motion.div
-                key={category.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.15 + catIndex * 0.1 }}
-              >
-                {/* Category Header */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className={`p-2 rounded-xl ${category.accentBg}`}>
-                    <category.icon className={`h-5 w-5 ${category.accentColor}`} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold">{category.label}</h2>
-                    <p className="text-sm text-muted-foreground">{category.description}</p>
-                  </div>
-                  <div className="flex-1 h-px bg-border ml-2" />
-                </div>
-
-                {/* Tools Grid */}
-                <div className={`grid gap-4 ${
-                  category.tools.length <= 4
-                    ? "md:grid-cols-2 lg:grid-cols-4"
-                    : "md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                }`}>
-                  {category.tools.map((tool, index) => (
-                    <motion.div
-                      key={tool.name}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.2 + catIndex * 0.1 + index * 0.05 }}
-                    >
-                      <Link href={tool.href}>
-                        <Card className={`p-5 h-full hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 cursor-pointer border border-border/60 ${tool.bgColor} group`}>
-                          <div className="flex flex-col h-full">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className={`p-2.5 rounded-xl bg-gradient-to-br ${tool.color} shadow-md`}>
-                                <tool.icon className="h-5 w-5 text-white" />
-                              </div>
-                              <div className="flex gap-1.5">
-                                {tool.isFree && (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full">
-                                    FREE
-                                  </span>
-                                )}
-                                {tool.usesImageTokens && (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300 rounded-full">
-                                    IMG
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <h3 className="text-base font-semibold mb-1 group-hover:text-primary transition-colors">
-                              {tool.name}
-                            </h3>
-                            <p className="text-xs text-muted-foreground flex-1 leading-relaxed">
-                              {tool.description}
-                            </p>
-                            <div className="mt-3 flex items-center text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                              Open Tool
-                              <ArrowRight className="h-3 w-3 ml-1 group-hover:translate-x-0.5 transition-transform" />
-                            </div>
-                          </div>
-                        </Card>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            ))}
           </div>
 
-          {/* Pro Tip */}
-          <motion.div
-            className="mt-12"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-          >
-            <Card className="p-5 border border-border/60 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex-shrink-0">
-                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm mb-1">Pro Tip</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Start with the <span className="font-medium text-foreground">Plagiarism Checker</span> to ensure originality,
-                    then run the <span className="font-medium text-foreground">AI Detector</span> to verify human-like content.
-                    Use the <span className="font-medium text-foreground">Humanizer</span> if any AI patterns are detected.
-                    For visual content, try the <span className="font-medium text-foreground">Infographic Generator</span> to turn your essays into shareable visuals.
-                  </p>
-                </div>
-              </div>
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search input or output..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Select
+              value={filter}
+              onValueChange={(v) => {
+                setFilter(v)
+                setPage(0)
+              }}
+            >
+              <SelectTrigger className="sm:w-56">
+                <SelectValue placeholder="All tools" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All tools</SelectItem>
+                {Object.entries(TOOL_META).map(([key, meta]) => (
+                  <SelectItem key={key} value={key}>
+                    {meta.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error && (
+            <Card className="p-6 mb-6 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
             </Card>
-          </motion.div>
-        </div>
+          )}
+
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredRows.length === 0 ? (
+            <Card className="p-12 text-center border-dashed">
+              <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <h3 className="font-semibold text-lg">
+                {rows.length === 0 ? "No history yet" : "No matching entries"}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                {rows.length === 0
+                  ? "Your tool runs will show up here."
+                  : "Try a different search or filter."}
+              </p>
+              {rows.length === 0 && (
+                <Button asChild>
+                  <Link href="/">
+                    Try a tool
+                    <ArrowRight className="h-4 w-4 ml-1" />
+                  </Link>
+                </Button>
+              )}
+            </Card>
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {filteredRows.map((row, i) => {
+                  const meta = TOOL_META[row.tool] || {
+                    label: row.tool,
+                    href: "/",
+                    icon: FileText,
+                    color: "text-gray-500",
+                    bg: "bg-gray-500/10",
+                  }
+                  const Icon = meta.icon
+                  return (
+                    <motion.li
+                      key={row.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.02 }}
+                    >
+                      <Card className="p-5">
+                        <div className="flex items-start gap-4">
+                          <div
+                            className={`flex-shrink-0 w-10 h-10 ${meta.bg} rounded-xl flex items-center justify-center`}
+                          >
+                            <Icon className={`h-5 w-5 ${meta.color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                              <h3 className="font-semibold">{meta.label}</h3>
+                              <span className="text-xs text-muted-foreground">
+                                {relativeTime(row.created_at)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                · {row.tokens_used} token{row.tokens_used === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              <span className="font-medium text-foreground/70">Input: </span>
+                              {row.input_preview}
+                            </p>
+                            {row.output_preview && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                <span className="font-medium text-foreground/70">Result: </span>
+                                {row.output_preview}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2 flex-shrink-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              className="h-8"
+                            >
+                              <Link href={meta.href}>
+                                Open tool
+                                <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(row.id)}
+                              className="h-8 text-muted-foreground hover:text-red-500"
+                              aria-label="Delete history entry"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    </motion.li>
+                  )
+                })}
+              </ul>
+
+              <div className="flex justify-between items-center mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">Page {page + 1}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!hasMore}
+                >
+                  Next
+                </Button>
+              </div>
+            </>
+          )}
+        </motion.div>
       </section>
     </div>
   )

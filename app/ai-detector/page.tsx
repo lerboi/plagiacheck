@@ -3,20 +3,18 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Search, Brain, Zap, Shield, Download, Copy, Check } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, Brain, Download, Copy, Check, BarChart } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { Progress } from "@/components/ui/progress"
-import { FeatureShowcase } from "@/components/FeatureShowcase"
-import { Hero } from "@/components/Hero"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { generateAIDetectorReport } from "@/lib/pdf-generator"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 interface SentenceAnalysis {
   text: string
@@ -27,6 +25,7 @@ interface SentenceAnalysis {
 export default function AIDetector() {
   const [text, setText] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<{
     score: number
@@ -61,11 +60,21 @@ export default function AIDetector() {
 
   const handleDetect = async () => {
     if (!user) {
-      router.push("/signin")
+      setNeedsSignIn(true)
       return
     }
+    setNeedsSignIn(false)
 
     if (!text.trim()) return
+
+    if (text.trim().length < 50) {
+      toast({
+        title: "Text too short",
+        description: "Add at least 50 characters for a meaningful analysis.",
+        variant: "destructive",
+      })
+      return
+    }
 
     const requiredTokens = calculateRequiredTokens(text)
     if (requiredTokens > remainingWords) {
@@ -90,13 +99,23 @@ export default function AIDetector() {
         })
       }, 100)
 
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/ai-tools", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text, tool: "ai-detect" }),
       })
 
       clearInterval(timer)
+
+      if (response.status === 401) {
+        router.push("/signin")
+        return
+      }
+      if (response.status === 402) {
+        router.push("/pricing")
+        return
+      }
 
       const data = await response.json()
 
@@ -107,10 +126,10 @@ export default function AIDetector() {
       setProgress(100)
 
       const aiResult = data.result
-      const sentences: SentenceAnalysis[] = (aiResult.sentences || []).map((s: any) => ({
+      const sentences: SentenceAnalysis[] = (aiResult.sentences || []).map((s: { text?: string; score?: number; type?: string }) => ({
         text: s.text || "",
         score: Math.max(0, Math.min(100, s.score || 0)),
-        type: s.type || (s.score > 60 ? "ai" : s.score > 30 ? "mixed" : "human"),
+        type: s.type || (s.score && s.score > 60 ? "ai" : s.score && s.score > 30 ? "mixed" : "human"),
       }))
 
       setResult({
@@ -148,6 +167,7 @@ export default function AIDetector() {
       aiScore: result.score,
       humanLikelihood: result.humanLikelihood,
       analysis: result.analysis,
+      sentences: result.sentences,
       date: new Date(),
     })
     toast({
@@ -157,12 +177,35 @@ export default function AIDetector() {
     })
   }
 
+  const buildResultText = (): string => {
+    if (!result) return text
+    const lines: string[] = []
+    lines.push("AI Detection Result")
+    lines.push("===================")
+    lines.push("")
+    lines.push(`Verdict: ${result.humanLikelihood}`)
+    lines.push(`AI Probability: ${result.score}%`)
+    lines.push("")
+    lines.push("Summary:")
+    lines.push(result.analysis)
+    if (result.sentences.length > 0) {
+      lines.push("")
+      lines.push("Sentence-by-sentence breakdown:")
+      result.sentences.forEach((s, i) => {
+        lines.push(`${i + 1}. [${s.type.toUpperCase()} — ${s.score}%] ${s.text}`)
+      })
+    }
+    return lines.join("\n")
+  }
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(text)
+    const payload = result ? buildResultText() : text
+    if (!payload) return
+    await navigator.clipboard.writeText(payload)
     setCopied(true)
     toast({
       title: "Copied!",
-      description: "Text copied to clipboard",
+      description: result ? "Analysis copied to clipboard" : "Text copied to clipboard",
       variant: "success",
     })
     setTimeout(() => setCopied(false), 2000)
@@ -190,339 +233,242 @@ export default function AIDetector() {
     }
   }
 
-  const quickFeatures = [
-    { icon: Brain, text: "Advanced AI Detection", color: "text-purple-600" },
-    { icon: Zap, text: "Instant Analysis", color: "text-green-600" },
-    { icon: Shield, text: "99% Accurate", color: "text-blue-600" }
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
-
-      {/* Hero Section */}
-      <section className="container py-16">
-        <motion.div
-          className="text-center space-y-6 mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-full text-sm font-medium">
-            <Brain className="h-4 w-4" />
-            Advanced AI Detection Technology
-          </div>
-
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            <span className=" font-bold tracking-tight sm:text-6xl md:text-7xl">
-              AI Detector
-            </span>
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Analyze text to determine if it was written by a human or generated by AI.
-            Get instant insights with our advanced detection algorithms.
-          </p>
-
-          {/* Quick Features */}
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
+      <ToolPageHeader
+        icon={Brain}
+        title="AI Detector"
+        description="Analyze any text to determine if it was written by AI or a human. Get a confidence score and a sentence-by-sentence breakdown."
+        category="AI Detection"
+        gradient="from-purple-500/[0.07]"
+        iconColor="text-purple-500"
+        iconBg="bg-purple-500/10 border-purple-500/20"
+        categoryColor="text-purple-600 dark:text-purple-400"
+      />
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        {/* Input area */}
+        <div className="space-y-3">
+          <Textarea
+            placeholder="Paste text to analyze..."
+            className="min-h-[200px] resize-none rounded-xl border-border text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-purple-500/30 focus-visible:ring-offset-0"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs text-muted-foreground">{text.length} chars</span>
+            <div className="flex items-center gap-2">
+              {needsSignIn && !user && <ToolSignInPrompt />}
+              {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Need {calculateRequiredTokens(text)} tokens.{" "}
+                  <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+                </p>
+              )}
+              <Button
+                onClick={handleDetect}
+                disabled={isAnalyzing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                className="h-9 px-5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium"
               >
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
+                {isAnalyzing ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Analyzing...</> : <>Detect ({calculateRequiredTokens(text)} tokens)</>}
+              </Button>
+            </div>
           </div>
-        </motion.div>
-
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-[2fr,1fr] gap-12 items-start max-w-7xl mx-auto">
-          <motion.div
-            className="space-y-6"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Enter Text to Analyze</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCopy}
-                    disabled={!text}
-                    className="h-8"
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 mr-1 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4 mr-1" />
-                    )}
-                    {copied ? "Copied!" : "Copy"}
-                  </Button>
-                </div>
-                <Textarea
-                  placeholder="Paste text here to analyze whether it was written by AI or a human..."
-                  className="min-h-[300px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-purple-500 dark:focus:border-purple-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
-                  >
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </motion.div>
-                )}
-
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                  onClick={handleDetect}
-                  disabled={isAnalyzing || !text.trim() || calculateRequiredTokens(text) > remainingWords}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="mr-2 h-5 w-5" />
-                      Detect AI ({calculateRequiredTokens(text)} words)
-                    </>
-                  )}
-                </Button>
-
-                {calculateRequiredTokens(text) > remainingWords && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
-                  >
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Not enough words remaining.
-                      <Link href="/pricing" className="font-semibold underline ml-1">
-                        Upgrade your plan
-                      </Link>
-                    </p>
-                  </motion.div>
-                )}
+          {isAnalyzing && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Analyzing text...</span>
+                <span>{Math.round(progress)}%</span>
               </div>
-            </Card>
+              <Progress value={progress} className="h-1" />
+            </div>
+          )}
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
 
-            {isAnalyzing && (
-              <motion.div
-                className="space-y-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="p-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Analyzing text patterns...</span>
-                      <span>{progress}%</span>
-                    </div>
-                    <Progress value={progress} className="h-3" />
+        {/* Score card — shown when result exists */}
+        {result && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            <div className="p-5 flex items-center gap-6">
+              {/* Circular SVG score */}
+              <div className="relative w-20 h-20 shrink-0">
+                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="32" fill="none" stroke="currentColor" className="text-border" strokeWidth="6" />
+                  <circle
+                    cx="40" cy="40" r="32" fill="none" strokeWidth="6" strokeLinecap="round"
+                    stroke={result.score > 70 ? "#ef4444" : result.score > 40 ? "#f59e0b" : "#22c55e"}
+                    strokeDasharray={`${(result.score / 100) * 201} 201`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-xl font-bold leading-none">{result.score}%</span>
+                  <span className="text-[9px] text-muted-foreground mt-0.5 uppercase tracking-wide">AI</span>
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0 space-y-2">
+                <div>
+                  <p className="text-base font-semibold leading-tight">
+                    {result.score > 70 ? "Likely AI-generated" : result.score > 40 ? "Possibly AI-assisted" : "Likely human-written"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{result.analysis}</p>
+                </div>
+                {/* Human vs AI bar */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-green-600 dark:text-green-400 font-medium tabular-nums w-16">{100 - result.score}% human</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${result.score}%`,
+                        marginLeft: `${100 - result.score}%`,
+                        background: result.score > 70 ? "#ef4444" : result.score > 40 ? "#f59e0b" : "#22c55e"
+                      }}
+                    />
                   </div>
-                </Card>
-              </motion.div>
-            )}
+                  <span className="text-[11px] font-medium tabular-nums w-12 text-right" style={{ color: result.score > 70 ? "#ef4444" : result.score > 40 ? "#f59e0b" : "#22c55e" }}>
+                    {result.score}% AI
+                  </span>
+                </div>
+              </div>
 
-            {result && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="space-y-6"
-              >
-                {/* Overall Result */}
-                <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-8">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-semibold">Detection Results</h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadReport}
-                        className="h-9"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Report
-                      </Button>
-                    </div>
+              <div className="flex flex-col gap-1.5 shrink-0">
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleCopy}>
+                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleDownloadReport}>
+                  <Download className="h-3 w-3" />PDF
+                </Button>
+              </div>
+            </div>
 
-                    <div className="text-center">
-                      <h3 className="text-3xl font-bold mb-6">{result.humanLikelihood}</h3>
-
-                      <div className="relative max-w-md mx-auto">
-                        <div className="flex justify-between mb-3">
-                          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                            Human
-                          </span>
-                          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                            AI Generated
-                          </span>
-                        </div>
-
-                        <div className="h-4 bg-gradient-to-r from-green-200 to-red-200 dark:from-green-800 dark:to-red-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-green-500 to-red-500 rounded-full transition-all duration-1000 relative"
-                            style={{ width: `${result.score}%` }}
-                          >
-                            <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white border-2 border-gray-300 rounded-full shadow-lg"></div>
-                          </div>
-                        </div>
-
-                        <div className="text-center mt-4">
-                          <span className="text-lg font-bold">AI Probability: {result.score}%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <Brain className="h-5 w-5 text-purple-600" />
-                        Analysis Summary
-                      </h4>
-                      <p className="text-muted-foreground leading-relaxed">{result.analysis}</p>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Sentence-Level Analysis */}
-                <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xl font-semibold">Sentence-by-Sentence Analysis</h3>
-                      <div className="flex gap-2 text-xs">
-                        <span className="px-2 py-1 rounded bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300">Human</span>
-                        <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">Mixed</span>
-                        <span className="px-2 py-1 rounded bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">AI</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                      {result.sentences.map((sentence, index) => {
-                        const label = getSentenceLabel(sentence.type)
-                        return (
-                          <motion.div
-                            key={index}
-                            className={`p-4 rounded-lg border ${getSentenceColor(sentence.type)}`}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.05 }}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <p className="text-sm leading-relaxed flex-1">{sentence.text}</p>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className={`text-xs px-2 py-1 rounded font-medium ${label.color}`}>
-                                  {label.text}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {sentence.score}%
-                                </span>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Summary Stats */}
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-green-600">
-                          {result.sentences.filter(s => s.type === "human").length}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Human Sentences</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-yellow-600">
-                          {result.sentences.filter(s => s.type === "mixed").length}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Mixed Sentences</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-2xl font-bold text-red-600">
-                          {result.sentences.filter(s => s.type === "ai").length}
-                        </p>
-                        <p className="text-xs text-muted-foreground">AI Sentences</p>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Card className="sticky top-6 shadow-lg border-0 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-900">
-              <CardContent className="p-8">
-                <div className="space-y-8">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                      How It Works
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-300">
-                      Our AI detector analyzes patterns to identify machine-generated content
-                    </p>
-                  </div>
-
-                  <div className="space-y-6">
+            {/* Sentence analysis */}
+            {result.sentences && result.sentences.length > 0 && (
+              <>
+                <div className="border-t border-border px-5 py-2.5 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sentence Breakdown</span>
+                  <div className="flex gap-3">
                     {[
-                      { step: "1", title: "Paste Text", desc: "Add the content you want to analyze" },
-                      { step: "2", title: "AI Analysis", desc: "Our algorithm scans for AI patterns" },
-                      { step: "3", title: "Get Results", desc: "Receive detailed probability score" }
-                    ].map((item, index) => (
-                      <motion.div
-                        key={index}
-                        className="flex gap-4"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
-                      >
-                        <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
-                          {item.step}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">{item.title}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{item.desc}</p>
-                        </div>
-                      </motion.div>
+                      { label: "Human", color: "bg-green-500" },
+                      { label: "Mixed", color: "bg-amber-500" },
+                      { label: "AI", color: "bg-red-500" },
+                    ].map(({ label, color }) => (
+                      <span key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
+                        {label}
+                      </span>
                     ))}
                   </div>
-
-                  <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                      <h4 className="font-semibold mb-2 text-purple-900 dark:text-purple-300">New Feature!</h4>
-                      <p className="text-sm text-purple-700 dark:text-purple-400">
-                        Now with sentence-by-sentence analysis. See exactly which parts of your text appear AI-generated.
-                      </p>
-                    </div>
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                <div className="px-5 pb-5 space-y-1.5 max-h-72 overflow-y-auto">
+                  {result.sentences.map((s, i) => (
+                    <div
+                      key={i}
+                      className={`flex gap-3 px-3 py-2.5 rounded-lg text-sm leading-relaxed ${
+                        s.type === "human"
+                          ? "bg-green-500/8 dark:bg-green-500/10"
+                          : s.type === "ai"
+                          ? "bg-red-500/8 dark:bg-red-500/10"
+                          : "bg-amber-500/8 dark:bg-amber-500/10"
+                      }`}
+                    >
+                      <div
+                        className={`w-0.5 rounded-full shrink-0 self-stretch ${
+                          s.type === "human" ? "bg-green-500" : s.type === "ai" ? "bg-red-500" : "bg-amber-500"
+                        }`}
+                      />
+                      <span className="flex-1">{s.text}</span>
+                      <span className="ml-2 text-xs tabular-nums text-muted-foreground shrink-0">
+                        {Math.round((s.score ?? 0) * 100)}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
+
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-purple-500" />
+                <h3 className="text-sm font-semibold">Sentence-Level Analysis</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Every sentence is scored individually and colour-coded as Human, Mixed, or AI — not just an overall number.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <BarChart className="h-4 w-4 text-purple-500" />
+                <h3 className="text-sm font-semibold">Confidence Score</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">A percentage score from 0–100 shows how likely the text is AI-generated, with a visual human-vs-AI bar.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4 text-purple-500" />
+                <h3 className="text-sm font-semibold">PDF Report Export</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Download a formatted report with the full analysis — useful for documentation, reviews, or academic integrity records.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                  Teachers verifying whether student submissions were written by AI
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                  Editors checking if freelancer-delivered content is original
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                  Students self-checking their AI-assisted drafts before submitting
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                  Publishers screening content for AI-written passages before publication
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                  Researchers studying patterns in AI-generated vs human-written text
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-purple-500 font-bold shrink-0">→</span>
+                  Paste at least 200 words for a reliable result — very short text produces inconclusive scores.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-purple-500 font-bold shrink-0">→</span>
+                  A score of 40–60% usually means AI-assisted rather than fully AI-generated.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-purple-500 font-bold shrink-0">→</span>
+                  Humanize your AI drafts first, then re-check — target under 30% for a safe result.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-purple-500 font-bold shrink-0">→</span>
+                  Sentence-level highlights show which specific sentences raised the score — edit those first.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 
-      <FeatureShowcase />
-      <Hero />
       <FAQ />
     </div>
   )

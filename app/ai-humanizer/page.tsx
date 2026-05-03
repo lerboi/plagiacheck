@@ -4,33 +4,32 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Wand2, Sparkles, Zap, Shield, Copy, Check, ArrowRight, ArrowLeftRight } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, Wand2, Copy, Check, Download, ArrowLeftRight, BarChart, Sliders } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FeatureShowcase } from "@/components/FeatureShowcase"
-import { Hero } from "@/components/Hero"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 export default function AIHumanizer() {
   const [text, setText] = useState("")
   const [humanizedText, setHumanizedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const { remainingWords, decrementWords } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [humanizationLevel, setHumanizationLevel] = useState(50)
   const [tone, setTone] = useState("casual")
   const [copied, setCopied] = useState(false)
-  const [viewMode, setViewMode] = useState<"split" | "tab">("split")
+  const [viewMode, setViewMode] = useState<"split" | "stacked">("split")
   const { toast } = useToast()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -54,9 +53,10 @@ export default function AIHumanizer() {
 
   const handleHumanize = async () => {
     if (!user) {
-      router.push("/signin")
+      setNeedsSignIn(true)
       return
     }
+    setNeedsSignIn(false)
 
     if (!text.trim()) return
 
@@ -71,15 +71,25 @@ export default function AIHumanizer() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/ai-tools", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({
           text,
           tool: "humanize",
           options: { tone, level: humanizationLevel }
         }),
       })
+
+      if (response.status === 401) {
+        router.push("/signin")
+        return
+      }
+      if (response.status === 402) {
+        router.push("/pricing")
+        return
+      }
 
       const data = await response.json()
 
@@ -120,11 +130,15 @@ export default function AIHumanizer() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const quickFeatures = [
-    { icon: Wand2, text: "AI to Human", color: "text-purple-600" },
-    { icon: Zap, text: "Instant Results", color: "text-green-600" },
-    { icon: Shield, text: "Bypass Detection", color: "text-blue-600" }
-  ]
+  const handleDownload = () => {
+    const blob = new Blob([humanizedText], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "humanized.txt"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const tones = [
     { value: "casual", label: "Casual", desc: "Relaxed and conversational" },
@@ -134,281 +148,274 @@ export default function AIHumanizer() {
     { value: "persuasive", label: "Persuasive", desc: "Compelling and convincing" },
   ]
 
+  // Jaccard distance over word multisets — robust to insertions/deletions
+  // (the previous positional index diff inflated wildly on length changes).
   const getChangedWords = () => {
-    if (!text || !humanizedText) return { original: 0, changed: 0, percentage: 0 }
-    const originalWords = text.toLowerCase().split(/\s+/)
-    const humanizedWords = humanizedText.toLowerCase().split(/\s+/)
-    let changedCount = 0
+    if (!text || !humanizedText) return { original: 0, output: 0, percentage: 0 }
+    const tokenize = (s: string) =>
+      s.toLowerCase().split(/\s+/).filter(Boolean)
 
-    originalWords.forEach((word, i) => {
-      if (humanizedWords[i] && word !== humanizedWords[i]) {
-        changedCount++
+    const orig = tokenize(text)
+    const out = tokenize(humanizedText)
+    if (orig.length === 0 || out.length === 0) {
+      return { original: orig.length, output: out.length, percentage: 0 }
+    }
+
+    const counts = new Map<string, number>()
+    orig.forEach((w) => counts.set(w, (counts.get(w) || 0) + 1))
+    let shared = 0
+    out.forEach((w) => {
+      const c = counts.get(w) || 0
+      if (c > 0) {
+        shared++
+        counts.set(w, c - 1)
       }
     })
 
+    const union = orig.length + out.length - shared
+    const distance = union > 0 ? 1 - shared / union : 0
     return {
-      original: originalWords.length,
-      changed: changedCount,
-      percentage: originalWords.length > 0 ? Math.round((changedCount / originalWords.length) * 100) : 0
+      original: orig.length,
+      output: out.length,
+      percentage: Math.round(distance * 100),
     }
   }
 
   const changes = getChangedWords()
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={Wand2}
+        title="AI Humanizer"
+        description="Transform AI-generated text into natural, human-sounding writing. Adjust the humanization level and choose a tone that fits your voice."
+        category="AI Tools"
+        gradient="from-pink-500/[0.07]"
+        iconColor="text-pink-500"
+        iconBg="bg-pink-500/10 border-pink-500/20"
+        categoryColor="text-pink-600 dark:text-pink-400"
+      />
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        {needsSignIn && !user && <ToolSignInPrompt />}
 
-      <section className="container py-16">
-        <motion.div
-          className="text-center space-y-6 mb-16"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="inline-flex items-center gap-2 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-4 py-2 rounded-full text-sm font-medium">
-            <Wand2 className="h-4 w-4" />
-            Transform AI text to human-like content
-          </div>
-
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">
-            AI Humanizer
-          </h1>
-
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Transform AI-generated content into natural, human-like text that bypasses
-            AI detection tools while maintaining quality and meaning.
+        {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
+            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
           </p>
+        )}
 
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div
-                key={index}
-                className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
-              >
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
+        {error && (
+          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
+
+        {/* Controls row */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Level</Label>
+            <div className="w-28">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>Humanization Level</span>
+                <span className="font-medium tabular-nums">{humanizationLevel}%</span>
+              </div>
+              <Slider
+                min={0}
+                max={100}
+                step={1}
+                value={[humanizationLevel]}
+                onValueChange={(value) => setHumanizationLevel(value[0])}
+                className="w-full"
+              />
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {humanizationLevel < 34 ? "Light" : humanizationLevel < 67 ? "Medium" : "Heavy"}
+            </span>
           </div>
-        </motion.div>
+          <Select value={tone} onValueChange={setTone}>
+            <SelectTrigger className="h-8 text-xs w-40">
+              <SelectValue placeholder="Select tone" />
+            </SelectTrigger>
+            <SelectContent>
+              {tones.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  <div className="flex flex-col">
+                    <span>{t.label}</span>
+                    <span className="text-xs text-muted-foreground">{t.desc}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex items-center gap-1 bg-muted rounded-lg p-0.5">
+            <Button
+              variant={viewMode === "split" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("split")}
+              className="h-7 text-xs px-2"
+            >
+              <ArrowLeftRight className="h-3 w-3 mr-1" />
+              Side by side
+            </Button>
+            <Button
+              variant={viewMode === "stacked" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("stacked")}
+              className="h-7 text-xs px-2"
+            >
+              Stacked
+            </Button>
+          </div>
+        </div>
 
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            className="flex justify-end mb-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+        <div className={viewMode === "split" ? "grid lg:grid-cols-2 gap-4" : "space-y-4"}>
+          {/* LEFT — input */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+              <span className="text-xs font-medium text-muted-foreground">Original (AI Text)</span>
+            </div>
+            <Textarea
+              placeholder="Paste your AI-generated text here to humanize it..."
+              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-pink-500/30 focus-visible:ring-offset-0"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">{text.length} chars</span>
               <Button
-                variant={viewMode === "split" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("split")}
-                className="h-8"
+                onClick={handleHumanize}
+                disabled={isProcessing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                className="h-9 px-5 bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium shadow-none"
               >
-                <ArrowLeftRight className="h-4 w-4 mr-1" />
-                Side by Side
-              </Button>
-              <Button
-                variant={viewMode === "tab" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("tab")}
-                className="h-8"
-              >
-                Stacked
+                {isProcessing ? (
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
+                ) : (
+                  `Humanize (${calculateRequiredTokens(text)} tokens)`
+                )}
               </Button>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            className={viewMode === "split" ? "grid lg:grid-cols-2 gap-6 relative" : "space-y-6"}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                    Original (AI Text)
-                  </h3>
-                  <span className="text-sm text-muted-foreground">
-                    {text.length} characters
-                  </span>
+          {/* RIGHT — output */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              <span className="text-xs font-medium text-muted-foreground">Humanized</span>
+            </div>
+            {humanizedText && (
+              <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-border bg-card text-xs flex-wrap gap-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Words changed</span>
+                  <span className="font-semibold text-pink-600 dark:text-pink-400">{changes.percentage}%</span>
                 </div>
-                <Textarea
-                  placeholder="Paste your AI-generated text here to humanize it..."
-                  className="min-h-[280px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-purple-500 dark:focus:border-purple-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Original</span>
+                  <span className="font-semibold tabular-nums">{text.split(/\s+/).filter(Boolean).length} words</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Result</span>
+                  <span className="font-semibold tabular-nums">{humanizedText.split(/\s+/).filter(Boolean).length} words</span>
+                </div>
+                <div className="ml-auto flex gap-1.5">
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload}>
+                    <Download className="h-3 w-3" />Download
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm" className="h-7 text-xs"
+                    onClick={() => setViewMode(viewMode === "split" ? "stacked" : "split")}
+                  >
+                    {viewMode === "split" ? "Stack" : "Split"}
+                  </Button>
+                </div>
               </div>
-            </Card>
+            )}
+            <div className="min-h-[320px] max-h-[480px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">
+              {humanizedText || <span className="text-muted-foreground/40">Humanized text appears here</span>}
+            </div>
+          </div>
+        </div>
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
 
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                    Humanized
-                  </h3>
-                  {humanizedText && (
-                    <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
-                      {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
-                      {copied ? "Copied!" : "Copy"}
-                    </Button>
-                  )}
-                </div>
-                <Textarea
-                  placeholder="Humanized text will appear here..."
-                  className="min-h-[280px] resize-none border-2 border-gray-200 dark:border-gray-700 text-base leading-relaxed bg-green-50/50 dark:bg-green-900/10"
-                  value={humanizedText}
-                  readOnly
-                />
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-pink-500" />
+                <h3 className="text-sm font-semibold">Five Tone Options</h3>
               </div>
-            </Card>
-          </motion.div>
-
-          {humanizedText && (
-            <motion.div className="mt-6" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <Card className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-0">
-                <div className="flex flex-wrap items-center justify-center gap-8 text-center">
-                  <div>
-                    <p className="text-2xl font-bold text-purple-600">{changes.original}</p>
-                    <p className="text-xs text-muted-foreground">Original Words</p>
-                  </div>
-                  <div className="hidden sm:block h-10 w-px bg-gray-300 dark:bg-gray-600"></div>
-                  <div>
-                    <p className="text-2xl font-bold text-green-600">{changes.changed}</p>
-                    <p className="text-xs text-muted-foreground">Words Changed</p>
-                  </div>
-                  <div className="hidden sm:block h-10 w-px bg-gray-300 dark:bg-gray-600"></div>
-                  <div>
-                    <p className="text-2xl font-bold text-blue-600">{changes.percentage}%</p>
-                    <p className="text-xs text-muted-foreground">Transformation Rate</p>
-                  </div>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
-          <motion.div
-            className="mt-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="grid md:grid-cols-3 gap-6 items-end">
-                <div className="space-y-3">
-                  <Label className="text-base font-medium">
-                    Humanization Level: {humanizationLevel}%
-                  </Label>
-                  <Slider
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={[humanizationLevel]}
-                    onValueChange={(value) => setHumanizationLevel(value[0])}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Light</span>
-                    <span>Medium</span>
-                    <span>Heavy</span>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label className="text-base font-medium">Writing Tone</Label>
-                  <Select value={tone} onValueChange={setTone}>
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select tone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {tones.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          <div className="flex flex-col">
-                            <span>{t.label}</span>
-                            <span className="text-xs text-muted-foreground">{t.desc}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  className="h-12 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                  onClick={handleHumanize}
-                  disabled={isProcessing || !text.trim() || calculateRequiredTokens(text) > remainingWords}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Humanizing...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-5 w-5" />
-                      Humanize ({calculateRequiredTokens(text)} words)
-                    </>
-                  )}
-                </Button>
+              <p className="text-sm text-muted-foreground leading-relaxed">Casual, Professional, Friendly, Confident, or Empathetic — match the humanized output to the context you&apos;re writing for.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Sliders className="h-4 w-4 text-pink-500" />
+                <h3 className="text-sm font-semibold">Humanization Level</h3>
               </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">A 0–100 slider controls how aggressively the text is rewritten. Lower levels preserve structure; higher levels fully rephrase.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <BarChart className="h-4 w-4 text-pink-500" />
+                <h3 className="text-sm font-semibold">Change Percentage</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">See exactly what percentage of words were changed so you can calibrate the output without going too far.</p>
+            </div>
+          </div>
 
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
-                >
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                </motion.div>
-              )}
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                  Making AI-drafted emails, proposals, or reports sound natural before sending
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                  Students humanising AI-assisted study notes to avoid detection
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                  Content creators adjusting AI copy to match their personal brand voice
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                  Marketers ensuring AI-generated ad copy doesn&apos;t sound robotic
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                  Anyone who used AI to draft something but wants it to sound like them
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-pink-500 font-bold shrink-0">→</span>
+                  Start at level 40–60 — aggressive humanization (80+) can change meaning in unexpected ways.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-pink-500 font-bold shrink-0">→</span>
+                  Professional tone pairs well with formal reports; Casual works best for social content.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-pink-500 font-bold shrink-0">→</span>
+                  After humanizing, run the result through the AI Detector to verify the score dropped.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-pink-500 font-bold shrink-0">→</span>
+                  If the result sounds off, try a different tone with the same level rather than increasing the level.
+                </li>
+              </ul>
+            </div>
+          </div>
 
-              {calculateRequiredTokens(text) > remainingWords && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
-                >
-                  <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Not enough words remaining.
-                    <Link href="/pricing" className="font-semibold underline ml-1">
-                      Upgrade your plan
-                    </Link>
-                  </p>
-                </motion.div>
-              )}
-            </Card>
-          </motion.div>
-
-          <motion.div
-            className="mt-12 grid md:grid-cols-3 gap-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-          >
-            {[
-              { step: "1", title: "Paste AI Text", desc: "Add your AI-generated content to the input box", color: "from-purple-500 to-purple-600" },
-              { step: "2", title: "Customize Settings", desc: "Choose your preferred tone and humanization level", color: "from-pink-500 to-pink-600" },
-              { step: "3", title: "Get Human Text", desc: "Receive natural text that bypasses AI detection", color: "from-blue-500 to-blue-600" }
-            ].map((item, index) => (
-              <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-900">
-                <div className={`w-12 h-12 bg-gradient-to-r ${item.color} text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4`}>
-                  {item.step}
-                </div>
-                <h4 className="font-semibold mb-2">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </Card>
-            ))}
-          </motion.div>
         </div>
       </section>
 

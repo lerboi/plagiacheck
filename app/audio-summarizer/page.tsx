@@ -5,15 +5,16 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Loader2, Mic, Copy, Check, Sparkles, Zap, FileAudio, Square, Trash2, ListChecks } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, Mic, Copy, Check, FileAudio, Square, Trash2, ListChecks, Layers } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 export default function AudioSummarizer() {
   const [isRecording, setIsRecording] = useState(false)
@@ -27,6 +28,7 @@ export default function AudioSummarizer() {
     actionItems?: string[]
   } | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
   const [duration, setDuration] = useState(0)
   const { remainingWords, decrementWords } = useTokenStore()
@@ -132,7 +134,8 @@ export default function AudioSummarizer() {
   const calculateRequiredTokens = (text: string) => Math.ceil(text.length / 6)
 
   const handleSummarize = async () => {
-    if (!user) { router.push("/signin"); return }
+    if (!user) { setNeedsSignIn(true); return }
+    setNeedsSignIn(false)
     if (!rawTranscript.trim()) return
 
     const requiredTokens = calculateRequiredTokens(rawTranscript)
@@ -143,12 +146,15 @@ export default function AudioSummarizer() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/voice-tools", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text: rawTranscript, tool: "audio-summarize" }),
       })
 
+      if (response.status === 401) { router.push("/signin"); return }
+      if (response.status === 402) { router.push("/pricing"); return }
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to summarize")
 
@@ -199,232 +205,260 @@ export default function AudioSummarizer() {
     return `${m}:${s.toString().padStart(2, "0")}`
   }
 
-  const quickFeatures = [
-    { icon: FileAudio, text: "Audio Capture", color: "text-orange-600" },
-    { icon: ListChecks, text: "Key Points", color: "text-emerald-600" },
-    { icon: Sparkles, text: "AI Summary", color: "text-purple-600" },
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
-
-      <section className="container py-16">
-        <motion.div className="text-center space-y-6 mb-16" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-4 py-2 rounded-full text-sm font-medium">
-            <FileAudio className="h-4 w-4" />
-            Summarize lectures, meetings & podcasts
+      <ToolPageHeader
+        icon={FileAudio}
+        title="Audio Summarizer"
+        description="Record meetings, lectures, or podcasts and get a structured summary with key points, content type detection, and action items."
+        category="Voice Tools"
+        gradient="from-orange-500/[0.07]"
+        iconColor="text-orange-500"
+        iconBg="bg-orange-500/10 border-orange-500/20"
+        categoryColor="text-orange-600 dark:text-orange-400"
+      />
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        {!isSupported && (
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+            <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">Your browser does not support the Web Speech API.</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Please use Chrome, Edge, or Safari.</p>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">Audio Summarizer</h1>
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Record a lecture, meeting, or podcast and get an instant summary with key points, action items, and a detailed overview.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div key={index} className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}>
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+        )}
 
-        <div className="max-w-4xl mx-auto">
-          {!isSupported && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8 p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-center">
-              <p className="text-amber-700 dark:text-amber-300 font-medium">Your browser does not support the Web Speech API.</p>
-              <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">Please use Chrome, Edge, or Safari.</p>
-            </motion.div>
-          )}
+        {/* Recording Card */}
+        <Card className="rounded-xl border border-border bg-card p-6">
+          <div className="flex flex-col items-center gap-5">
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={!isSupported}
+              className={`relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 ${
+                isRecording
+                  ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 focus-visible:ring-red-300"
+                  : "bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-600/30 focus-visible:ring-orange-300"
+              } ${!isSupported ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              aria-label={isRecording ? "Stop recording" : "Start recording"}
+            >
+              {isRecording ? <Square className="h-10 w-10 text-white fill-white" /> : <Mic className="h-10 w-10 text-white" />}
+              {isRecording && (
+                <>
+                  <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-20" />
+                  <span className="absolute -inset-2 rounded-full border-2 border-red-400 animate-pulse opacity-40" />
+                </>
+              )}
+            </button>
 
-          {/* Recording Control */}
-          <motion.div className="mb-8" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-            <Card className="p-8 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-6">
-                <button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  disabled={!isSupported}
-                  className={`relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 ${
-                    isRecording
-                      ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 focus-visible:ring-red-300"
-                      : "bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-600/30 focus-visible:ring-orange-300"
-                  } ${!isSupported ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                  aria-label={isRecording ? "Stop recording" : "Start recording"}
-                >
-                  {isRecording ? <Square className="h-10 w-10 text-white fill-white" /> : <Mic className="h-10 w-10 text-white" />}
-                  {isRecording && (
-                    <>
-                      <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-20" />
-                      <span className="absolute -inset-2 rounded-full border-2 border-red-400 animate-pulse opacity-40" />
-                    </>
-                  )}
-                </button>
-
-                <div className="text-center">
-                  {isRecording ? (
-                    <div className="space-y-1">
-                      <p className="text-lg font-semibold text-red-500 flex items-center gap-2 justify-center">
-                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                        Recording...
-                      </p>
-                      <p className="text-2xl font-mono font-bold">{formatDuration(duration)}</p>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      {rawTranscript ? "Click to record more" : "Record a lecture, meeting, or podcast to summarize"}
-                    </p>
-                  )}
+            <div className="text-center">
+              {isRecording ? (
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-red-500 flex items-center gap-2 justify-center">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    Recording...
+                  </p>
+                  <p className="text-2xl font-mono font-bold">{formatDuration(duration)}</p>
                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {rawTranscript ? "Click to record more" : "Record a lecture, meeting, or podcast to summarize"}
+                </p>
+              )}
+            </div>
 
-                {rawTranscript && (
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
-                    <Button variant="ghost" size="sm" onClick={clearAll} className="text-red-500 hover:text-red-600 h-8">
-                      <Trash2 className="h-4 w-4 mr-1" /> Clear
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </motion.div>
-
-          {/* Transcript + Paste */}
-          <motion.div className="mb-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}>
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-orange-500" />
-                  Transcript
-                </h3>
-                <Textarea
-                  className="min-h-[150px] resize-none border-2 border-gray-200 dark:border-gray-700 text-base leading-relaxed"
-                  value={rawTranscript}
-                  onChange={(e) => setRawTranscript(e.target.value)}
-                  placeholder="Record audio above or paste a transcript here..."
-                />
-
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold shadow-lg transition-all rounded-xl"
-                  onClick={handleSummarize}
-                  disabled={isProcessing || !rawTranscript.trim() || calculateRequiredTokens(rawTranscript) > remainingWords}
-                >
-                  {isProcessing ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Summarizing...</>
-                  ) : (
-                    <><FileAudio className="mr-2 h-5 w-5" />Summarize Audio ({calculateRequiredTokens(rawTranscript)} tokens)</>
-                  )}
+            {rawTranscript && (
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
+                <Button variant="ghost" size="sm" onClick={clearAll} className="text-red-500 hover:text-red-600 h-7 text-xs">
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
                 </Button>
+              </div>
+            )}
+          </div>
+        </Card>
 
-                {error && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </motion.div>
-                )}
+        {/* Transcript */}
+        <Card className="rounded-xl border border-border bg-card p-6">
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+              Transcript
+            </h3>
+            <Textarea
+              className="min-h-[140px] resize-none text-sm leading-relaxed"
+              value={rawTranscript}
+              onChange={(e) => setRawTranscript(e.target.value)}
+              placeholder="Record audio above or paste a transcript here..."
+            />
 
-                {calculateRequiredTokens(rawTranscript) > remainingWords && rawTranscript.trim() && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Not enough tokens. <Link href="/pricing" className="font-semibold underline ml-1">Upgrade your plan</Link>
-                    </p>
-                  </motion.div>
+            {needsSignIn && !user && <ToolSignInPrompt />}
+
+            {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Need {calculateRequiredTokens(rawTranscript)} tokens — you have {remainingWords}.{" "}
+                <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+              </p>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            )}
+
+            <Button
+              className="h-9 px-5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium"
+              onClick={handleSummarize}
+              disabled={isProcessing || !rawTranscript.trim() || (!!user && calculateRequiredTokens(rawTranscript) > remainingWords)}
+            >
+              {isProcessing ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Summarizing...</>
+              ) : (
+                <><FileAudio className="mr-2 h-4 w-4" />Summarize ({calculateRequiredTokens(rawTranscript)} tokens)</>
+              )}
+            </Button>
+          </div>
+        </Card>
+
+        {/* Summary Output */}
+        {summary && (
+          <div className="rounded-xl border border-border bg-card overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold leading-tight">{summary.title || "Summary"}</h3>
+                {summary.contentType && (
+                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium capitalize">
+                    {summary.contentType}
+                  </span>
                 )}
               </div>
-            </Card>
-          </motion.div>
+              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={handleCopy}>
+                {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+              </Button>
+            </div>
 
-          {/* Summary Output */}
-          {summary && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-green-500" />
-                      {summary.title || "Audio Summary"}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {summary.contentType && (
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 font-medium">
-                          {summary.contentType}
-                        </span>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={handleCopy} className="h-8">
-                        {copied ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
-                        {copied ? "Copied!" : "Copy"}
-                      </Button>
-                    </div>
-                  </div>
+            {/* Overview */}
+            {summary.overview && (
+              <div className="px-5 py-4 border-b border-border/60 bg-orange-500/5">
+                <p className="text-sm leading-relaxed text-foreground/90">{summary.overview}</p>
+              </div>
+            )}
 
-                  {/* Overview */}
-                  {summary.overview && (
-                    <div className="p-4 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800">
-                      <p className="text-base leading-relaxed">{summary.overview}</p>
-                    </div>
-                  )}
+            {/* Key Points */}
+            {summary.keyPoints && summary.keyPoints.length > 0 && (
+              <div className="px-5 py-4 border-b border-border/60">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Key Points</p>
+                <ul className="space-y-2">
+                  {summary.keyPoints.map((point, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 text-xs font-semibold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                      <span className="text-sm leading-relaxed">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-                  {/* Key Points */}
-                  {summary.keyPoints && summary.keyPoints.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
-                        <ListChecks className="h-4 w-4 text-orange-500" />
-                        Key Points
-                      </h4>
-                      <ul className="space-y-2">
-                        {summary.keyPoints.map((point, index) => (
-                          <li key={index} className="flex gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                            <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-medium">{index + 1}</span>
-                            <span className="text-sm leading-relaxed">{point}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+            {/* Detailed Summary */}
+            {summary.detailedSummary && (
+              <div className="px-5 py-4 border-b border-border/60">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Detailed Summary</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{summary.detailedSummary}</p>
+              </div>
+            )}
 
-                  {/* Detailed Summary */}
-                  {summary.detailedSummary && (
-                    <div>
-                      <h4 className="font-semibold mb-3">Detailed Summary</h4>
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-                        {summary.detailedSummary.split("\n").map((p, i) => (
-                          p.trim() ? <p key={i} className="text-sm leading-relaxed mb-2 last:mb-0">{p}</p> : null
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {/* Action Items */}
+            {summary.actionItems && summary.actionItems.length > 0 && (
+              <div className="px-5 py-4">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Action Items</p>
+                <ul className="space-y-2">
+                  {summary.actionItems.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2.5">
+                      <div className="w-4 h-4 rounded border border-border mt-0.5 shrink-0" />
+                      <span className="text-sm leading-relaxed">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
-                  {/* Action Items */}
-                  {summary.actionItems && summary.actionItems.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold mb-3">Action Items</h4>
-                      <ul className="space-y-2">
-                        {summary.actionItems.map((item, index) => (
-                          <li key={index} className="flex items-start gap-2 text-sm">
-                            <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            </motion.div>
-          )}
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
 
-          {/* How it works */}
-          <motion.div className="mt-12 grid md:grid-cols-3 gap-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
-            {[
-              { step: "1", title: "Record or Paste", desc: "Record audio live or paste an existing transcript from a lecture, meeting, or podcast", color: "from-orange-500 to-orange-600" },
-              { step: "2", title: "AI Summarizes", desc: "Our AI identifies key points, action items, and creates a structured summary", color: "from-amber-500 to-amber-600" },
-              { step: "3", title: "Review & Share", desc: "Copy the summary, share with your team, or use with other Plagiacheck tools", color: "from-yellow-500 to-yellow-600" },
-            ].map((item, index) => (
-              <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-gray-800 dark:to-gray-900">
-                <div className={`w-12 h-12 bg-gradient-to-r ${item.color} text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4`}>{item.step}</div>
-                <h4 className="font-semibold mb-2">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </Card>
-            ))}
-          </motion.div>
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <FileAudio className="h-4 w-4 text-orange-500" />
+                <h3 className="text-sm font-semibold">Live Recording + Paste</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Record directly from your microphone or paste an existing transcript from any source — meeting notes, podcast apps, or video captions.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-orange-500" />
+                <h3 className="text-sm font-semibold">Structured Output</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Results are broken into a title, overview, numbered key points, a detailed summary, and a checklist of action items.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-orange-500" />
+                <h3 className="text-sm font-semibold">Content Type Detection</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Automatically identifies whether the audio was a lecture, interview, meeting, podcast, or speech and tailors the summary accordingly.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Weekly team meetings and standups
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  University lectures and class recordings
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Podcast episodes and long-form interviews
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Customer calls and sales demos
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                  Conference talks and webinar recordings
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  Speak clearly and at normal pace — the browser speech API performs best in quiet environments.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  For pasted transcripts, include speaker names if available — the AI uses them to structure the summary better.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  The action items section works best when the recording includes explicit decisions or assignments.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-orange-500 font-bold shrink-0">→</span>
+                  Summarise recordings under 30 minutes for the most focused output.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

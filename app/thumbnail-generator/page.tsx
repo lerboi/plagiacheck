@@ -3,16 +3,16 @@
 import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, ImagePlus, Sparkles, Zap, Download, Copy, Palette, Image as ImageIcon } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, ImagePlus, Download, Copy, Maximize } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 const STYLES = [
   { value: "modern", label: "Modern" },
@@ -26,6 +26,7 @@ export default function ThumbnailGenerator() {
   const [style, setStyle] = useState("modern")
   const [svgOutput, setSvgOutput] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { remainingImageTokens, decrementImageTokens } = useTokenStore()
   const router = useRouter()
@@ -48,7 +49,8 @@ export default function ThumbnailGenerator() {
   }, [supabase.auth])
 
   const handleGenerate = async () => {
-    if (!user) { router.push("/signin"); return }
+    if (!user) { setNeedsSignIn(true); return }
+    setNeedsSignIn(false)
     if (!text.trim()) return
 
     if (IMAGE_TOKEN_COST > remainingImageTokens) {
@@ -62,12 +64,15 @@ export default function ThumbnailGenerator() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/generate-image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text, tool: "thumbnail", options: { style } }),
       })
 
+      if (response.status === 401) { router.push("/signin"); return }
+      if (response.status === 402) { router.push("/pricing"); return }
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to generate thumbnail")
 
@@ -101,149 +106,173 @@ export default function ThumbnailGenerator() {
     toast({ title: "Copied!", description: "SVG code copied to clipboard", variant: "success" })
   }
 
-  const quickFeatures = [
-    { icon: ImagePlus, text: "Cover Images", color: "text-violet-600" },
-    { icon: Palette, text: "Multiple Styles", color: "text-pink-600" },
-    { icon: Sparkles, text: "AI-Powered", color: "text-purple-600" },
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={ImagePlus}
+        title="Thumbnail Generator"
+        description="Type your article title or topic and instantly get a professional cover image. Choose from Modern, Minimal, Bold, or Gradient styles. Download as SVG."
+        category="Visual Tools"
+        gradient="from-violet-500/[0.07]"
+        iconColor="text-violet-500"
+        iconBg="bg-violet-500/10 border-violet-500/20"
+        categoryColor="text-violet-600 dark:text-violet-400"
+      />
 
-      <section className="container py-16">
-        <motion.div className="text-center space-y-6 mb-16" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-4 py-2 rounded-full text-sm font-medium">
-            <ImagePlus className="h-4 w-4" />
-            Create stunning cover images
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">Thumbnail Generator</h1>
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Type your article title or topic and get a professional cover image instantly. Perfect for blogs, social media, and presentations.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div key={index} className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}>
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50 text-sm">
-              <ImageIcon className="h-4 w-4 text-violet-500" />
-              <span className="font-semibold">{user ? remainingImageTokens : 0}</span>
-              <span className="text-muted-foreground">image tokens remaining</span>
+      <section className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
+        {/* Input card */}
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <span className="text-sm font-medium">Title or Topic</span>
+
+          <input
+            type="text"
+            placeholder="e.g., 'The Future of Artificial Intelligence in Healthcare'"
+            className="w-full h-11 px-3 text-sm rounded-lg border border-border bg-transparent outline-none transition-colors focus:border-violet-500 dark:focus:border-violet-400"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+
+          {/* Style selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">Style</label>
+            <div className="flex flex-wrap gap-2">
+              {STYLES.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setStyle(s.value)}
+                  className={`text-xs px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
+                    style === s.value
+                      ? "bg-violet-500/10 border-violet-500 text-violet-600 dark:text-violet-400"
+                      : "border-border hover:border-violet-400"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
           </div>
-        </motion.div>
 
-        <div className="max-w-4xl mx-auto">
-          <motion.div className="space-y-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-            {/* Input Card */}
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-violet-500" />
-                  Title or Topic
-                </h3>
+          {error && (
+            <p className="text-xs text-destructive">{error}</p>
+          )}
 
-                <input
-                  type="text"
-                  placeholder="e.g., 'The Future of Artificial Intelligence in Healthcare'"
-                  className="w-full h-14 px-4 text-lg rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-violet-500 dark:focus:border-violet-400 bg-transparent outline-none transition-colors"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
+          {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Need {IMAGE_TOKEN_COST} image tokens — you have {remainingImageTokens}.{" "}
+              <Link href="/pricing" className="underline font-medium">Get more</Link>
+            </p>
+          )}
 
-                {/* Style selector */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Style</label>
-                  <div className="flex flex-wrap gap-2">
-                    {STYLES.map((s) => (
-                      <button
-                        key={s.value}
-                        onClick={() => setStyle(s.value)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          style === s.value
-                            ? "bg-violet-500 text-white shadow-lg"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-                        }`}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          {needsSignIn && !user && <ToolSignInPrompt />}
 
-                {error && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </motion.div>
-                )}
-
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white font-semibold shadow-lg transition-all rounded-xl"
-                  onClick={handleGenerate}
-                  disabled={isProcessing || !text.trim() || IMAGE_TOKEN_COST > remainingImageTokens}
-                >
-                  {isProcessing ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Generating Thumbnail...</>
-                  ) : (
-                    <><ImagePlus className="mr-2 h-5 w-5" />Generate Thumbnail ({IMAGE_TOKEN_COST} image tokens)</>
-                  )}
-                </Button>
-
-                {IMAGE_TOKEN_COST > remainingImageTokens && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Not enough image tokens. <Link href="/pricing" className="font-semibold underline ml-1">Get more tokens</Link>
-                    </p>
-                  </motion.div>
-                )}
-              </div>
-            </Card>
-
-            {/* Output */}
-            {svgOutput && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full bg-green-500" />
-                        Generated Thumbnail
-                      </h3>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleCopySvg} className="h-8">
-                          <Copy className="h-4 w-4 mr-1" /> SVG
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={handleDownload} className="h-8">
-                          <Download className="h-4 w-4 mr-1" /> Download
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-950 p-2" dangerouslySetInnerHTML={{ __html: svgOutput }} />
-                  </div>
-                </Card>
-              </motion.div>
+          <Button
+            className="h-9 px-5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium"
+            onClick={handleGenerate}
+            disabled={isProcessing || !text.trim() || (!!user && IMAGE_TOKEN_COST > remainingImageTokens)}
+          >
+            {isProcessing ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+            ) : (
+              <><ImagePlus className="mr-2 h-4 w-4" />Generate Thumbnail ({IMAGE_TOKEN_COST} image tokens)</>
             )}
-          </motion.div>
+          </Button>
+        </div>
 
-          {/* How it works */}
-          <motion.div className="mt-12 grid md:grid-cols-3 gap-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
-            {[
-              { step: "1", title: "Enter Title", desc: "Type your article title, blog post name, or topic", color: "from-violet-500 to-violet-600" },
-              { step: "2", title: "Pick a Style", desc: "Choose from modern, minimal, bold, or gradient styles", color: "from-purple-500 to-purple-600" },
-              { step: "3", title: "Download", desc: "Get your thumbnail as SVG for any platform", color: "from-fuchsia-500 to-fuchsia-600" },
-            ].map((item, index) => (
-              <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-gray-800 dark:to-gray-900">
-                <div className={`w-12 h-12 bg-gradient-to-r ${item.color} text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4`}>{item.step}</div>
-                <h4 className="font-semibold mb-2">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </Card>
-            ))}
-          </motion.div>
+        {/* SVG Output */}
+        {svgOutput && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Preview · 1200×630</span>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}><Copy className="h-3 w-3" />SVG</Button>
+                <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}><Download className="h-3 w-3" />Download</Button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-border overflow-hidden bg-black" style={{ aspectRatio: "1200/630" }}>
+              <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full h-full" />
+            </div>
+          </div>
+        )}
+
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
+
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <ImagePlus className="h-4 w-4 text-violet-500" />
+                <h3 className="text-sm font-semibold">Four Distinct Styles</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Modern, Minimal, Bold, and Gradient — each produces a visually different cover image suited to different content types and platforms.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Maximize className="h-4 w-4 text-violet-500" />
+                <h3 className="text-sm font-semibold">Standard 1200×630 Format</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">All thumbnails are generated at the standard Open Graph image size — ideal for blog headers, YouTube, LinkedIn, and Twitter cards.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4 text-violet-500" />
+                <h3 className="text-sm font-semibold">SVG Export</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Download the thumbnail as a scalable SVG for use in any design tool, or paste it directly into your content management system.</p>
+            </div>
+          </div>
+
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+                  Creating blog post featured images without a designer
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+                  Generating YouTube video thumbnails from a video title
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+                  Making consistent cover images for a newsletter or email series
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+                  Producing social media header images for multiple posts quickly
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-violet-500 shrink-0" />
+                  Previewing how a title looks as a visual before committing to a design
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-violet-500 font-bold shrink-0">→</span>
+                  Keep your title under 6 words for the clearest visual impact — longer titles get compressed and harder to read.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-violet-500 font-bold shrink-0">→</span>
+                  Modern and Gradient styles work best for tech and business content; Minimal suits editorial and design blogs.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-violet-500 font-bold shrink-0">→</span>
+                  SVGs can be customised in Figma or Illustrator if you need to change fonts, add a logo, or adjust colours.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-violet-500 font-bold shrink-0">→</span>
+                  Generate a few variations using different styles for the same title and compare before deciding.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

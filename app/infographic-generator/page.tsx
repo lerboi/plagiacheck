@@ -4,22 +4,23 @@ import { useState, useEffect, useRef } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, BarChart3, Sparkles, Zap, Download, Copy, Check, Image as ImageIcon } from "lucide-react"
-import { useTokenStore } from "@/lib/store"
+import { Loader2, BarChart3, Download, Copy, Layers } from "lucide-react"
+import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
-import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
+import { ToolPageHeader } from "@/components/tool-page-header"
 
 export default function InfographicGenerator() {
   const [text, setText] = useState("")
   const [svgOutput, setSvgOutput] = useState("")
   const [title, setTitle] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [needsSignIn, setNeedsSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { remainingImageTokens, decrementImageTokens } = useTokenStore()
   const router = useRouter()
@@ -43,7 +44,8 @@ export default function InfographicGenerator() {
   }, [supabase.auth])
 
   const handleGenerate = async () => {
-    if (!user) { router.push("/signin"); return }
+    if (!user) { setNeedsSignIn(true); return }
+    setNeedsSignIn(false)
     if (!text.trim()) return
 
     if (IMAGE_TOKEN_COST > remainingImageTokens) {
@@ -58,12 +60,15 @@ export default function InfographicGenerator() {
     setError(null)
 
     try {
+      const authHeader = await getAuthHeader()
       const response = await fetch("/api/generate-image", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ text, tool: "infographic" }),
       })
 
+      if (response.status === 401) { router.push("/signin"); return }
+      if (response.status === 402) { router.push("/pricing"); return }
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to generate infographic")
 
@@ -100,140 +105,163 @@ export default function InfographicGenerator() {
 
   const wordCount = text.split(/\s+/).filter(Boolean).length
 
-  const quickFeatures = [
-    { icon: BarChart3, text: "Visual Summaries", color: "text-amber-600" },
-    { icon: Zap, text: "Instant Generation", color: "text-green-600" },
-    { icon: Sparkles, text: "AI-Powered", color: "text-purple-600" },
-  ]
-
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <Nav />
+      <ToolPageHeader
+        icon={BarChart3}
+        title="Infographic Generator"
+        description="Paste any article, essay, or report and get a beautiful visual infographic that highlights the key points and data. Download as SVG."
+        category="Visual Tools"
+        gradient="from-amber-500/[0.07]"
+        iconColor="text-amber-500"
+        iconBg="bg-amber-500/10 border-amber-500/20"
+        categoryColor="text-amber-600 dark:text-amber-400"
+      />
 
-      <section className="container py-16">
-        <motion.div className="text-center space-y-6 mb-16" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-4 py-2 rounded-full text-sm font-medium">
-            <BarChart3 className="h-4 w-4" />
-            Turn text into visual infographics
+      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* Left: Input */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Your Text</span>
+              <span className="text-xs text-muted-foreground tabular-nums">{wordCount} words</span>
+            </div>
+
+            <Textarea
+              placeholder="Paste your article, essay, report, or any text you want to turn into an infographic..."
+              className="min-h-[320px] resize-none text-sm leading-relaxed"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+
+            {error && (
+              <p className="text-xs text-destructive">{error}</p>
+            )}
+
+            {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Need {IMAGE_TOKEN_COST} image tokens — you have {remainingImageTokens}.{" "}
+                <Link href="/pricing" className="underline font-medium">Get more</Link>
+              </p>
+            )}
+
+            {needsSignIn && !user && <ToolSignInPrompt />}
+
+            <Button
+              className="h-9 px-5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"
+              onClick={handleGenerate}
+              disabled={isProcessing || !text.trim() || (!!user && IMAGE_TOKEN_COST > remainingImageTokens)}
+            >
+              {isProcessing ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+              ) : (
+                <><BarChart3 className="mr-2 h-4 w-4" />Generate Infographic ({IMAGE_TOKEN_COST} image tokens)</>
+              )}
+            </Button>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl md:text-7xl">Infographic Generator</h1>
-          <p className="mx-auto max-w-2xl text-xl text-muted-foreground leading-relaxed">
-            Paste any article, essay, or document and our AI will create a beautiful infographic highlighting the key points and data.
-          </p>
-          <div className="flex flex-wrap justify-center gap-6 pt-4">
-            {quickFeatures.map((feature, index) => (
-              <motion.div key={index} className="flex items-center gap-2 px-4 py-2 bg-white/60 dark:bg-gray-800/60 rounded-full border border-gray-200 dark:border-gray-700" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}>
-                <feature.icon className={`h-4 w-4 ${feature.color}`} />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{feature.text}</span>
-              </motion.div>
-            ))}
-          </div>
-          <div className="flex justify-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 text-sm">
-              <ImageIcon className="h-4 w-4 text-amber-500" />
-              <span className="font-semibold">{user ? remainingImageTokens : 0}</span>
-              <span className="text-muted-foreground">image tokens remaining</span>
+
+          {/* Right: Output */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <span className="text-sm font-medium">Generated Infographic</span>
+
+            {/* Metadata strip */}
+            {svgOutput && (
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-t-xl border border-b-0 border-border bg-card text-xs">
+                {title && <span className="font-medium">{title}</span>}
+                <div className="ml-auto flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}><Copy className="h-3 w-3" />SVG</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}><Download className="h-3 w-3" />Download</Button>
+                </div>
+              </div>
+            )}
+            <div ref={svgContainerRef} className={`bg-white dark:bg-gray-950 p-4 ${svgOutput ? "rounded-b-xl border border-border" : "rounded-xl border border-border min-h-[320px] flex items-center justify-center"}`}>
+              {svgOutput
+                ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full" />
+                : <div className="text-center text-muted-foreground/40"><BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">Infographic appears here</p></div>
+              }
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <div className="max-w-6xl mx-auto">
-          <motion.div className="grid lg:grid-cols-2 gap-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-            {/* Left: Input */}
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-amber-500" />
-                    Your Text
-                  </h3>
-                  <span className="text-sm text-muted-foreground">{wordCount} words</span>
-                </div>
+        {/* ── Informational content ── */}
+        <div className="mt-10 pt-8 border-t border-border space-y-8">
 
-                <Textarea
-                  placeholder="Paste your article, essay, report, or any text you want to turn into an infographic..."
-                  className="min-h-[350px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-amber-500 dark:focus:border-amber-400 text-base leading-relaxed"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                />
-
-                {error && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-                  </motion.div>
-                )}
-
-                <Button
-                  className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold shadow-lg transition-all rounded-xl"
-                  onClick={handleGenerate}
-                  disabled={isProcessing || !text.trim() || IMAGE_TOKEN_COST > remainingImageTokens}
-                >
-                  {isProcessing ? (
-                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Generating Infographic...</>
-                  ) : (
-                    <><BarChart3 className="mr-2 h-5 w-5" />Generate Infographic ({IMAGE_TOKEN_COST} image tokens)</>
-                  )}
-                </Button>
-
-                {IMAGE_TOKEN_COST > remainingImageTokens && (
-                  <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      Not enough image tokens. <Link href="/pricing" className="font-semibold underline ml-1">Get more tokens</Link>
-                    </p>
-                  </motion.div>
-                )}
+          {/* Features row */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-amber-500" />
+                <h3 className="text-sm font-semibold">Key Point Extraction</h3>
               </div>
-            </Card>
-
-            {/* Right: Output */}
-            <Card className="p-6 shadow-lg border-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500" />
-                    Generated Infographic
-                  </h3>
-                  {svgOutput && (
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={handleCopySvg} className="h-8">
-                        <Copy className="h-4 w-4 mr-1" /> SVG
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={handleDownload} className="h-8">
-                        <Download className="h-4 w-4 mr-1" /> Download
-                      </Button>
-                    </div>
-                  )}
-                </div>
-
-                {svgOutput ? (
-                  <div ref={svgContainerRef} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-950 p-4" dangerouslySetInnerHTML={{ __html: svgOutput }} />
-                ) : (
-                  <div className="min-h-[350px] flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                    <div className="text-center text-muted-foreground">
-                      <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                      <p>Your infographic will appear here</p>
-                      <p className="text-sm mt-1">Paste text and click Generate</p>
-                    </div>
-                  </div>
-                )}
+              <p className="text-sm text-muted-foreground leading-relaxed">The AI reads your text and identifies the most important facts, statistics, and takeaways to feature in the infographic.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-amber-500" />
+                <h3 className="text-sm font-semibold">Professional Layout</h3>
               </div>
-            </Card>
-          </motion.div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Outputs a structured vertical layout with a title, highlighted statistics, numbered points, and a conclusion section.</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4 text-amber-500" />
+                <h3 className="text-sm font-semibold">SVG Export</h3>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">Download the infographic as a scalable SVG file for use in blog posts, presentations, social media, or printed materials.</p>
+            </div>
+          </div>
 
-          {/* How it works */}
-          <motion.div className="mt-12 grid md:grid-cols-3 gap-6" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.5 }}>
-            {[
-              { step: "1", title: "Paste Your Text", desc: "Add any article, essay, or document you want to visualize", color: "from-amber-500 to-amber-600" },
-              { step: "2", title: "AI Creates Infographic", desc: "Our AI extracts key points and designs a beautiful visual layout", color: "from-orange-500 to-orange-600" },
-              { step: "3", title: "Download & Share", desc: "Download as SVG or copy the code for your projects", color: "from-yellow-500 to-yellow-600" },
-            ].map((item, index) => (
-              <Card key={index} className="p-6 text-center border-0 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-800 dark:to-gray-900">
-                <div className={`w-12 h-12 bg-gradient-to-r ${item.color} text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4`}>{item.step}</div>
-                <h4 className="font-semibold mb-2">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.desc}</p>
-              </Card>
-            ))}
-          </motion.div>
+          {/* Use cases + Tips */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Turning long blog posts into shareable social media graphics
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Creating visual summaries of research papers or reports
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Making educational handouts from textbook chapters
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Producing data visualisations for marketing campaigns
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                  Summarising complex topics for non-technical audiences
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-border p-5 space-y-3">
+              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <ul className="space-y-2.5">
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-amber-500 font-bold shrink-0">→</span>
+                  Paste 200–500 words for the best balance — too little produces sparse output, too much causes the AI to over-generalise.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-amber-500 font-bold shrink-0">→</span>
+                  Include statistics and numbers in your text — the AI highlights them prominently in the infographic.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-amber-500 font-bold shrink-0">→</span>
+                  Use the Summarizer first to condense very long documents, then feed the summary into the Infographic Generator.
+                </li>
+                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                  <span className="text-amber-500 font-bold shrink-0">→</span>
+                  SVGs can be edited in Figma or Illustrator to adjust colours, fonts, or layout after generation.
+                </li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </section>
 

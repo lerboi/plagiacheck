@@ -1,0 +1,1 @@
+-- Superseded by 0005_missing_tables.sql — this file is intentionally empty.

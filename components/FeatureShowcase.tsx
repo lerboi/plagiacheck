@@ -5,23 +5,23 @@ import { Shield, Search, Zap, Award } from 'lucide-react';
 const features = [
   {
     icon: <Shield className="w-12 h-12 text-blue-500" />,
-    title: 'Comprehensive Protection',
-    description: 'Our advanced algorithms scan your text against billions of web pages and academic papers.'
+    title: 'Pattern-Based Analysis',
+    description: 'Modern language models surface phrases that read like common online patterns and flag passages worth a closer look.'
   },
   {
     icon: <Search className="w-12 h-12 text-green-500" />,
-    title: 'In-Depth Analysis',
-    description: 'Get detailed reports on potential plagiarism, including source links and similarity percentages.'
+    title: 'Highlighted Matches',
+    description: 'Each flagged span is shown inline with a similarity score and a short reason — no opaque numbers.'
   },
   {
     icon: <Zap className="w-12 h-12 text-yellow-500" />,
-    title: 'Lightning Fast',
-    description: 'Receive results in seconds, allowing you to quickly refine your work.'
+    title: 'Streaming Results',
+    description: 'Watch the analysis build in real time so you know what is happening — no static spinners.'
   },
   {
     icon: <Award className="w-12 h-12 text-purple-500" />,
-    title: 'Academic Standard',
-    description: 'Trusted by students and professionals worldwide for maintaining academic integrity.'
+    title: 'Built for Writers',
+    description: 'A focused workspace for students, content creators, and researchers — not a black box.'
   }
 ];
 
