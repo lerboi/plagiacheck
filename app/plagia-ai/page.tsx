@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Nav } from "@/components/nav"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
@@ -16,6 +17,9 @@ import {
   CheckCircle2,
   XCircle,
   Wrench,
+  RotateCcw,
+  Trash2,
+  ArrowDown,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
@@ -50,6 +54,12 @@ function genId() {
   return `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+const messageVariants = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0 },
+}
+
 export default function PlagiaAiPage() {
   const supabase = useMemo(() => createClientComponentClient(), [])
   const [user, setUser] = useState<User | null>(null)
@@ -61,6 +71,12 @@ export default function PlagiaAiPage() {
   const [streaming, setStreaming] = useState(false)
   const [pendingAssistantId, setPendingAssistantId] = useState<string | null>(null)
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({})
+  const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
+  const [confirmingClear, setConfirmingClear] = useState(false)
+
+  // Auto-scroll: pause when the user scrolls away from the bottom; resume on send.
+  const [autoScrollPaused, setAutoScrollPaused] = useState(false)
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false)
 
   const { toast } = useToast()
   const { decrementWords, decrementImageTokens } = useTokenStore()
@@ -84,11 +100,29 @@ export default function PlagiaAiPage() {
     }
   }, [supabase.auth])
 
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [])
+
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    if (autoScrollPaused) return
+    scrollToBottom()
+  }, [items, autoScrollPaused, scrollToBottom])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      const nearBottom = distanceFromBottom < 80
+      setAutoScrollPaused(!nearBottom)
+      setShowScrollToBottom(!nearBottom && items.length > 0)
     }
-  }, [items])
+    el.addEventListener("scroll", onScroll, { passive: true })
+    return () => el.removeEventListener("scroll", onScroll)
+  }, [items.length])
 
   useEffect(() => {
     const el = textareaRef.current
@@ -115,7 +149,6 @@ export default function PlagiaAiPage() {
   }
 
   const conversationHistoryForServer = (current: ChatItem[]): PlagiaAiMessage[] => {
-    // Only user/assistant text turns are sent back; tool cards are internal UI.
     return current
       .filter(
         (it): it is Extract<ChatItem, { kind: "user" | "assistant" }> =>
@@ -124,163 +157,200 @@ export default function PlagiaAiPage() {
       .map((it) => ({ role: it.kind, content: it.content }))
   }
 
-  const handleSend = async () => {
-    if (streaming) return
-    const text = input.trim()
-    if (!text) return
-
-    if (!authChecked) return
-    if (!user) {
-      setNeedsSignIn(true)
-      return
-    }
-    setNeedsSignIn(false)
-
-    const userItem: ChatItem = { kind: "user", id: genId(), content: text }
-    const nextItems: ChatItem[] = [...items, userItem]
-    setItems(nextItems)
-    setInput("")
-    setStreaming(true)
-    setPendingAssistantId(null)
-
-    let currentAssistantId: string | null = null
-    let currentAssistantText = ""
-
-    const flushAssistant = () => {
-      if (currentAssistantId && currentAssistantText.trim()) {
-        const idToFreeze = currentAssistantId
-        const textToFreeze = currentAssistantText
-        setItems((prev) =>
-          prev.map((it) =>
-            it.id === idToFreeze && it.kind === "assistant"
-              ? { ...it, content: textToFreeze }
-              : it
-          )
-        )
-      }
-      currentAssistantId = null
-      currentAssistantText = ""
-    }
-
-    try {
-      const authHeader = await getAuthHeader()
-      const response = await fetch("/api/plagia-ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ messages: conversationHistoryForServer(nextItems) }),
-      })
-
-      if (response.status === 401) {
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (streaming) return
+      if (!text.trim()) return
+      if (!authChecked) return
+      if (!user) {
         setNeedsSignIn(true)
-        setStreaming(false)
-        setItems(items) // rollback
         return
       }
+      setNeedsSignIn(false)
+      setLastFailedInput(null)
 
-      if (!response.ok || !response.body) {
-        const errText = await response.text().catch(() => "")
-        throw new Error(errText || `Request failed (${response.status})`)
+      // Resume autoscroll when the user actively sends.
+      setAutoScrollPaused(false)
+
+      const userItem: ChatItem = { kind: "user", id: genId(), content: text }
+      const previousItems = items
+      const nextItems: ChatItem[] = [...items, userItem]
+      setItems(nextItems)
+      setInput("")
+      setStreaming(true)
+      setPendingAssistantId(null)
+
+      let currentAssistantId: string | null = null
+      let currentAssistantText = ""
+
+      const flushAssistant = () => {
+        if (currentAssistantId && currentAssistantText.trim()) {
+          const idToFreeze = currentAssistantId
+          const textToFreeze = currentAssistantText
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === idToFreeze && it.kind === "assistant"
+                ? { ...it, content: textToFreeze }
+                : it
+            )
+          )
+        }
+        currentAssistantId = null
+        currentAssistantText = ""
       }
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ""
+      try {
+        const authHeader = await getAuthHeader()
+        const response = await fetch("/api/plagia-ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ messages: conversationHistoryForServer(nextItems) }),
+        })
 
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
+        if (response.status === 401) {
+          setNeedsSignIn(true)
+          setStreaming(false)
+          setItems(previousItems)
+          setInput(text)
+          return
+        }
 
-        let sepIndex
-        while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-          const rawEvent = buffer.slice(0, sepIndex)
-          buffer = buffer.slice(sepIndex + 2)
-          const dataLine = rawEvent
-            .split("\n")
-            .find((line) => line.startsWith("data:"))
-          if (!dataLine) continue
-          const payload = dataLine.slice(5).trim()
-          if (!payload) continue
-          let event: PlagiaAiEvent
-          try {
-            event = JSON.parse(payload) as PlagiaAiEvent
-          } catch {
-            continue
-          }
+        if (!response.ok || !response.body) {
+          const errText = await response.text().catch(() => "")
+          throw new Error(errText || `Request failed (${response.status})`)
+        }
 
-          if (event.type === "delta") {
-            if (!currentAssistantId) {
-              currentAssistantId = genId()
-              currentAssistantText = event.content
-              const newId = currentAssistantId
-              setPendingAssistantId(newId)
-              appendItem({ kind: "assistant", id: newId, content: currentAssistantText })
-            } else {
-              currentAssistantText += event.content
-              const idToUpdate = currentAssistantId
-              updateItem(idToUpdate, (prev) =>
-                prev.kind === "assistant"
-                  ? { ...prev, content: currentAssistantText }
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          let sepIndex
+          while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+            const rawEvent = buffer.slice(0, sepIndex)
+            buffer = buffer.slice(sepIndex + 2)
+            const dataLine = rawEvent
+              .split("\n")
+              .find((line) => line.startsWith("data:"))
+            if (!dataLine) continue
+            const payload = dataLine.slice(5).trim()
+            if (!payload) continue
+            let event: PlagiaAiEvent
+            try {
+              event = JSON.parse(payload) as PlagiaAiEvent
+            } catch {
+              continue
+            }
+
+            if (event.type === "delta") {
+              if (!currentAssistantId) {
+                currentAssistantId = genId()
+                currentAssistantText = event.content
+                const newId = currentAssistantId
+                setPendingAssistantId(newId)
+                appendItem({ kind: "assistant", id: newId, content: currentAssistantText })
+              } else {
+                currentAssistantText += event.content
+                const idToUpdate = currentAssistantId
+                updateItem(idToUpdate, (prev) =>
+                  prev.kind === "assistant"
+                    ? { ...prev, content: currentAssistantText }
+                    : prev
+                )
+              }
+            } else if (event.type === "tool_call") {
+              flushAssistant()
+              setPendingAssistantId(null)
+              appendItem({
+                kind: "tool",
+                id: event.id,
+                name: event.name,
+                argsSummary: event.argsSummary,
+                status: "running",
+              })
+            } else if (event.type === "tool_result") {
+              updateItem(event.id, (prev) =>
+                prev.kind === "tool"
+                  ? {
+                      ...prev,
+                      status: event.ok ? "done" : "failed",
+                      resultPreview: event.resultPreview,
+                      error: event.error,
+                      result: event.result,
+                    }
                   : prev
               )
-            }
-          } else if (event.type === "tool_call") {
-            flushAssistant()
-            setPendingAssistantId(null)
-            appendItem({
-              kind: "tool",
-              id: event.id,
-              name: event.name,
-              argsSummary: event.argsSummary,
-              status: "running",
-            })
-          } else if (event.type === "tool_result") {
-            updateItem(event.id, (prev) =>
-              prev.kind === "tool"
-                ? {
-                    ...prev,
-                    status: event.ok ? "done" : "failed",
-                    resultPreview: event.resultPreview,
-                    error: event.error,
-                    result: event.result,
-                  }
-                : prev
-            )
-            if (event.ok) {
-              if (event.remainingTextTokens !== undefined) {
-                void decrementWords()
+              if (event.ok) {
+                if (event.remainingTextTokens !== undefined) {
+                  void decrementWords()
+                }
+                if (event.remainingImageTokens !== undefined) {
+                  void decrementImageTokens()
+                }
               }
-              if (event.remainingImageTokens !== undefined) {
-                void decrementImageTokens()
-              }
+            } else if (event.type === "error") {
+              throw new Error(event.message)
+            } else if (event.type === "done") {
+              flushAssistant()
             }
-          } else if (event.type === "error") {
-            throw new Error(event.message)
-          } else if (event.type === "done") {
-            flushAssistant()
           }
         }
-      }
 
-      flushAssistant()
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong."
-      toast({
-        title: "PlagiaAI error",
-        description: message,
-        variant: "destructive",
-      })
-    } finally {
-      setStreaming(false)
-      setPendingAssistantId(null)
-    }
+        flushAssistant()
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Something went wrong."
+        toast({
+          title: "PlagiaAI couldn't reach the server",
+          description: message,
+          variant: "destructive",
+        })
+        setLastFailedInput(text)
+        setInput(text)
+      } finally {
+        setStreaming(false)
+        setPendingAssistantId(null)
+      }
+    },
+    [
+      streaming,
+      authChecked,
+      user,
+      items,
+      decrementWords,
+      decrementImageTokens,
+      toast,
+    ]
+  )
+
+  const handleSend = () => {
+    void sendMessage(input.trim())
+  }
+
+  const handleRetry = () => {
+    if (!lastFailedInput) return
+    const text = lastFailedInput
+    setLastFailedInput(null)
+    setInput("")
+    void sendMessage(text)
+  }
+
+  const handleClearConversation = () => {
+    setItems([])
+    setExpandedTools({})
+    setLastFailedInput(null)
+    setConfirmingClear(false)
+    setAutoScrollPaused(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
-      void handleSend()
+      handleSend()
     }
   }
 
@@ -307,116 +377,228 @@ export default function PlagiaAiPage() {
             </div>
           )}
 
-          <div
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 p-5 space-y-5 min-h-[480px]"
-          >
-            <div className="flex flex-col items-start">
-              <div className="max-w-[85%] text-sm leading-relaxed text-foreground">
-                {GREETING}
+          {/* Chat header: conversation actions */}
+          {conversationStarted && (
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-xs text-muted-foreground">
+                {items.filter((it) => it.kind === "user").length} message
+                {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
+              </span>
+              <div className="flex items-center gap-2">
+                {confirmingClear ? (
+                  <>
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
+                      Clear this conversation?
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs px-2"
+                      onClick={() => setConfirmingClear(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs px-3 bg-red-600 hover:bg-red-700 text-white"
+                      onClick={handleClearConversation}
+                    >
+                      Confirm clear
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => setConfirmingClear(true)}
+                    disabled={streaming}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Clear
+                  </Button>
+                )}
               </div>
             </div>
+          )}
 
-            {!conversationStarted && (
-              <div className="pt-2">
-                <p className="text-xs text-muted-foreground mb-2.5">
-                  Try one of these:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {PLAGIA_AI_SUGGESTED_PROMPTS.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => handleSuggestedPrompt(p)}
-                      className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:border-violet-400/40 hover:text-foreground transition-colors"
-                    >
-                      {p.length > 60 ? `${p.slice(0, 57)}...` : p}
-                    </button>
-                  ))}
+          <div className="relative flex-1 flex flex-col">
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 p-5 space-y-5 min-h-[480px]"
+            >
+              <div className="flex flex-col items-start">
+                <div className="max-w-[85%] text-sm leading-relaxed text-foreground">
+                  {GREETING}
                 </div>
               </div>
-            )}
 
-            {items.map((it) => {
-              if (it.kind === "user") {
-                return (
-                  <div key={it.id} className="flex justify-end">
-                    <div className="max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
-                      {it.content}
-                    </div>
-                  </div>
-                )
-              }
-              if (it.kind === "assistant") {
-                const isStreamingThis = streaming && it.id === pendingAssistantId
-                return (
-                  <div key={it.id} className="flex flex-col items-start">
-                    <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                      {it.content}
-                      {isStreamingThis && (
-                        <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" />
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-              // tool card
-              const isExpanded = !!expandedTools[it.id]
-              const resultText = renderToolResult(it)
-              return (
-                <div
-                  key={it.id}
-                  className={`rounded-xl border px-4 py-3 text-sm space-y-2 ${
-                    it.status === "failed"
-                      ? "border-red-500/30 bg-red-500/5"
-                      : "border-border bg-card/60"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
-                      <Wrench className="h-3.5 w-3.5" />
-                      <span className="font-medium">{toolDisplayName(it.name)}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground truncate flex-1">
-                      {it.argsSummary}
-                    </span>
-                    <ToolStatusBadge status={it.status} />
-                  </div>
-                  {it.status !== "running" && (
-                    <div className="flex items-start gap-2 text-xs">
+              {!conversationStarted && (
+                <div className="pt-2">
+                  <p className="text-xs text-muted-foreground mb-2.5">
+                    Try one of these:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {PLAGIA_AI_SUGGESTED_PROMPTS.map((p) => (
                       <button
-                        onClick={() => toggleToolExpand(it.id)}
-                        className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
-                        aria-label={isExpanded ? "Collapse" : "Expand"}
+                        key={p}
+                        onClick={() => handleSuggestedPrompt(p)}
+                        className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:border-violet-400/40 hover:text-foreground transition-colors"
                       >
-                        {isExpanded ? (
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        ) : (
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        )}
+                        {p.length > 60 ? `${p.slice(0, 57)}...` : p}
                       </button>
-                      <div className="flex-1 min-w-0">
-                        {it.status === "failed" ? (
-                          <span className="text-red-600 dark:text-red-400">
-                            {it.error || "Tool failed"}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            {it.resultPreview || "Completed"}
-                          </span>
-                        )}
-                        {isExpanded && resultText && (
-                          <pre className="mt-2 text-xs whitespace-pre-wrap break-words text-foreground bg-background/50 rounded-md p-3 border border-border max-h-[320px] overflow-y-auto">
-                            {resultText}
-                          </pre>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
-              )
-            })}
+              )}
+
+              <AnimatePresence initial={false}>
+                {items.map((it) => {
+                  if (it.kind === "user") {
+                    return (
+                      <motion.div
+                        key={it.id}
+                        layout="position"
+                        variants={messageVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.15 }}
+                        className="flex justify-end"
+                      >
+                        <div className="max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                          {it.content}
+                        </div>
+                      </motion.div>
+                    )
+                  }
+                  if (it.kind === "assistant") {
+                    const isStreamingThis = streaming && it.id === pendingAssistantId
+                    return (
+                      <motion.div
+                        key={it.id}
+                        layout="position"
+                        variants={messageVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={{ duration: 0.15 }}
+                        className="flex flex-col items-start"
+                      >
+                        <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                          {it.content}
+                          {isStreamingThis && (
+                            <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" />
+                          )}
+                        </div>
+                      </motion.div>
+                    )
+                  }
+                  const isExpanded = !!expandedTools[it.id]
+                  const resultText = renderToolResult(it)
+                  return (
+                    <motion.div
+                      key={it.id}
+                      layout="position"
+                      variants={messageVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      transition={{ duration: 0.15 }}
+                      className={`rounded-xl border px-4 py-3 text-sm space-y-2 transition-colors duration-300 ${
+                        it.status === "failed"
+                          ? "border-red-500/30 bg-red-500/5"
+                          : it.status === "running"
+                            ? "border-violet-500/30 bg-violet-500/5"
+                            : "border-border bg-card/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
+                          <Wrench className="h-3.5 w-3.5" />
+                          <span className="font-medium">
+                            {toolDisplayName(it.name)}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                          {it.argsSummary}
+                        </span>
+                        <ToolStatusBadge status={it.status} />
+                      </div>
+                      {it.status !== "running" && (
+                        <div className="flex items-start gap-2 text-xs">
+                          <button
+                            onClick={() => toggleToolExpand(it.id)}
+                            className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
+                            aria-label={isExpanded ? "Collapse" : "Expand"}
+                          >
+                            {isExpanded ? (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            {it.status === "failed" ? (
+                              <span className="text-red-600 dark:text-red-400">
+                                {it.error || "Tool failed"}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {it.resultPreview || "Completed"}
+                              </span>
+                            )}
+                            {isExpanded && resultText && (
+                              <pre className="mt-2 text-xs whitespace-pre-wrap break-words text-foreground bg-background/50 rounded-md p-3 border border-border max-h-[320px] overflow-y-auto">
+                                {resultText}
+                              </pre>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )
+                })}
+              </AnimatePresence>
+            </div>
+
+            {/* Scroll-to-bottom floating button */}
+            <AnimatePresence>
+              {showScrollToBottom && (
+                <motion.button
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.15 }}
+                  onClick={() => {
+                    setAutoScrollPaused(false)
+                    scrollToBottom()
+                  }}
+                  className="absolute bottom-3 right-3 h-9 w-9 rounded-full border border-border bg-background shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground"
+                  aria-label="Scroll to bottom"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
+
+          {/* Retry banner shown after a network/SSE error */}
+          {lastFailedInput && !streaming && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Last message failed.</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs px-2 gap-1 text-violet-600 dark:text-violet-400 hover:text-violet-700"
+                onClick={handleRetry}
+              >
+                <RotateCcw className="h-3 w-3" />
+                Try again
+              </Button>
+            </div>
+          )}
 
           <div className="mt-4 sticky bottom-4">
             <div className="rounded-xl border border-border bg-background shadow-sm">
@@ -429,14 +611,14 @@ export default function PlagiaAiPage() {
                 rows={1}
                 className="min-h-[52px] max-h-[200px] resize-none border-0 bg-transparent text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0"
               />
-              <div className="flex items-center justify-between gap-3 px-3 pb-2.5">
+              <div className="flex items-center justify-between gap-3 px-3 pb-2.5 flex-wrap">
                 <span className="text-[11px] text-muted-foreground">
                   Ctrl+Enter to send
                 </span>
                 <Button
                   onClick={handleSend}
                   disabled={streaming || !input.trim()}
-                  className="h-8 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none"
+                  className="h-8 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none ml-auto"
                 >
                   {streaming ? (
                     <>
