@@ -20,6 +20,10 @@ import {
   RotateCcw,
   Trash2,
   ArrowDown,
+  Paperclip,
+  Mic,
+  MicOff,
+  X,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
@@ -27,6 +31,7 @@ import { getAuthHeader, useTokenStore } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 import {
   PLAGIA_AI_SUGGESTED_PROMPTS,
+  type AttachedImage,
   type PlagiaAiEvent,
   type PlagiaAiMessage,
   type PlagiaAiToolName,
@@ -88,6 +93,14 @@ export default function PlagiaAiPage() {
   const [conversations, setConversations] = useState<StoredConversationSummary[]>([])
   const [loadingConversations, setLoadingConversations] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Multimodal input (FS-06): image attach + voice dictation
+  const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(null)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [speechSupported, setSpeechSupported] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const recognitionRef = useRef<unknown>(null)
 
   // Auto-scroll: pause when the user scrolls away from the bottom; resume on send.
   const [autoScrollPaused, setAutoScrollPaused] = useState(false)
@@ -169,9 +182,137 @@ export default function PlagiaAiPage() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }, [input])
 
+  // Detect Web Speech API availability for the mic button.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const SR =
+      (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
+        .SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+    setSpeechSupported(!!SR)
+    return () => {
+      try {
+        ;(recognitionRef.current as { stop?: () => void } | null)?.stop?.()
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
+
   const handleSuggestedPrompt = (prompt: string) => {
     setInput(prompt)
     textareaRef.current?.focus()
+  }
+
+  const MAX_IMAGE_BYTES = 8 * 1024 * 1024 // 8 MB
+
+  const handleAttachClick = () => {
+    setAttachmentError(null)
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = "" // allow re-selecting the same file later
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      setAttachmentError("Only image files can be attached.")
+      return
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setAttachmentError("Image too large (max 8 MB).")
+      return
+    }
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result
+          if (typeof result !== "string") return reject(new Error("Read failed"))
+          // result is data:<mime>;base64,<base64>
+          const comma = result.indexOf(",")
+          resolve(comma >= 0 ? result.slice(comma + 1) : result)
+        }
+        reader.onerror = () => reject(new Error("Read failed"))
+        reader.readAsDataURL(file)
+      })
+      setAttachedImage({ base64, mimeType: file.type, name: file.name })
+    } catch (err) {
+      setAttachmentError(err instanceof Error ? err.message : "Couldn't read image")
+    }
+  }
+
+  const handleRemoveAttached = () => {
+    setAttachedImage(null)
+    setAttachmentError(null)
+  }
+
+  const stopRecording = () => {
+    try {
+      ;(recognitionRef.current as { stop?: () => void } | null)?.stop?.()
+    } catch {
+      // ignore
+    }
+    setRecording(false)
+  }
+
+  const toggleRecording = () => {
+    if (recording) {
+      stopRecording()
+      return
+    }
+    if (typeof window === "undefined") return
+    const SR =
+      (window as unknown as { SpeechRecognition?: new () => unknown; webkitSpeechRecognition?: new () => unknown })
+        .SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => unknown }).webkitSpeechRecognition
+    if (!SR) return
+
+    const recognition = new SR() as {
+      continuous: boolean
+      interimResults: boolean
+      lang: string
+      start: () => void
+      stop: () => void
+      onresult: (e: unknown) => void
+      onerror: (e: unknown) => void
+      onend: () => void
+    }
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.lang = "en-US"
+    let inputBaseAtStart = ""
+    setInput((cur) => {
+      inputBaseAtStart = cur
+      return cur
+    })
+
+    recognition.onresult = (event: unknown) => {
+      const ev = event as { results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }> }
+      let finalText = ""
+      let interimText = ""
+      for (let i = 0; i < ev.results.length; i++) {
+        const seg = ev.results[i]
+        const t = seg[0]?.transcript || ""
+        if (seg.isFinal) finalText += t
+        else interimText += t
+      }
+      const combined = (inputBaseAtStart + " " + finalText + interimText).trim()
+      setInput(combined)
+    }
+    recognition.onerror = () => {
+      setRecording(false)
+    }
+    recognition.onend = () => {
+      setRecording(false)
+    }
+    try {
+      recognition.start()
+      recognitionRef.current = recognition
+      setRecording(true)
+    } catch {
+      setRecording(false)
+    }
   }
 
   const toggleToolExpand = (id: string) => {
@@ -227,6 +368,13 @@ export default function PlagiaAiPage() {
       setNeedsSignIn(false)
       setLastFailedInput(null)
 
+      // Stop any in-flight mic dictation before submitting.
+      try {
+        ;(recognitionRef.current as { stop?: () => void } | null)?.stop?.()
+      } catch {
+        // ignore
+      }
+
       // Resume autoscroll when the user actively sends.
       setAutoScrollPaused(false)
 
@@ -257,12 +405,17 @@ export default function PlagiaAiPage() {
         currentAssistantText = ""
       }
 
+      // Capture the attached image so we send it once, then clear from state.
+      const sentImage = attachedImage
       try {
         const authHeader = await getAuthHeader()
         const response = await fetch("/api/plagia-ai", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ messages: conversationHistoryForServer(nextItems) }),
+          body: JSON.stringify({
+            messages: conversationHistoryForServer(nextItems),
+            attachedImage: sentImage || undefined,
+          }),
         })
 
         if (response.status === 401) {
@@ -360,6 +513,9 @@ export default function PlagiaAiPage() {
 
         flushAssistant()
 
+        // Clear the attached image now that it's been consumed by the round.
+        setAttachedImage(null)
+
         // Auto-save after a successful turn. Read latest state via the setter
         // callback (React state updates here are still batched).
         setItems((current) => {
@@ -390,6 +546,7 @@ export default function PlagiaAiPage() {
       decrementImageTokens,
       toast,
       persistAndRefresh,
+      attachedImage,
     ]
   )
 
@@ -727,6 +884,39 @@ export default function PlagiaAiPage() {
           )}
 
           <div className="mt-4 sticky bottom-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={handleFileSelected}
+            />
+
+            {(attachedImage || attachmentError) && (
+              <div className="mb-2 flex items-center gap-2 flex-wrap">
+                {attachedImage && (
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-card text-xs">
+                    <Paperclip className="h-3 w-3 text-violet-500" />
+                    <span className="truncate max-w-[200px]">
+                      {attachedImage.name || "image"}
+                    </span>
+                    <button
+                      onClick={handleRemoveAttached}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Remove attached image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+                {attachmentError && (
+                  <span className="text-xs text-red-600 dark:text-red-400">
+                    {attachmentError}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="rounded-xl border border-border bg-background shadow-sm">
               <Textarea
                 ref={textareaRef}
@@ -737,10 +927,40 @@ export default function PlagiaAiPage() {
                 rows={1}
                 className="min-h-[52px] max-h-[200px] resize-none border-0 bg-transparent text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0"
               />
-              <div className="flex items-center justify-between gap-3 px-3 pb-2.5 flex-wrap">
-                <span className="text-[11px] text-muted-foreground">
-                  Ctrl+Enter to send
-                </span>
+              <div className="flex items-center justify-between gap-2 px-3 pb-2.5 flex-wrap">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleAttachClick}
+                    disabled={streaming || !!attachedImage}
+                    className="h-8 w-8 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+                    aria-label="Attach image"
+                    title="Attach an image"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={toggleRecording}
+                    disabled={streaming || !speechSupported}
+                    className={`h-8 w-8 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${
+                      recording
+                        ? "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
+                        : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-label={recording ? "Stop dictation" : "Start voice dictation"}
+                    title={
+                      !speechSupported
+                        ? "Voice dictation needs Chrome, Edge, or Safari"
+                        : recording
+                          ? "Stop dictation"
+                          : "Voice dictation"
+                    }
+                  >
+                    {recording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </button>
+                  <span className="hidden sm:inline text-[11px] text-muted-foreground ml-1">
+                    Ctrl+Enter to send
+                  </span>
+                </div>
                 <Button
                   onClick={handleSend}
                   disabled={streaming || !input.trim()}
@@ -840,5 +1060,28 @@ function renderToolResult(
       return typeof data.svg === "string"
         ? `SVG output (${data.svg.length} chars). View in the standalone tool to render.`
         : null
+    case "image_to_text":
+      return data.extractedText || null
+    case "voice_to_essay": {
+      const essay = data.essay
+      const title = data.title
+      if (!essay) return null
+      return title ? `${title}\n\n${essay}` : essay
+    }
+    case "audio_summarize": {
+      const parts: string[] = []
+      if (data.title) parts.push(`# ${data.title}`)
+      if (data.overview) parts.push(data.overview)
+      if (Array.isArray(data.keyPoints) && data.keyPoints.length) {
+        parts.push("Key points:")
+        parts.push(...data.keyPoints.map((p: string) => `• ${p}`))
+      }
+      if (data.detailedSummary) parts.push("", data.detailedSummary)
+      if (Array.isArray(data.actionItems) && data.actionItems.length) {
+        parts.push("", "Action items:")
+        parts.push(...data.actionItems.map((a: string) => `• ${a}`))
+      }
+      return parts.length ? parts.join("\n") : null
+    }
   }
 }

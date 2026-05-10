@@ -1,4 +1,4 @@
-import type { PlagiaAiToolName } from "./types"
+import type { AttachedImage, PlagiaAiToolName } from "./types"
 
 export interface DispatchSuccess {
   ok: true
@@ -18,6 +18,7 @@ export type DispatchOutcome = DispatchSuccess | DispatchFailure
 interface DispatchCtx {
   bearerToken: string
   origin: string
+  attachedImage?: AttachedImage
 }
 
 function buildJsonRequest(body: unknown, ctx: DispatchCtx) {
@@ -252,6 +253,59 @@ export async function dispatchTool(
         result: r.data,
         remainingImageTokens: r.data.remainingTokens,
         resultPreview: `Chart (${r.data.result?.chartType || "auto"}): ${r.data.result?.title || "Untitled"}`,
+      }
+    }
+    case "image_to_text": {
+      if (!ctx.attachedImage?.base64) {
+        return {
+          ok: false,
+          error: "No image attached. Ask the user to attach an image before extracting text.",
+        }
+      }
+      const r = await callJsonRoute(`${ctx.origin}/api/image-to-text`, {
+        imageBase64: ctx.attachedImage.base64,
+        mimeType: ctx.attachedImage.mimeType,
+      }, ctx)
+      if (!r.ok) return { ok: false, error: r.data?.error || `Image to Text failed (${r.status})` }
+      const extracted = r.data.result?.extractedText
+      const confidence = r.data.result?.confidence
+      return {
+        ok: true,
+        result: r.data,
+        remainingImageTokens: r.data.remainingTokens,
+        resultPreview: extracted
+          ? `Extracted ${(extracted as string).length} chars${confidence ? ` (${confidence} confidence)` : ""}`
+          : "No text extracted",
+      }
+    }
+    case "voice_to_essay": {
+      const r = await callJsonRoute(`${ctx.origin}/api/voice-tools`, {
+        text: args.transcript,
+        tool: "voice-to-essay",
+      }, ctx)
+      if (!r.ok) return { ok: false, error: r.data?.error || `Voice to Essay failed (${r.status})` }
+      const title = r.data.result?.title || "Essay"
+      const wordCount = r.data.result?.wordCount
+      return {
+        ok: true,
+        result: r.data,
+        remainingTextTokens: r.data.remainingTokens,
+        resultPreview: typeof wordCount === "number" ? `${title} · ${wordCount} words` : String(title),
+      }
+    }
+    case "audio_summarize": {
+      const r = await callJsonRoute(`${ctx.origin}/api/voice-tools`, {
+        text: args.transcript,
+        tool: "audio-summarize",
+      }, ctx)
+      if (!r.ok) return { ok: false, error: r.data?.error || `Audio Summarizer failed (${r.status})` }
+      const title = r.data.result?.title || "Summary"
+      const points = Array.isArray(r.data.result?.keyPoints) ? r.data.result.keyPoints.length : 0
+      return {
+        ok: true,
+        result: r.data,
+        remainingTextTokens: r.data.remainingTokens,
+        resultPreview: `${title} · ${points} key point${points === 1 ? "" : "s"}`,
       }
     }
     case "generate_thumbnail": {

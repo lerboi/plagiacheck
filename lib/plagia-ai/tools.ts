@@ -205,6 +205,62 @@ export const MISTRAL_TOOLS: MistralToolDef[] = [
   {
     type: "function",
     function: {
+      name: "image_to_text",
+      description:
+        "Extract text from an image attached to the conversation (photo of a document, handwritten notes, screenshot, etc.). REQUIRES the user to have attached an image — if no image is attached, do NOT call this tool; instead ask the user to attach one. Costs image tokens.",
+      parameters: {
+        type: "object",
+        properties: {
+          note: {
+            type: "string",
+            description:
+              "A short note from the user about what they want extracted, or just 'extract text' if no instruction. The image itself is supplied by the chat UI, not by you.",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "voice_to_essay",
+      description:
+        "Transform a raw voice-transcript (or any informal spoken-style text) into a well-structured written essay. Use ONLY when the user has provided spoken / dictated content and wants it rewritten as a polished essay. Costs text tokens.",
+      parameters: {
+        type: "object",
+        properties: {
+          transcript: {
+            type: "string",
+            description:
+              "The raw voice transcript or spoken-style text to convert into an essay. Required.",
+          },
+        },
+        required: ["transcript"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "audio_summarize",
+      description:
+        "Summarize an audio-content transcript — lecture, interview, meeting, podcast — extracting topic, key points, action items. Use ONLY when the user provides a transcript of spoken content and wants a structured summary. For regular text summarization use `summarize` instead. Costs text tokens.",
+      parameters: {
+        type: "object",
+        properties: {
+          transcript: {
+            type: "string",
+            description: "The full audio transcript to summarize. Required.",
+          },
+        },
+        required: ["transcript"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "generate_thumbnail",
       description:
         "Generate a 1200x630 SVG thumbnail / cover image with a title and styled background. Suitable for YouTube covers, OpenGraph images, blog headers. Costs image tokens — confirm with the user before calling if unsure.",
@@ -245,6 +301,16 @@ export function summarizeArgs(name: PlagiaAiToolName, args: Record<string, unkno
       return `Type: ${String(args.chart_type || "auto-detect")}`
     case "generate_thumbnail":
       return `Style: ${String(args.style || "modern")}`
+    case "image_to_text":
+      return "Extract text from attached image"
+    case "voice_to_essay": {
+      const len = String(args.transcript || "").length
+      return `${len} chars of transcript`
+    }
+    case "audio_summarize": {
+      const len = String(args.transcript || "").length
+      return `${len} chars of transcript`
+    }
   }
 }
 
@@ -268,5 +334,11 @@ export function toolDisplayName(name: PlagiaAiToolName): string {
       return "Chart Generator"
     case "generate_thumbnail":
       return "Thumbnail Generator"
+    case "image_to_text":
+      return "Image to Text"
+    case "voice_to_essay":
+      return "Voice to Essay"
+    case "audio_summarize":
+      return "Audio Summarizer"
   }
 }

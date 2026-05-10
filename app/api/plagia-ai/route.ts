@@ -30,13 +30,19 @@ const SYSTEM_PROMPT = `You are PlagiaAI, the conversational assistant for Plagia
 - generate_infographic: turn source content into an SVG infographic (costs image tokens)
 - generate_chart: generate an SVG chart/diagram from a natural-language description (costs image tokens)
 - generate_thumbnail: generate a 1200x630 cover image with a title (costs image tokens)
+- image_to_text: extract text from an image the user has ATTACHED to the chat (costs image tokens). The user attaches via the paperclip button — if they haven't, don't call this; ask them to attach first.
+- voice_to_essay: turn a dictated voice transcript into a structured written essay (costs text tokens)
+- audio_summarize: summarize a transcript of spoken content like a lecture, interview, meeting, or podcast (costs text tokens)
+
+You CANNOT call: text_to_speech (browser-only, free — point users to /text-to-speech) or word_counter (instant client-side, free — point users to /word-counter).
 
 How to decide:
 1. If the user's request maps clearly to ONE tool, call it. Don't ask permission for cheap text-token tools — just run.
-2. For image-token tools (infographic, chart, thumbnail), if the user has not already confirmed they want to spend image tokens in this conversation, ask a one-line confirming question before calling.
-3. If the user provides text-to-be-processed without saying what to do with it, ASK what they want instead of guessing.
-4. If the user asks something the tools can't do (e.g. "write a poem", "translate to French", "tell me a joke"), explain you're focused on Plagiacheck's tools and offer the closest match.
-5. After a tool returns, summarize the result conversationally in 1-2 sentences — do NOT paste the full output, the UI already shows it. Then ask a short follow-up if relevant ("Want me to summarize that too?").
+2. For image-token tools (infographic, chart, thumbnail, image_to_text), if the user has not already confirmed they want to spend image tokens in this conversation, ask a one-line confirming question before calling.
+3. If the user attaches an image and asks to extract / read / OCR the image, call image_to_text.
+4. If the user provides text-to-be-processed without saying what to do with it, ASK what they want instead of guessing.
+5. If the user asks something the tools can't do (e.g. "write a poem", "translate to French", "tell me a joke"), explain you're focused on Plagiacheck's tools and offer the closest match.
+6. After a tool returns, summarize the result conversationally in 1-2 sentences — do NOT paste the full output, the UI already shows it. Then ask a short follow-up if relevant ("Want me to summarize that too?").
 
 Style:
 - Be concise. Default to under 80 words per response.
@@ -129,6 +135,27 @@ export async function POST(req: Request) {
     return Response.json({ error: "AI service not configured" }, { status: 500 })
   }
 
+  // Optional attached image, used for image_to_text. Lightly validated.
+  const rawAttached: unknown = (body as { attachedImage?: unknown })?.attachedImage
+  let attachedImage:
+    | { base64: string; mimeType: string; name?: string }
+    | undefined
+  if (
+    rawAttached &&
+    typeof rawAttached === "object" &&
+    typeof (rawAttached as { base64?: unknown }).base64 === "string" &&
+    typeof (rawAttached as { mimeType?: unknown }).mimeType === "string"
+  ) {
+    const r = rawAttached as { base64: string; mimeType: string; name?: unknown }
+    if (r.base64.length > 0 && r.base64.length < 12 * 1024 * 1024) {
+      attachedImage = {
+        base64: r.base64,
+        mimeType: r.mimeType,
+        name: typeof r.name === "string" ? r.name : undefined,
+      }
+    }
+  }
+
   const origin = new URL(req.url).origin
   const encode = sseEncoder()
 
@@ -218,7 +245,11 @@ export async function POST(req: Request) {
               })
             )
 
-            const outcome = await dispatchTool(fnName, args, { bearerToken, origin })
+            const outcome = await dispatchTool(fnName, args, {
+              bearerToken,
+              origin,
+              attachedImage,
+            })
 
             if (outcome.ok) {
               controller.enqueue(

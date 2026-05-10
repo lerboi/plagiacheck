@@ -5,8 +5,18 @@ export interface PlagiaAiMessage {
   content: string
 }
 
+export interface AttachedImage {
+  /** Base64-encoded image bytes (no `data:` prefix). */
+  base64: string
+  /** MIME type, e.g. `image/png`. */
+  mimeType: string
+  /** Original filename, for display. Optional. */
+  name?: string
+}
+
 export interface PlagiaAiRequestBody {
   messages: PlagiaAiMessage[]
+  attachedImage?: AttachedImage
 }
 
 export const PLAGIA_AI_TOOL_NAMES = [
@@ -19,6 +29,9 @@ export const PLAGIA_AI_TOOL_NAMES = [
   "generate_infographic",
   "generate_chart",
   "generate_thumbnail",
+  "image_to_text",
+  "voice_to_essay",
+  "audio_summarize",
 ] as const
 
 export type PlagiaAiToolName = (typeof PLAGIA_AI_TOOL_NAMES)[number]
