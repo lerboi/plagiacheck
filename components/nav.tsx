@@ -326,7 +326,7 @@ export function Nav() {
                   {/* Footer */}
                   <div className="mt-4 pt-3 border-t border-border">
                     <Link
-                      href="/history"
+                      href="/all-tools"
                       onClick={() => setIsToolsOpen(false)}
                       className="flex items-center justify-between px-2 py-2 rounded-lg hover:bg-accent transition-colors group"
                     >
@@ -334,7 +334,7 @@ export function Nav() {
                         <div className="p-1.5 rounded-md bg-gray-500/10">
                           <LayoutGrid className="h-3.5 w-3.5 text-gray-500" />
                         </div>
-                        <span className="text-sm font-medium">View All Tools</span>
+                        <span className="text-sm font-medium">View all tools</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                     </Link>
@@ -482,7 +482,7 @@ export function Nav() {
               {/* Other Links */}
               <div className="space-y-1 pt-2 border-t border-border/60">
                 <Link
-                  href="/history"
+                  href="/all-tools"
                   className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
                   onClick={closeMobileMenu}
                 >
