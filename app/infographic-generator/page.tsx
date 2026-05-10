@@ -175,7 +175,7 @@ export default function InfographicGenerator() {
                 </div>
               </div>
             )}
-            <div ref={svgContainerRef} className={`bg-white dark:bg-gray-950 p-4 ${svgOutput ? "rounded-b-xl border border-border" : "rounded-xl border border-border min-h-[320px] flex items-center justify-center"}`}>
+            <div ref={svgContainerRef} className={`p-4 ${svgOutput ? "rounded-b-xl border border-border bg-white shadow-sm" : "rounded-xl border border-border bg-card dark:bg-card min-h-[320px] flex items-center justify-center"}`}>
               {svgOutput
                 ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full" />
                 : <div className="text-center text-muted-foreground/40"><BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">Infographic appears here</p></div>
