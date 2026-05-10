@@ -32,6 +32,15 @@ import {
   type PlagiaAiToolName,
 } from "@/lib/plagia-ai/types"
 import { toolDisplayName } from "@/lib/plagia-ai/tools"
+import {
+  deleteConversation,
+  deriveConversationTitle,
+  listConversations,
+  loadConversation,
+  saveConversation,
+  type StoredConversationSummary,
+} from "@/lib/plagia-ai/storage"
+import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
 
 const GREETING =
   "Hi — I'm PlagiaAI. Tell me what you'd like to do and I'll use the right tool: paraphrase, summarize, humanize, check grammar, detect AI, find plagiarism, generate charts, infographics, or thumbnails."
@@ -74,6 +83,12 @@ export default function PlagiaAiPage() {
   const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
 
+  // Persistence
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [conversations, setConversations] = useState<StoredConversationSummary[]>([])
+  const [loadingConversations, setLoadingConversations] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
   // Auto-scroll: pause when the user scrolls away from the bottom; resume on send.
   const [autoScrollPaused, setAutoScrollPaused] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
@@ -93,12 +108,35 @@ export default function PlagiaAiPage() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user || null)
+      if (!session?.user) {
+        setConversations([])
+        setConversationId(null)
+        setItems([])
+      }
     })
     return () => {
       mounted = false
       listener.subscription.unsubscribe()
     }
   }, [supabase.auth])
+
+  // Fetch the user's saved conversations once we know they're signed in.
+  useEffect(() => {
+    if (!user) return
+    let mounted = true
+    setLoadingConversations(true)
+    listConversations()
+      .then((list) => {
+        if (!mounted) return
+        setConversations(list)
+      })
+      .finally(() => {
+        if (mounted) setLoadingConversations(false)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [user])
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
@@ -156,6 +194,26 @@ export default function PlagiaAiPage() {
       )
       .map((it) => ({ role: it.kind, content: it.content }))
   }
+
+  const persistAndRefresh = useCallback(
+    async (current: ChatItem[]) => {
+      if (!user) return
+      const firstUserMessage = current.find((it) => it.kind === "user")
+      if (!firstUserMessage) return
+      const title = deriveConversationTitle(
+        (firstUserMessage as Extract<ChatItem, { kind: "user" }>).content
+      )
+      const savedId = await saveConversation(conversationId, title, current)
+      if (savedId) {
+        if (!conversationId) {
+          setConversationId(savedId)
+        }
+        const fresh = await listConversations()
+        setConversations(fresh)
+      }
+    },
+    [user, conversationId]
+  )
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -301,6 +359,13 @@ export default function PlagiaAiPage() {
         }
 
         flushAssistant()
+
+        // Auto-save after a successful turn. Read latest state via the setter
+        // callback (React state updates here are still batched).
+        setItems((current) => {
+          void persistAndRefresh(current)
+          return current
+        })
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Something went wrong."
@@ -324,6 +389,7 @@ export default function PlagiaAiPage() {
       decrementWords,
       decrementImageTokens,
       toast,
+      persistAndRefresh,
     ]
   )
 
@@ -345,6 +411,53 @@ export default function PlagiaAiPage() {
     setLastFailedInput(null)
     setConfirmingClear(false)
     setAutoScrollPaused(false)
+    setConversationId(null)
+  }
+
+  const handleNewChat = () => {
+    setItems([])
+    setExpandedTools({})
+    setLastFailedInput(null)
+    setInput("")
+    setConversationId(null)
+    setAutoScrollPaused(false)
+    textareaRef.current?.focus()
+  }
+
+  const handleSelectConversation = async (id: string) => {
+    if (streaming) return
+    if (id === conversationId) return
+    const c = await loadConversation(id)
+    if (!c) {
+      toast({
+        title: "Couldn't load conversation",
+        description: "Something went wrong on the server.",
+        variant: "destructive",
+      })
+      return
+    }
+    setConversationId(c.id)
+    setItems((c.messages || []) as ChatItem[])
+    setLastFailedInput(null)
+    setInput("")
+    setExpandedTools({})
+    setAutoScrollPaused(false)
+  }
+
+  const handleDeleteConversation = async (id: string) => {
+    const ok = await deleteConversation(id)
+    if (!ok) {
+      toast({
+        title: "Couldn't delete conversation",
+        description: "Try again in a moment.",
+        variant: "destructive",
+      })
+      return
+    }
+    setConversations((prev) => prev.filter((c) => c.id !== id))
+    if (id === conversationId) {
+      handleNewChat()
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -370,7 +483,20 @@ export default function PlagiaAiPage() {
       />
 
       <section className="flex-1 flex flex-col">
-        <div className="container max-w-3xl mx-auto w-full px-4 py-6 flex-1 flex flex-col">
+        <div className="container max-w-6xl mx-auto w-full px-4 py-6 flex-1 flex flex-row gap-1">
+          {user && (
+            <ConversationSidebar
+              conversations={conversations}
+              activeId={conversationId}
+              loading={loadingConversations}
+              collapsed={sidebarCollapsed}
+              onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+              onSelect={handleSelectConversation}
+              onNewChat={handleNewChat}
+              onDelete={handleDeleteConversation}
+            />
+          )}
+          <div className="flex-1 max-w-3xl mx-auto w-full flex flex-col min-w-0">
           {needsSignIn && !user && (
             <div className="mb-4">
               <ToolSignInPrompt />
@@ -634,6 +760,7 @@ export default function PlagiaAiPage() {
                 </Button>
               </div>
             </div>
+          </div>
           </div>
         </div>
       </section>
