@@ -2,6 +2,7 @@
 
 import { PiLetterCircleP } from "react-icons/pi"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useTokenStore, TOKENS_CHANGED_EVENT } from "@/lib/store"
 import {
@@ -67,6 +68,8 @@ export function Nav() {
   const [expandedMobileCategory, setExpandedMobileCategory] = useState<string | null>(null)
   const toolsRef = useRef<HTMLDivElement>(null)
   const toolsButtonRef = useRef<HTMLButtonElement>(null)
+  const pathname = usePathname()
+  const onPlagiaAi = pathname === "/plagia-ai"
 
   const toolCategories: ToolCategory[] = [
     {
@@ -220,7 +223,7 @@ export function Nav() {
             <button
               ref={toolsButtonRef}
               onClick={() => setIsToolsOpen(!isToolsOpen)}
-              className={`h-9 text-sm font-medium gap-1.5 px-3 inline-flex items-center rounded-md transition-colors focus-visible:ring-0 focus:outline-none ${
+              className={`relative h-9 text-sm font-medium gap-1.5 px-3 inline-flex items-center rounded-md transition-colors focus-visible:ring-0 focus:outline-none ${
                 isToolsOpen ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
               }`}
               aria-expanded={isToolsOpen}
@@ -228,6 +231,12 @@ export function Nav() {
             >
               <LayoutGrid className="h-4 w-4" />
               Tools
+              {onPlagiaAi && (
+                <span
+                  className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-violet-500"
+                  aria-label="On PlagiaAI"
+                />
+              )}
               <ChevronDown className={`h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${isToolsOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -238,6 +247,33 @@ export function Nav() {
                 className="absolute top-full left-0 mt-1 w-[680px] bg-popover border border-border rounded-xl shadow-xl z-50 animate-in fade-in-0 zoom-in-95 duration-150"
               >
                 <div className="p-4">
+                  {/* Featured: PlagiaAI */}
+                  <Link
+                    href="/plagia-ai"
+                    onClick={() => setIsToolsOpen(false)}
+                    className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg border mb-3 transition-all overflow-hidden ${
+                      onPlagiaAi
+                        ? "border-violet-500/50 bg-gradient-to-r from-violet-500/15 via-fuchsia-500/10 to-violet-500/15"
+                        : "border-violet-200/60 dark:border-violet-800/60 bg-gradient-to-r from-violet-500/8 via-fuchsia-500/8 to-violet-500/8 hover:from-violet-500/12 hover:via-fuchsia-500/12 hover:to-violet-500/12"
+                    }`}
+                  >
+                    <div className="p-1.5 rounded-md bg-violet-500/15 shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold">PlagiaAI</span>
+                        <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-violet-500/15 text-violet-600 dark:text-violet-300 rounded-full leading-none">
+                          NEW
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground leading-tight">
+                        Chat with an AI that uses all your tools
+                      </span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  </Link>
+
                   {/* Category columns */}
                   <div className="grid grid-cols-3 gap-5">
                     {toolCategories.map((category) => (
@@ -361,6 +397,33 @@ export function Nav() {
 
               {/* Mobile token summary */}
               <MobileTokenSummary user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} />
+
+              {/* Featured: PlagiaAI (mobile) */}
+              <Link
+                href="/plagia-ai"
+                onClick={closeMobileMenu}
+                className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
+                  onPlagiaAi
+                    ? "border-violet-500/50 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/10"
+                    : "border-violet-200/40 dark:border-violet-800/40 bg-gradient-to-r from-violet-500/8 to-fuchsia-500/8"
+                }`}
+              >
+                <div className="p-1.5 rounded-lg bg-violet-500/15">
+                  <Sparkles className="h-4 w-4 text-violet-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold">PlagiaAI</span>
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-violet-500/20 text-violet-600 dark:text-violet-300 rounded-full leading-none">
+                      NEW
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Chat with an AI that uses all your tools
+                  </span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </Link>
 
               {/* Categorized Tool Sections */}
               {toolCategories.map((category) => {
