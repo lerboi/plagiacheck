@@ -99,6 +99,7 @@ export default function HistoryPage() {
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -122,18 +123,22 @@ export default function HistoryPage() {
       setError(null)
       let query = supabase
         .from("tool_history")
-        .select("id, tool, input_preview, output_preview, metadata, tokens_used, created_at")
+        .select(
+          "id, tool, input_preview, output_preview, metadata, tokens_used, created_at",
+          { count: "exact" }
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
       if (filter !== "all") query = query.eq("tool", filter)
 
-      const { data, error: fetchError } = await query
+      const { data, error: fetchError, count } = await query
 
       if (fetchError) {
         setError("Could not load your history. Please try again.")
         setRows([])
+        setTotalCount(null)
         setLoading(false)
         return
       }
@@ -141,6 +146,7 @@ export default function HistoryPage() {
       const fetched = (data || []) as ToolHistoryRow[]
       setHasMore(fetched.length > PAGE_SIZE)
       setRows(fetched.slice(0, PAGE_SIZE))
+      setTotalCount(typeof count === "number" ? count : null)
       setLoading(false)
     }
     fetchHistory()
@@ -350,24 +356,43 @@ export default function HistoryPage() {
                 })}
               </ul>
 
-              <div className="flex justify-between items-center mt-6">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">Page {page + 1}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={!hasMore}
-                >
-                  Next
-                </Button>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-6">
+                <span className="text-xs sm:text-sm text-muted-foreground tabular-nums text-center sm:text-left">
+                  {totalCount !== null ? (
+                    <>
+                      Showing{" "}
+                      <span className="font-medium text-foreground">
+                        {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, totalCount)}
+                      </span>{" "}
+                      of <span className="font-medium text-foreground">{totalCount}</span>
+                      <span className="mx-1.5 opacity-60">·</span>
+                      Page <span className="font-medium text-foreground">{page + 1}</span> of{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
+                      </span>
+                    </>
+                  ) : (
+                    `Page ${page + 1}`
+                  )}
+                </span>
+                <div className="flex justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!hasMore}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             </>
           )}
