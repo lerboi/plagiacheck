@@ -30,7 +30,6 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { getAuthHeader, useTokenStore } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 import {
-  PLAGIA_AI_SUGGESTED_PROMPTS,
   type AttachedImage,
   type PlagiaAiEvent,
   type PlagiaAiMessage,
@@ -46,6 +45,8 @@ import {
   type StoredConversationSummary,
 } from "@/lib/plagia-ai/storage"
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
+import { EmptyState } from "@/components/plagia-ai/EmptyState"
+import { SuggestionChipBar } from "@/components/plagia-ai/SuggestionChipBar"
 
 const GREETING =
   "Hi — I'm PlagiaAI. Tell me what you'd like to do and I'll use the right tool: paraphrase, summarize, humanize, check grammar, detect AI, find plagiarism, generate charts, infographics, or thumbnails."
@@ -201,7 +202,19 @@ export default function PlagiaAiPage() {
 
   const handleSuggestedPrompt = (prompt: string) => {
     setInput(prompt)
-    textareaRef.current?.focus()
+    // Wait for React to flush the new value into the textarea before placing
+    // the cursor at the end and focusing — otherwise setSelectionRange runs
+    // against the previous value and the cursor ends up wherever it was.
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      try {
+        el.setSelectionRange(prompt.length, prompt.length)
+      } catch {
+        // Some browsers throw if the textarea is not in the DOM yet — ignore.
+      }
+    })
   }
 
   const MAX_IMAGE_BYTES = 8 * 1024 * 1024 // 8 MB
@@ -706,6 +719,11 @@ export default function PlagiaAiPage() {
           )}
 
           <div className="relative flex-1 flex flex-col">
+            {!conversationStarted ? (
+              <EmptyState>
+                <SuggestionChipBar onChipClick={handleSuggestedPrompt} />
+              </EmptyState>
+            ) : (
             <div
               ref={scrollRef}
               className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 p-5 space-y-5 min-h-[480px]"
@@ -715,25 +733,6 @@ export default function PlagiaAiPage() {
                   {GREETING}
                 </div>
               </div>
-
-              {!conversationStarted && (
-                <div className="pt-2">
-                  <p className="text-xs text-muted-foreground mb-2.5">
-                    Try one of these:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {PLAGIA_AI_SUGGESTED_PROMPTS.map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => handleSuggestedPrompt(p)}
-                        className="text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:border-violet-400/40 hover:text-foreground transition-colors"
-                      >
-                        {p.length > 60 ? `${p.slice(0, 57)}...` : p}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <AnimatePresence initial={false}>
                 {items.map((it) => {
@@ -845,6 +844,7 @@ export default function PlagiaAiPage() {
                 })}
               </AnimatePresence>
             </div>
+            )}
 
             {/* Scroll-to-bottom floating button */}
             <AnimatePresence>
