@@ -69,7 +69,7 @@ export function Nav() {
   const toolsRef = useRef<HTMLDivElement>(null)
   const toolsButtonRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
-  const onPlagiaAi = pathname === "/plagia-ai"
+  const onPlagiaAi = pathname === "/" || pathname === "/plagia-ai"
 
   const toolCategories: ToolCategory[] = [
     {
@@ -249,7 +249,7 @@ export function Nav() {
                 <div className="p-4">
                   {/* Featured: PlagiaAI */}
                   <Link
-                    href="/plagia-ai"
+                    href="/"
                     onClick={() => setIsToolsOpen(false)}
                     className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg border mb-3 transition-all overflow-hidden ${
                       onPlagiaAi

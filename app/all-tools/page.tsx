@@ -125,7 +125,7 @@ export default function AllToolsPage() {
       <main className="container max-w-5xl mx-auto px-4 py-8 space-y-10">
         {/* PlagiaAI featured hero */}
         <Link
-          href="/plagia-ai"
+          href="/"
           className="group block rounded-2xl border border-violet-200/60 dark:border-violet-800/60 bg-gradient-to-br from-violet-500/10 via-fuchsia-500/8 to-violet-500/10 hover:from-violet-500/15 hover:via-fuchsia-500/12 hover:to-violet-500/15 transition-all p-6 md:p-8 overflow-hidden relative"
         >
           <div className="flex items-start gap-4 md:gap-5">
