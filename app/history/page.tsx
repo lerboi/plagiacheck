@@ -54,7 +54,7 @@ const TOOL_META: Record<
   string,
   { label: string; href: string; icon: LucideIcon; color: string; bg: string }
 > = {
-  plagiarism: { label: "Plagiarism Checker", href: "/", icon: Shield, color: "text-blue-500", bg: "bg-blue-500/10" },
+  plagiarism: { label: "Plagiarism Checker", href: "/plagiarism-checker", icon: Shield, color: "text-blue-500", bg: "bg-blue-500/10" },
   "ai-detect": { label: "AI Detector", href: "/ai-detector", icon: Brain, color: "text-purple-500", bg: "bg-purple-500/10" },
   humanize: { label: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500", bg: "bg-pink-500/10" },
   paraphrase: { label: "Paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bg: "bg-cyan-500/10" },

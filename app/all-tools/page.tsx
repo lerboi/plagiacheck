@@ -66,7 +66,7 @@ const CATEGORIES: CategoryBlock[] = [
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     tools: [
-      { name: "Plagiarism Checker", href: "/", icon: Shield, desc: "Detect copied or reused text with sentence-level highlighting.", color: "text-blue-500", bgColor: "bg-blue-500/10" },
+      { name: "Plagiarism Checker", href: "/plagiarism-checker", icon: Shield, desc: "Detect copied or reused text with sentence-level highlighting.", color: "text-blue-500", bgColor: "bg-blue-500/10" },
       { name: "AI Detector", href: "/ai-detector", icon: Brain, desc: "Spot AI-generated writing with a sentence-by-sentence confidence breakdown.", color: "text-purple-500", bgColor: "bg-purple-500/10" },
       { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, desc: "Rewrite AI-flavoured text into natural-sounding human writing.", color: "text-pink-500", bgColor: "bg-pink-500/10" },
       { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, desc: "Rewrite text in six modes — standard, fluency, formal, simple, creative, academic.", color: "text-cyan-500", bgColor: "bg-cyan-500/10" },
