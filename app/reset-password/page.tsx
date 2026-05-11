@@ -21,11 +21,12 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [hasRecoverySession, setHasRecoverySession] = useState(false)
+  const [hasRecoverySession, setHasRecoverySession] = useState<boolean | null>(null)
 
   useEffect(() => {
     // Supabase auth-helpers automatically exchanges the URL hash for a
-    // session. We just check that we have one.
+    // session. We start in a loading state and resolve to true/false
+    // once we know.
     const checkSession = async () => {
       const {
         data: { session },
@@ -94,7 +95,18 @@ export default function ResetPasswordPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!hasRecoverySession ? (
+              {hasRecoverySession === null ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-3 py-8"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">
+                    Verifying your reset link…
+                  </p>
+                </div>
+              ) : hasRecoverySession === false ? (
                 <div className="space-y-4">
                   <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
