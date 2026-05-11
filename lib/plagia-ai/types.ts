@@ -41,6 +41,7 @@ export interface PlagiaAiToolCallEvent {
   id: string
   name: PlagiaAiToolName
   argsSummary: string
+  reason?: string
 }
 
 export interface PlagiaAiToolResultEvent {

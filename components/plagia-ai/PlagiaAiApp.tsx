@@ -57,6 +57,7 @@ type ChatItem =
       id: string
       name: PlagiaAiToolName
       argsSummary: string
+      reason?: string
       status: "running" | "done" | "failed"
       resultPreview?: string
       error?: string
@@ -496,6 +497,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 id: event.id,
                 name: event.name,
                 argsSummary: event.argsSummary,
+                reason: event.reason,
                 status: "running",
               })
             } else if (event.type === "tool_result") {
@@ -801,6 +803,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         </span>
                         <ToolStatusBadge status={it.status} />
                       </div>
+                      {it.reason && (
+                        <p className="text-xs text-muted-foreground italic leading-relaxed">
+                          {it.reason}
+                        </p>
+                      )}
                       {it.status !== "running" && (
                         <div className="flex items-start gap-2 text-xs">
                           <button

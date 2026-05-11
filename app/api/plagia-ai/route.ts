@@ -75,6 +75,13 @@ You CANNOT call: text_to_speech (browser-only, free — point users to /text-to-
 
 7. **After a tool returns**, summarize the result in 1-2 sentences. Do NOT paste the full output — the UI already shows it. Then offer a useful follow-up if obvious ("Want me to check it for grammar too?").
 
+8. **Tool-call reasoning (transparency):** WHENEVER you are about to call a tool, your immediately-preceding assistant text MUST be exactly ONE short sentence (≤15 words) explaining why this tool fits the user's intent. The UI extracts this sentence and shows it as a caption inside the tool card. Examples:
+   ✓ "Plagiarism checker fits — you want originality flags on a passage."
+   ✓ "Switching to humanize since you said it sounds AI."
+   ✗ "Sure, I'll run that for you now!" (no reason; useless caption)
+   ✗ "Let me think about this... actually I'll use the paraphraser because it..." (too long, multi-sentence)
+   If you have NO useful tool to call, do not invent a reason — emit a clarifying question instead per rule 1.
+
 ## Clarifying-question shape
 
 When asking, keep it to ONE short sentence. Do NOT preamble ("I'd love to help! Could you please..."). Do NOT echo the user's message back. Do NOT explain why you need more info. Just ask, directly:
@@ -238,12 +245,18 @@ export async function POST(req: Request) {
 
           const assistantText = extractText(message.content)
           const toolCalls = (message as { toolCalls?: any[] }).toolCalls || []
+          const hasToolCalls = toolCalls.length > 0
 
-          if (assistantText.trim()) {
+          // When there are no tool calls, this assistant text IS the response
+          // — stream it as a normal delta. When there ARE tool calls, the text
+          // is the "Why this tool" reasoning (per rule 8) and gets attached
+          // to the tool card as `reason` instead, so we DON'T emit it as a
+          // duplicate assistant bubble.
+          if (!hasToolCalls && assistantText.trim()) {
             controller.enqueue(encode({ type: "delta", content: assistantText }))
           }
 
-          if (!toolCalls || toolCalls.length === 0) {
+          if (!hasToolCalls) {
             break
           }
 
@@ -252,6 +265,14 @@ export async function POST(req: Request) {
             content: assistantText,
             toolCalls,
           })
+
+          // The assistant's text emitted in THIS turn (before the tool calls)
+          // is the "Why this tool" reasoning per rule 8 of the system prompt.
+          // Only attach it to the first tool call of the turn — subsequent
+          // tool calls in the same response share the same upstream reasoning
+          // and the UI doesn't need duplicate captions.
+          const turnReason = assistantText.trim().split("\n")[0]?.trim() || ""
+          let reasonAttached = false
 
           for (const call of toolCalls) {
             const callId: string = call.id || `call_${Math.random().toString(36).slice(2)}`
@@ -284,8 +305,10 @@ export async function POST(req: Request) {
                 id: callId,
                 name: fnName,
                 argsSummary: summarizeArgs(fnName, args),
+                ...(reasonAttached || !turnReason ? {} : { reason: turnReason }),
               })
             )
+            reasonAttached = true
 
             const outcome = await dispatchTool(fnName, args, {
               bearerToken,
