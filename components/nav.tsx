@@ -552,13 +552,14 @@ function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens }:
   if (!user) {
     return (
       <Link
-        href="/pricing"
+        href="/signin?tab=register"
         className="group flex items-center gap-1.5 h-8 px-3 rounded-full bg-gradient-to-r from-blue-500/10 via-violet-500/10 to-blue-500/10 border border-blue-200/60 dark:border-blue-800/60 hover:border-blue-400/60 dark:hover:border-blue-600/60 hover:from-blue-500/15 hover:via-violet-500/15 hover:to-blue-500/15 transition-all duration-200"
-        title="Try free — 200 tokens included"
+        title={`Sign up free — 1,000 tokens to start (you have ${guestTokens} trial tokens)`}
       >
         <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-        <span className="text-xs font-semibold tabular-nums text-foreground">{guestTokens}</span>
-        <span className="text-xs text-muted-foreground">free tokens</span>
+        <span className="text-xs font-semibold text-foreground">Sign up</span>
+        <span className="text-xs text-muted-foreground hidden xl:inline">— 1,000 free tokens</span>
+        <span className="text-xs text-muted-foreground inline xl:hidden">free</span>
       </Link>
     )
   }
@@ -590,13 +591,17 @@ function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens }:
   )
 }
 
-function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
+function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens }: TokenBadgeProps) {
   if (!user) {
     return (
-      <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/50 dark:border-blue-800/50">
+      <Link
+        href="/signin?tab=register"
+        className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/50 dark:border-blue-800/50 hover:border-blue-400/50"
+        title="Sign up free"
+      >
         <Sparkles className="h-3 w-3 text-blue-500" />
-        <span className="text-xs font-semibold">{guestTokens}</span>
-      </div>
+        <span className="text-xs font-semibold">Sign up</span>
+      </Link>
     )
   }
 
@@ -617,21 +622,24 @@ function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTok
 function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
   if (!user) {
     return (
-      <div className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/40 dark:border-blue-800/40">
+      <Link
+        href="/signin?tab=register"
+        className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/40 dark:border-blue-800/40 hover:border-blue-400/40 transition-colors"
+      >
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-blue-500" />
           <div>
-            <p className="text-sm font-semibold">{guestTokens} free tokens</p>
-            <p className="text-xs text-muted-foreground">Sign in to get more</p>
+            <p className="text-sm font-semibold">Sign up — 1,000 free tokens</p>
+            <p className="text-xs text-muted-foreground">{guestTokens} trial tokens left</p>
           </div>
         </div>
-        <Link
-          href="/pricing"
-          className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+        <span
+          className="text-xs font-semibold text-blue-600 dark:text-blue-400"
+          aria-hidden="true"
         >
-          Upgrade →
-        </Link>
-      </div>
+          Sign up →
+        </span>
+      </Link>
     )
   }
 
