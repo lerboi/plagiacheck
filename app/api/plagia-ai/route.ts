@@ -94,6 +94,26 @@ You CANNOT call: text_to_speech (browser-only, free — point users to /text-to-
 
    **Hard limit:** you have at most **2 retries per tool name** within a single user turn (so 3 total attempts of the same tool). After the second failure, the server refuses to dispatch that tool again and emits an error saying so — at which point you MUST stop retrying that tool, either switch to a different tool or tell the user. Don't waste the third attempt on the same broken call shape.
 
+10. **Suggest 2–3 follow-up actions after a SUCCESSFUL tool result.** In your wrap-up turn (the assistant message that summarizes the tool result per rule 7), append a marker on its own line at the very END of your message:
+
+    \`[[FOLLOWUPS: action one | action two | action three]]\`
+
+    The UI extracts this marker, strips it from the visible text, and renders the actions as clickable chips. Clicking a chip sends that exact string as the user's next message — so phrase each suggestion as a natural follow-up the user might want.
+
+    Rules:
+    - **Only emit after a tool succeeded.** Never after a tool failure (the user is recovering) and never on a clarifying question (no result to follow up on yet).
+    - **Exactly 2 or 3 suggestions.** Use the \`|\` pipe delimiter. Keep each ≤8 words.
+    - **Make them concrete.** "Paraphrase the result formally" beats "Modify the text".
+    - **Vary the tools.** If the tool was \`paraphrase\`, good follow-ups call \`grammar\`, \`humanize\`, \`summarize\`. Don't repeat the same tool unless an obvious refinement applies.
+    - **Don't suggest tools requiring input the user hasn't provided** (e.g. no "Check this image" if no image is attached).
+    - If no obvious follow-ups apply, OMIT the marker entirely — don't emit an empty \`[[FOLLOWUPS: ]]\`.
+
+    Examples:
+    ✓ \`The paraphrase keeps your meaning while sounding more formal. [[FOLLOWUPS: Check it for grammar | Make it shorter | Detect any AI signals]]\`
+    ✓ \`3 grammar issues fixed. [[FOLLOWUPS: Paraphrase it more formally | Summarize in 3 bullets]]\`
+    ✗ \`Here you go! [[FOLLOWUPS:]]\` (empty)
+    ✗ \`[[FOLLOWUPS: Do something | Do another thing | Do one more]]\` (vague)
+
 ## Clarifying-question shape
 
 When asking, keep it to ONE short sentence. Do NOT preamble ("I'd love to help! Could you please..."). Do NOT echo the user's message back. Do NOT explain why you need more info. Just ask, directly:
@@ -167,6 +187,43 @@ function safeParseArgs(raw: unknown): Record<string, unknown> {
 function sseEncoder() {
   const encoder = new TextEncoder()
   return (event: object) => encoder.encode(`data: ${JSON.stringify(event)}\n\n`)
+}
+
+/**
+ * FE-10 — pull the `[[FOLLOWUPS: a | b | c]]` marker (if any) out of an
+ * assistant wrap-up message. Returns the cleaned text plus a sanitised
+ * array of suggestion strings.
+ *
+ * Robustness:
+ *  - Tolerates 2 or 3 (or more) suggestions; trims to 4 max.
+ *  - Each suggestion is trimmed and capped at 80 chars so a confused
+ *    model can't blow up the UI with a paragraph-long chip.
+ *  - Empty suggestions are filtered.
+ *  - If the marker is malformed (no closing brackets), we leave the text
+ *    untouched and return no suggestions — graceful degradation over
+ *    showing the user a half-stripped marker.
+ */
+function extractFollowups(text: string): {
+  cleaned: string
+  suggestions: string[]
+} {
+  // Multiline match — model usually puts the marker on its own line.
+  const match = text.match(/\[\[FOLLOWUPS:\s*([^\]]+?)\s*\]\]/)
+  if (!match) return { cleaned: text, suggestions: [] }
+  const inner = match[1] ?? ""
+  const suggestions = inner
+    .split("|")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((s) => (s.length > 80 ? s.slice(0, 77) + "…" : s))
+    .slice(0, 4)
+  if (suggestions.length === 0) {
+    return { cleaned: text, suggestions: [] }
+  }
+  // Strip the marker (including any whitespace immediately around it) so the
+  // visible assistant text reads cleanly.
+  const cleaned = text.replace(match[0], "").replace(/\n{3,}/g, "\n\n").trim()
+  return { cleaned, suggestions }
 }
 
 export async function POST(req: Request) {
@@ -385,17 +442,32 @@ export async function POST(req: Request) {
             break
           }
 
-          const assistantText = extractText(message.content)
+          const rawAssistantText = extractText(message.content)
           const toolCalls = (message as { toolCalls?: any[] }).toolCalls || []
           const hasToolCalls = toolCalls.length > 0
 
+          // FE-10 — parse out the [[FOLLOWUPS: a | b | c]] marker the model
+          // appends to its wrap-up turn after a successful tool. We strip it
+          // from the visible delta and emit a separate `suggestions` SSE
+          // event. Only applies on no-tool-call turns (the wrap-up); when
+          // there ARE tool calls, this text is the "Why this tool" reasoning
+          // per rule 8 and would never include a followups marker.
+          const { cleaned: assistantText, suggestions: followups } = hasToolCalls
+            ? { cleaned: rawAssistantText, suggestions: [] as string[] }
+            : extractFollowups(rawAssistantText)
+
           // When there are no tool calls, this assistant text IS the response
-          // — stream it as a normal delta. When there ARE tool calls, the text
-          // is the "Why this tool" reasoning (per rule 8) and gets attached
-          // to the tool card as `reason` instead, so we DON'T emit it as a
-          // duplicate assistant bubble.
+          // — stream it as a normal delta (with the followups marker already
+          // stripped). When there ARE tool calls, the text is the "Why this
+          // tool" reasoning (per rule 8) and gets attached to the tool card
+          // as `reason` instead, so we DON'T emit it as a duplicate
+          // assistant bubble.
           if (!hasToolCalls && assistantText.trim()) {
             controller.enqueue(encode({ type: "delta", content: assistantText }))
+          }
+
+          if (!hasToolCalls && followups.length > 0) {
+            controller.enqueue(encode({ type: "suggestions", suggestions: followups }))
           }
 
           if (!hasToolCalls) {

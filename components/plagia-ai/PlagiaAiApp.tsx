@@ -150,6 +150,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   const [prefs, setPrefs] = useState<PlagiaAiPreferences>(EMPTY_PREFERENCES)
   const [prefsSaving, setPrefsSaving] = useState(false)
 
+  // FE-10 — follow-up suggestion chips. Cleared on every new send and when
+  // the conversation is cleared. The server emits a `suggestions` SSE event
+  // after a successful tool wrap-up; the chips render below the chat thread.
+  const [followupSuggestions, setFollowupSuggestions] = useState<string[]>([])
+
   // FE-07 mobile polish — track the on-screen keyboard's intrusion via the
   // visualViewport API so the sticky input can rise above it instead of
   // being covered. Returns 0 on desktop and on mobile when the keyboard
@@ -530,6 +535,10 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
         setItems(nextItems)
         setInput("")
       }
+      // FE-10 — any in-flight suggestion chips become stale the moment a
+      // new turn starts. Clear so the user doesn't accidentally click an
+      // outdated suggestion against fresh tool output.
+      setFollowupSuggestions([])
       setStreaming(true)
       setPendingAssistantId(null)
 
@@ -692,6 +701,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   void decrementImageTokens()
                 }
               }
+            } else if (event.type === "suggestions") {
+              // FE-10 — the server has pulled the [[FOLLOWUPS:...]] marker
+              // out of the assistant wrap-up and is handing us the chip
+              // labels. They render under the chat once streaming ends.
+              setFollowupSuggestions(event.suggestions)
             } else if (event.type === "error") {
               throw new Error(event.message)
             } else if (event.type === "done") {
@@ -802,6 +816,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setConfirmingClear(false)
     setAutoScrollPaused(false)
     setConversationId(null)
+    setFollowupSuggestions([])
   }
 
   const handleNewChat = () => {
@@ -811,6 +826,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setInput("")
     setConversationId(null)
     setAutoScrollPaused(false)
+    setFollowupSuggestions([])
     textareaRef.current?.focus()
   }
 
@@ -1203,6 +1219,29 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 <RotateCcw className="h-3 w-3" />
                 Try again
               </Button>
+            </div>
+          )}
+
+          {!streaming && followupSuggestions.length > 0 && (
+            <div
+              className="mt-3 flex flex-wrap gap-2"
+              role="group"
+              aria-label="Follow-up suggestions"
+            >
+              {followupSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => {
+                    setFollowupSuggestions([])
+                    void sendMessage(suggestion)
+                  }}
+                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs text-violet-700 dark:text-violet-300 transition-colors"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                  {suggestion}
+                </button>
+              ))}
             </div>
           )}
 

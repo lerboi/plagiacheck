@@ -108,11 +108,22 @@ export interface PlagiaAiToolProgressEvent {
   message?: string
 }
 
+/**
+ * FE-10: 2–3 follow-up actions the model suggests after a tool wrap-up.
+ * Strings are user-facing — clicking one in the UI sends it as the next
+ * user message verbatim.
+ */
+export interface PlagiaAiSuggestionsEvent {
+  type: "suggestions"
+  suggestions: string[]
+}
+
 export type PlagiaAiEvent =
   | { type: "delta"; content: string }
   | PlagiaAiToolCallEvent
   | PlagiaAiToolResultEvent
   | PlagiaAiToolProgressEvent
+  | PlagiaAiSuggestionsEvent
   | { type: "error"; message: string }
   | { type: "done" }
 
