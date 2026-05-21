@@ -93,10 +93,26 @@ export interface PlagiaAiToolResultEvent {
   error?: string
 }
 
+/**
+ * FE-06: forwarded progress updates from an underlying streaming tool route
+ * (currently only /api/check-plagiarism). The dispatcher emits one per
+ * intermediate SSE event from the tool's stream so the UI can show a progress
+ * bar instead of just "running…".
+ */
+export interface PlagiaAiToolProgressEvent {
+  type: "tool_progress"
+  id: string
+  /** 0–100. The UI clamps and renders a bar. */
+  progress: number
+  /** Optional short hint, e.g. "analyzing sentence 3 of 12". */
+  message?: string
+}
+
 export type PlagiaAiEvent =
   | { type: "delta"; content: string }
   | PlagiaAiToolCallEvent
   | PlagiaAiToolResultEvent
+  | PlagiaAiToolProgressEvent
   | { type: "error"; message: string }
   | { type: "done" }
 

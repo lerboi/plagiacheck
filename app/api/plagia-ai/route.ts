@@ -269,6 +269,18 @@ export async function POST(req: Request) {
               bearerToken,
               origin,
               attachedImage,
+              // FE-06: forward streaming-tool progress as tool_progress
+              // SSE events so the UI can render a progress bar.
+              onProgress: ({ progress, message }) => {
+                controller.enqueue(
+                  encode({
+                    type: "tool_progress",
+                    id: callId,
+                    progress,
+                    ...(message ? { message } : {}),
+                  }),
+                )
+              },
             })
 
             // Synthesize an assistant→tool exchange in the conversation
@@ -491,6 +503,18 @@ export async function POST(req: Request) {
               bearerToken,
               origin,
               attachedImage,
+              // FE-06: forward streaming-tool progress as tool_progress
+              // SSE events (only meaningful for plagiarism_check today).
+              onProgress: ({ progress, message }) => {
+                controller.enqueue(
+                  encode({
+                    type: "tool_progress",
+                    id: callId,
+                    progress,
+                    ...(message ? { message } : {}),
+                  }),
+                )
+              },
             })
 
             if (outcome.ok) {

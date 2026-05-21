@@ -68,6 +68,10 @@ type ChatItem =
         currency: "text" | "image"
         args: Record<string, unknown>
       }
+      /** FE-06: latest progress from the underlying streaming tool (0–100). */
+      progress?: number
+      /** FE-06: optional short progress hint, e.g. "analyzing sentence 3 of 12". */
+      progressMessage?: string
     }
 
 function genId() {
@@ -569,6 +573,16 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 }
                 return next
               })
+            } else if (event.type === "tool_progress") {
+              // FE-06 — paint the latest progress on the matching tool card.
+              // Clamp to [0, 100] defensively; ignore if the tool item is gone
+              // (shouldn't happen but covers race conditions).
+              const clamped = Math.max(0, Math.min(100, event.progress))
+              updateItem(event.id, (prev) =>
+                prev.kind === "tool"
+                  ? { ...prev, progress: clamped, progressMessage: event.message }
+                  : prev,
+              )
             } else if (event.type === "tool_result") {
               updateItem(event.id, (prev) =>
                 prev.kind === "tool"
@@ -959,6 +973,28 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                             >
                               Don&apos;t ask again
                             </button>
+                          </div>
+                        </div>
+                      )}
+                      {it.status === "running" && it.progress !== undefined && (
+                        <div className="space-y-1 pt-0.5">
+                          <div className="h-1 w-full rounded-full bg-violet-500/15 overflow-hidden">
+                            <div
+                              className="h-full bg-violet-500 transition-all duration-200 ease-out"
+                              style={{ width: `${it.progress}%` }}
+                              role="progressbar"
+                              aria-valuenow={Math.round(it.progress)}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                            <span className="truncate min-w-0 mr-2">
+                              {it.progressMessage || "Working…"}
+                            </span>
+                            <span className="tabular-nums shrink-0">
+                              {Math.round(it.progress)}%
+                            </span>
                           </div>
                         </div>
                       )}

@@ -19,6 +19,13 @@ interface DispatchCtx {
   bearerToken: string
   origin: string
   attachedImage?: AttachedImage
+  /**
+   * FE-06: when set, the dispatcher forwards intermediate progress updates
+   * from streaming tool routes here. The caller (the /api/plagia-ai route
+   * stream handler) typically pipes these into outbound `tool_progress`
+   * SSE events. Non-streaming tools never invoke this; absence is fine.
+   */
+  onProgress?: (update: { progress: number; message?: string }) => void
 }
 
 function buildJsonRequest(body: unknown, ctx: DispatchCtx) {
@@ -114,6 +121,19 @@ async function consumePlagiarismStream(
         const payload = JSON.parse(json)
         if (payload.error) streamError = String(payload.error)
         if (payload.result) lastPayload = payload
+        // FE-06: forward progress to the caller's pipe-out. The
+        // /api/check-plagiarism route emits `progress` numbers as it
+        // streams; we surface them as `tool_progress` SSE events.
+        if (
+          typeof payload.progress === "number" &&
+          ctx.onProgress &&
+          !payload.result // skip the final event — it carries progress=100 but the UI is about to transition to "done"
+        ) {
+          ctx.onProgress({
+            progress: payload.progress,
+            message: typeof payload.message === "string" ? payload.message : undefined,
+          })
+        }
       } catch {
         // ignore malformed events
       }
