@@ -882,10 +882,15 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             ) : (
             <div
               ref={scrollRef}
+              role="log"
+              aria-live="polite"
+              aria-atomic="false"
+              aria-label="PlagiaAI conversation"
               className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 p-5 space-y-5 min-h-[480px]"
             >
               <div className="flex flex-col items-start">
                 <div className="max-w-[85%] text-sm leading-relaxed text-foreground">
+                  <span className="sr-only">Assistant said: </span>
                   {GREETING}
                 </div>
               </div>
@@ -905,6 +910,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         className="flex justify-end"
                       >
                         <div className="max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                          <span className="sr-only">You said: </span>
                           {it.content}
                         </div>
                       </motion.div>
@@ -924,9 +930,10 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         className="flex flex-col items-start"
                       >
                         <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                          <span className="sr-only">Assistant said: </span>
                           {it.content}
                           {isStreamingThis && (
-                            <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" />
+                            <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" aria-hidden="true" />
                           )}
                         </div>
                       </motion.div>
@@ -934,6 +941,15 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   }
                   const isExpanded = !!expandedTools[it.id]
                   const resultText = renderToolResult(it)
+                  const toolLabel = toolDisplayName(it.name)
+                  const a11yStatus =
+                    it.status === "pending_confirm"
+                      ? `${toolLabel} tool: confirmation required.`
+                      : it.status === "running"
+                        ? `${toolLabel} tool: running.`
+                        : it.status === "done"
+                          ? `${toolLabel} tool: done. ${it.resultPreview || ""}`
+                          : `${toolLabel} tool: failed. ${it.error || ""}`
                   return (
                     <motion.div
                       key={it.id}
@@ -943,6 +959,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                       animate="animate"
                       exit="exit"
                       transition={{ duration: 0.15 }}
+                      role="status"
+                      aria-label={a11yStatus}
                       className={`rounded-xl border px-4 py-3 text-sm space-y-2 transition-colors duration-300 ${
                         it.status === "failed"
                           ? "border-red-500/30 bg-red-500/5"
@@ -1037,7 +1055,9 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           <button
                             onClick={() => toggleToolExpand(it.id)}
                             className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
-                            aria-label={isExpanded ? "Collapse" : "Expand"}
+                            aria-label={isExpanded ? "Collapse tool result" : "Expand tool result"}
+                            aria-expanded={isExpanded}
+                            type="button"
                           >
                             {isExpanded ? (
                               <ChevronDown className="h-3.5 w-3.5" />
@@ -1148,6 +1168,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               <Textarea
                 ref={textareaRef}
                 placeholder="Ask PlagiaAI anything…"
+                aria-label="Ask PlagiaAI"
+                aria-describedby="plagia-ai-keyboard-hint"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -1184,7 +1206,10 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   >
                     {recording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                   </button>
-                  <span className="hidden sm:inline text-[11px] text-muted-foreground ml-1">
+                  <span
+                    id="plagia-ai-keyboard-hint"
+                    className="hidden sm:inline text-[11px] text-muted-foreground ml-1"
+                  >
                     Ctrl+Enter to send
                   </span>
                 </div>
