@@ -21,6 +21,7 @@ import {
   Paperclip,
   Mic,
   MicOff,
+  Settings,
   X,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -45,6 +46,12 @@ import {
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
 import { EmptyState } from "@/components/plagia-ai/EmptyState"
 import { SuggestionChipBar } from "@/components/plagia-ai/SuggestionChipBar"
+import {
+  EMPTY_PREFERENCES,
+  loadPreferences,
+  savePreferences,
+  type PlagiaAiPreferences,
+} from "@/lib/plagia-ai/preferences"
 
 const GREETING =
   "Hi — I'm PlagiaAI. Tell me what you'd like to do and I'll use the right tool: paraphrase, summarize, humanize, check grammar, detect AI, find plagiarism, generate charts, infographics, or thumbnails."
@@ -137,6 +144,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     }
   }, [])
 
+  // FE-09 state declarations — useEffect + handleSavePreferences live AFTER
+  // useToast() below so the toast hook is in scope when the save handler runs.
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [prefs, setPrefs] = useState<PlagiaAiPreferences>(EMPTY_PREFERENCES)
+  const [prefsSaving, setPrefsSaving] = useState(false)
+
   // FE-07 mobile polish — track the on-screen keyboard's intrusion via the
   // visualViewport API so the sticky input can rise above it instead of
   // being covered. Returns 0 on desktop and on mobile when the keyboard
@@ -172,6 +185,48 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // FE-09 — persistent personalization (Supabase-backed).
+  // The panel is a small inline section that slides open under the chat
+  // header; only sign-in users can interact with it. Preferences are
+  // sanitised before save and re-fetched on every user change.
+  useEffect(() => {
+    if (!user) {
+      setPrefs(EMPTY_PREFERENCES)
+      return
+    }
+    let cancelled = false
+    void loadPreferences(supabase, user.id).then((loaded) => {
+      if (!cancelled) setPrefs(loaded)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user, supabase])
+  const handleSavePreferences = useCallback(
+    async (next: PlagiaAiPreferences) => {
+      if (!user) return
+      setPrefsSaving(true)
+      const ok = await savePreferences(supabase, user.id, next)
+      setPrefsSaving(false)
+      if (ok) {
+        setPrefs(next)
+        toast({
+          title: "Preferences saved",
+          description: "PlagiaAI will use these on future turns.",
+          variant: "success",
+        })
+      } else {
+        toast({
+          title: "Could not save preferences",
+          description:
+            "Run the FE-09 migration in your Supabase, then retry. (See commit body for SQL.)",
+          variant: "destructive",
+        })
+      }
+    },
+    [user, supabase, toast],
+  )
 
   useEffect(() => {
     let mounted = true
@@ -829,49 +884,73 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             </div>
           )}
 
-          {/* Chat header: conversation actions */}
-          {conversationStarted && (
+          {/* Chat header: settings + conversation actions */}
+          {user && (
             <div className="flex items-center justify-between mb-2 px-1">
-              <span className="text-xs text-muted-foreground">
-                {items.filter((it) => it.kind === "user").length} message
-                {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
-              </span>
+              {conversationStarted ? (
+                <span className="text-xs text-muted-foreground">
+                  {items.filter((it) => it.kind === "user").length} message
+                  {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
+                </span>
+              ) : (
+                <span />
+              )}
               <div className="flex items-center gap-2">
-                {confirmingClear ? (
-                  <>
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      Clear this conversation?
-                    </span>
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen((v) => !v)}
+                  className="h-7 px-2 gap-1 rounded-md inline-flex items-center text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  aria-label="PlagiaAI preferences"
+                  aria-expanded={settingsOpen}
+                >
+                  <Settings className="h-3 w-3" />
+                  <span className="hidden sm:inline">Preferences</span>
+                </button>
+                {conversationStarted &&
+                  (confirmingClear ? (
+                    <>
+                      <span className="text-xs text-muted-foreground hidden sm:inline">
+                        Clear this conversation?
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs px-2"
+                        onClick={() => setConfirmingClear(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs px-3 bg-red-600 hover:bg-red-700 text-white"
+                        onClick={handleClearConversation}
+                      >
+                        Confirm clear
+                      </Button>
+                    </>
+                  ) : (
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 text-xs px-2"
-                      onClick={() => setConfirmingClear(false)}
+                      className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => setConfirmingClear(true)}
+                      disabled={streaming}
                     >
-                      Cancel
+                      <Trash2 className="h-3 w-3" />
+                      Clear
                     </Button>
-                    <Button
-                      size="sm"
-                      className="h-7 text-xs px-3 bg-red-600 hover:bg-red-700 text-white"
-                      onClick={handleClearConversation}
-                    >
-                      Confirm clear
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => setConfirmingClear(true)}
-                    disabled={streaming}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    Clear
-                  </Button>
-                )}
+                  ))}
               </div>
             </div>
+          )}
+
+          {settingsOpen && user && (
+            <PreferencesPanel
+              prefs={prefs}
+              saving={prefsSaving}
+              onSave={(next) => void handleSavePreferences(next)}
+              onClose={() => setSettingsOpen(false)}
+            />
           )}
 
           <div className="relative flex-1 flex flex-col">
@@ -1238,6 +1317,182 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       </section>
 
       {!conversationStarted && marketingFooter ? marketingFooter : <FAQ />}
+    </div>
+  )
+}
+
+function PreferencesPanel({
+  prefs,
+  saving,
+  onSave,
+  onClose,
+}: {
+  prefs: PlagiaAiPreferences
+  saving: boolean
+  onSave: (next: PlagiaAiPreferences) => void
+  onClose: () => void
+}) {
+  // Local form state — committed on Save. Lets users tweak controls without
+  // each keystroke writing to Supabase.
+  const [draft, setDraft] = useState<PlagiaAiPreferences>(prefs)
+  useEffect(() => {
+    setDraft(prefs)
+  }, [prefs])
+
+  const update = <K extends keyof PlagiaAiPreferences>(
+    key: K,
+    value: PlagiaAiPreferences[K] | undefined,
+  ) => {
+    setDraft((prev) => {
+      const next = { ...prev }
+      if (value === undefined) delete next[key]
+      else next[key] = value
+      return next
+    })
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-card/40 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">PlagiaAI preferences</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-7 w-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
+          aria-label="Close preferences"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        These defaults are added to PlagiaAI&apos;s prompt on every turn so it
+        remembers how you like things. Leave any field blank to let PlagiaAI
+        pick.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+        <label className="space-y-1 text-xs">
+          <span className="font-medium text-foreground">Paraphrase mode</span>
+          <select
+            value={draft.paraphraseMode ?? ""}
+            onChange={(e) =>
+              update(
+                "paraphraseMode",
+                (e.target.value || undefined) as PlagiaAiPreferences["paraphraseMode"],
+              )
+            }
+            className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">No preference</option>
+            <option value="standard">Standard</option>
+            <option value="fluency">Fluency</option>
+            <option value="formal">Formal</option>
+            <option value="simple">Simple</option>
+            <option value="creative">Creative</option>
+            <option value="academic">Academic</option>
+          </select>
+        </label>
+
+        <label className="space-y-1 text-xs">
+          <span className="font-medium text-foreground">Humanizer tone</span>
+          <select
+            value={draft.humanizerTone ?? ""}
+            onChange={(e) =>
+              update(
+                "humanizerTone",
+                (e.target.value || undefined) as PlagiaAiPreferences["humanizerTone"],
+              )
+            }
+            className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="">No preference</option>
+            <option value="casual">Casual</option>
+            <option value="professional">Professional</option>
+            <option value="academic">Academic</option>
+            <option value="creative">Creative</option>
+            <option value="friendly">Friendly</option>
+          </select>
+        </label>
+
+        <label className="space-y-1 text-xs sm:col-span-2">
+          <span className="font-medium text-foreground inline-flex items-center gap-2">
+            Default summary length
+            {typeof draft.summaryLengthPercent === "number" && (
+              <span className="text-muted-foreground tabular-nums">
+                {draft.summaryLengthPercent}%
+              </span>
+            )}
+          </span>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min={10}
+              max={90}
+              step={5}
+              value={draft.summaryLengthPercent ?? 30}
+              onChange={(e) => update("summaryLengthPercent", Number(e.target.value))}
+              className="flex-1 accent-violet-600"
+              aria-label="Default summary length percent"
+            />
+            {typeof draft.summaryLengthPercent === "number" && (
+              <button
+                type="button"
+                onClick={() => update("summaryLengthPercent", undefined)}
+                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </label>
+
+        <label className="flex items-start gap-2 text-xs sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={!!draft.alwaysConfirmImageSpend}
+            onChange={(e) =>
+              update("alwaysConfirmImageSpend", e.target.checked || undefined)
+            }
+            className="mt-0.5 accent-violet-600"
+          />
+          <span>
+            <span className="font-medium text-foreground">
+              Always confirm before image-token tools
+            </span>
+            <span className="block text-muted-foreground mt-0.5">
+              Overrides the per-call &ldquo;Don&rsquo;t ask again&rdquo; bypass for
+              chart / infographic / thumbnail / OCR tools.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 px-3 text-xs"
+          onClick={() => setDraft(prefs)}
+          disabled={saving}
+        >
+          Reset
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 px-3 text-xs bg-violet-600 hover:bg-violet-700 text-white"
+          onClick={() => onSave(draft)}
+          disabled={saving}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              Saving
+            </>
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </div>
     </div>
   )
 }

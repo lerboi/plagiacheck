@@ -1,8 +1,10 @@
 import { Mistral } from "@mistralai/mistralai"
+import { createClient } from "@supabase/supabase-js"
 import { getUserFromRequest } from "@/lib/server-auth"
 import { MISTRAL_TOOLS, summarizeArgs } from "@/lib/plagia-ai/tools"
 import { dispatchTool } from "@/lib/plagia-ai/dispatcher"
 import { estimateToolCost } from "@/lib/plagia-ai/config"
+import { buildPreferencesSystemMessage, loadPreferences } from "@/lib/plagia-ai/preferences"
 import {
   PLAGIA_AI_TOOL_NAMES,
   type PlagiaAiMessage,
@@ -228,11 +230,23 @@ export async function POST(req: Request) {
     )
   }
 
+  // FE-09 — load the user's saved preferences and (if any are set) inject a
+  // second system message right after the main prompt. Read-only access; the
+  // helper degrades gracefully if the `plagia_ai_preferences` column doesn't
+  // exist on user_profiles yet (one-time SQL the user runs separately).
+  const prefsSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
+  const userPrefs = await loadPreferences(prefsSupabase, user.id)
+  const prefsSystemMessage = buildPreferencesSystemMessage(userPrefs)
+
   // Build the running message history we feed back to Mistral each round.
   // We use `any[]` because Mistral message types include both tool roles and
   // toolCalls fields that aren't in our public PlagiaAiMessage type.
   const conversation: any[] = [
     { role: "system", content: SYSTEM_PROMPT },
+    ...(prefsSystemMessage ? [{ role: "system", content: prefsSystemMessage }] : []),
     ...validated.map((m) => ({ role: m.role, content: m.content })),
   ]
 
