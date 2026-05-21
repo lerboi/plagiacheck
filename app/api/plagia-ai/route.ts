@@ -19,6 +19,8 @@ const MISTRAL_MODEL = process.env.MISTRAL_MODEL || "mistral-large-latest"
 const MAX_MESSAGES = 40
 const MAX_MESSAGE_LENGTH = 12_000
 const MAX_TOOL_ROUNDS = 5
+/** FE-05: per-tool retry cap to avoid infinite-loop failures. 2 retries = 3 total attempts. */
+const MAX_RETRIES_PER_TOOL = 2
 
 const SYSTEM_PROMPT = `You are PlagiaAI, the conversational assistant for Plagiacheck — a writing-tools suite. Your job is to route each user request to the right tool and explain the result clearly.
 
@@ -82,6 +84,13 @@ You CANNOT call: text_to_speech (browser-only, free — point users to /text-to-
    ✗ "Sure, I'll run that for you now!" (no reason; useless caption)
    ✗ "Let me think about this... actually I'll use the paraphraser because it..." (too long, multi-sentence)
    If you have NO useful tool to call, do not invent a reason — emit a clarifying question instead per rule 1.
+
+9. **Recover from tool failures.** When a tool returns \`ok: false\` with an error, DO NOT immediately surrender to the user. Read the error and decide:
+   a) **Retry the SAME tool with different args.** Common case: arg validation ("text was empty", "transcript missing"), a transient network blip, or the tool rejected a malformed prompt. Adjust the args (re-include the user's source text, fix a wrong field, shorten an oversized payload) and call the same tool again with a fresh reasoning sentence.
+   b) **Switch to a different tool** that fits the user's intent. Examples: if \`generate_chart\` fails with "could not parse data", consider \`generate_infographic\` for the same content. If \`audio_summarize\` fails, fall back to \`summarize\` on the same transcript.
+   c) **Only after retry/switch attempts run out**, tell the user what failed in one short sentence and ask how to proceed.
+
+   **Hard limit:** you have at most **2 retries per tool name** within a single user turn (so 3 total attempts of the same tool). After the second failure, the server refuses to dispatch that tool again and emits an error saying so — at which point you MUST stop retrying that tool, either switch to a different tool or tell the user. Don't waste the third attempt on the same broken call shape.
 
 ## Clarifying-question shape
 
@@ -328,6 +337,12 @@ export async function POST(req: Request) {
         }
 
         let paused = false
+        // FE-05 — per-tool retry tracking. Counts consecutive FAILED attempts
+        // of each tool name within this single request. A success resets the
+        // counter for that tool. Once a tool has hit MAX_RETRIES_PER_TOOL
+        // consecutive failures, the server refuses further dispatches of it
+        // and surfaces that to the model so it switches tactic or apologizes.
+        const failureCounts: Map<PlagiaAiToolName, number> = new Map()
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
           const completion = await mistralClient.chat.complete({
             model: MISTRAL_MODEL,
@@ -400,6 +415,42 @@ export async function POST(req: Request) {
               continue
             }
 
+            // FE-05 retry cap: refuse to dispatch this tool once it has
+            // failed MAX_RETRIES_PER_TOOL times in this request. We still
+            // emit a tool_call → tool_result pair so the conversation has a
+            // proper turn the model can read; the result is a synthetic
+            // error telling the model the cap was reached. Per system
+            // prompt rule 9, the model must switch tactic or tell the user.
+            if ((failureCounts.get(fnName) || 0) >= MAX_RETRIES_PER_TOOL) {
+              controller.enqueue(
+                encode({
+                  type: "tool_call",
+                  id: callId,
+                  name: fnName,
+                  argsSummary: summarizeArgs(fnName, args),
+                  ...(reasonAttached || !turnReason ? {} : { reason: turnReason }),
+                }),
+              )
+              reasonAttached = true
+              const capMessage = `Refused — this tool has already failed ${MAX_RETRIES_PER_TOOL} times in this turn. Try a different tool or tell the user the operation could not complete.`
+              controller.enqueue(
+                encode({
+                  type: "tool_result",
+                  id: callId,
+                  ok: false,
+                  resultPreview: "",
+                  error: capMessage,
+                }),
+              )
+              conversation.push({
+                role: "tool",
+                toolCallId: callId,
+                name: fnName,
+                content: JSON.stringify({ ok: false, error: capMessage }),
+              })
+              continue
+            }
+
             // FE-04 cost-confirm gate: emit tool_call with pendingConfirm
             // payload INSTEAD of dispatching, then break out of every loop
             // so the client can render the confirm UI. The client will
@@ -443,6 +494,9 @@ export async function POST(req: Request) {
             })
 
             if (outcome.ok) {
+              // FE-05 — success clears the retry counter for this tool so
+              // future calls in the same turn start fresh.
+              failureCounts.delete(fnName)
               controller.enqueue(
                 encode({
                   type: "tool_result",
@@ -465,6 +519,10 @@ export async function POST(req: Request) {
                 }),
               })
             } else {
+              // FE-05 — failure increments the counter; once it reaches
+              // MAX_RETRIES_PER_TOOL the gate above will refuse further
+              // dispatches in this request.
+              failureCounts.set(fnName, (failureCounts.get(fnName) || 0) + 1)
               controller.enqueue(
                 encode({
                   type: "tool_result",
