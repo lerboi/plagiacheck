@@ -106,7 +106,15 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<StoredConversationSummary[]>([])
   const [loadingConversations, setLoadingConversations] = useState(false)
+  // FE-07: default to collapsed on small screens (< lg = 1024px) so the
+  // chat column gets the full width. Read inside useEffect so SSR is
+  // unaffected — the initial render matches server output (false), then
+  // flips to true if the client is on mobile/tablet.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (window.innerWidth < 1024) setSidebarCollapsed(true)
+  }, [])
 
   // Multimodal input (FS-06): image attach + voice dictation
   const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(null)
@@ -126,6 +134,32 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       if (stored === "true") setSkipCostConfirm(true)
     } catch {
       // localStorage can throw in privacy mode — fall back to default false
+    }
+  }, [])
+
+  // FE-07 mobile polish — track the on-screen keyboard's intrusion via the
+  // visualViewport API so the sticky input can rise above it instead of
+  // being covered. Returns 0 on desktop and on mobile when the keyboard
+  // is dismissed. The number is added to the sticky input's `bottom` so
+  // the input stays in view as the user types.
+  const [keyboardInset, setKeyboardInset] = useState(0)
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return
+    const vv = window.visualViewport
+    const update = () => {
+      // window.innerHeight - vv.height = on-screen keyboard + browser chrome.
+      // vv.offsetTop accounts for cases where the page is scrolled inside the
+      // visual viewport (pinch-zoom etc) — subtract it so we only get the
+      // keyboard's intrusion, not the scroll offset.
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      setKeyboardInset(inset)
+    }
+    vv.addEventListener("resize", update)
+    vv.addEventListener("scroll", update)
+    update()
+    return () => {
+      vv.removeEventListener("resize", update)
+      vv.removeEventListener("scroll", update)
     }
   }, [])
 
@@ -870,7 +904,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         transition={{ duration: 0.15 }}
                         className="flex justify-end"
                       >
-                        <div className="max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
+                        <div className="max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
                           {it.content}
                         </div>
                       </motion.div>
@@ -889,7 +923,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         transition={{ duration: 0.15 }}
                         className="flex flex-col items-start"
                       >
-                        <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                        <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
                           {it.content}
                           {isStreamingThis && (
                             <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" />
@@ -1073,7 +1107,10 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             </div>
           )}
 
-          <div className="mt-4 sticky bottom-4">
+          <div
+            className="mt-4 sticky"
+            style={{ bottom: `${16 + keyboardInset}px` }}
+          >
             <input
               ref={fileInputRef}
               type="file"
@@ -1122,7 +1159,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   <button
                     onClick={handleAttachClick}
                     disabled={streaming || !!attachedImage}
-                    className="h-8 w-8 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+                    className="h-10 w-10 sm:h-9 sm:w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
                     aria-label="Attach image"
                     title="Attach an image"
                   >
@@ -1131,7 +1168,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   <button
                     onClick={toggleRecording}
                     disabled={streaming || !speechSupported}
-                    className={`h-8 w-8 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${
+                    className={`h-10 w-10 sm:h-9 sm:w-9 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${
                       recording
                         ? "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
                         : "hover:bg-accent text-muted-foreground hover:text-foreground"
@@ -1154,7 +1191,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 <Button
                   onClick={handleSend}
                   disabled={streaming || !input.trim()}
-                  className="h-8 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none ml-auto"
+                  className="h-10 sm:h-9 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none ml-auto"
                 >
                   {streaming ? (
                     <>
