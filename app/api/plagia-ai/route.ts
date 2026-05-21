@@ -2,6 +2,7 @@ import { Mistral } from "@mistralai/mistralai"
 import { getUserFromRequest } from "@/lib/server-auth"
 import { MISTRAL_TOOLS, summarizeArgs } from "@/lib/plagia-ai/tools"
 import { dispatchTool } from "@/lib/plagia-ai/dispatcher"
+import { estimateToolCost } from "@/lib/plagia-ai/config"
 import {
   PLAGIA_AI_TOOL_NAMES,
   type PlagiaAiMessage,
@@ -208,6 +209,16 @@ export async function POST(req: Request) {
   const origin = new URL(req.url).origin
   const encode = sseEncoder()
 
+  // FE-04 controls — cost-confirm bypass + direct-dispatch resume path.
+  const skipCostConfirm = body?.skipCostConfirm === true
+  const directDispatch = body?.directDispatch
+  if (directDispatch && !isKnownToolName(directDispatch.toolName)) {
+    return Response.json(
+      { error: `Unknown tool in directDispatch: ${directDispatch.toolName}` },
+      { status: 400 },
+    )
+  }
+
   // Build the running message history we feed back to Mistral each round.
   // We use `any[]` because Mistral message types include both tool roles and
   // toolCalls fields that aren't in our public PlagiaAiMessage type.
@@ -227,6 +238,96 @@ export async function POST(req: Request) {
       }
 
       try {
+        // ─── directDispatch resume path (FE-04) ──────────────────────
+        // The client has confirmed a previously-paused tool call. Dispatch
+        // it directly here (no model round), then fall through to the
+        // normal round loop so the model can generate the follow-up
+        // summary based on the tool result.
+        if (directDispatch) {
+          const { toolName, args, callId, reason } = directDispatch
+          if (isKnownToolName(toolName)) {
+            controller.enqueue(
+              encode({
+                type: "tool_call",
+                id: callId,
+                name: toolName,
+                argsSummary: summarizeArgs(toolName, args),
+                ...(reason ? { reason } : {}),
+              }),
+            )
+
+            const outcome = await dispatchTool(toolName, args, {
+              bearerToken,
+              origin,
+              attachedImage,
+            })
+
+            // Synthesize an assistant→tool exchange in the conversation
+            // history so the model can see the tool was actually run.
+            const syntheticToolCall = [
+              {
+                id: callId,
+                type: "function",
+                function: {
+                  name: toolName,
+                  arguments: JSON.stringify(args),
+                },
+              },
+            ]
+
+            if (outcome.ok) {
+              controller.enqueue(
+                encode({
+                  type: "tool_result",
+                  id: callId,
+                  ok: true,
+                  resultPreview: outcome.resultPreview,
+                  result: outcome.result,
+                  remainingTextTokens: outcome.remainingTextTokens,
+                  remainingImageTokens: outcome.remainingImageTokens,
+                }),
+              )
+              conversation.push({
+                role: "assistant",
+                content: reason || "",
+                toolCalls: syntheticToolCall,
+              })
+              conversation.push({
+                role: "tool",
+                toolCallId: callId,
+                name: toolName,
+                content: JSON.stringify({
+                  ok: true,
+                  preview: outcome.resultPreview,
+                  data: outcome.result,
+                }),
+              })
+            } else {
+              controller.enqueue(
+                encode({
+                  type: "tool_result",
+                  id: callId,
+                  ok: false,
+                  resultPreview: "",
+                  error: outcome.error,
+                }),
+              )
+              conversation.push({
+                role: "assistant",
+                content: reason || "",
+                toolCalls: syntheticToolCall,
+              })
+              conversation.push({
+                role: "tool",
+                toolCallId: callId,
+                name: toolName,
+                content: JSON.stringify({ ok: false, error: outcome.error }),
+              })
+            }
+          }
+        }
+
+        let paused = false
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
           const completion = await mistralClient.chat.complete({
             model: MISTRAL_MODEL,
@@ -299,6 +400,31 @@ export async function POST(req: Request) {
               continue
             }
 
+            // FE-04 cost-confirm gate: emit tool_call with pendingConfirm
+            // payload INSTEAD of dispatching, then break out of every loop
+            // so the client can render the confirm UI. The client will
+            // resume via a directDispatch POST.
+            const cost = estimateToolCost(fnName, args)
+            if (!skipCostConfirm && cost.requiresConfirm) {
+              controller.enqueue(
+                encode({
+                  type: "tool_call",
+                  id: callId,
+                  name: fnName,
+                  argsSummary: summarizeArgs(fnName, args),
+                  ...(reasonAttached || !turnReason ? {} : { reason: turnReason }),
+                  pendingConfirm: {
+                    estimatedTokens: cost.tokens,
+                    currency: cost.currency,
+                    args,
+                  },
+                }),
+              )
+              reasonAttached = true
+              paused = true
+              break
+            }
+
             controller.enqueue(
               encode({
                 type: "tool_call",
@@ -356,6 +482,7 @@ export async function POST(req: Request) {
               })
             }
           }
+          if (paused) break
         }
 
         controller.enqueue(encode({ type: "done" }))

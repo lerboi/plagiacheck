@@ -58,10 +58,16 @@ type ChatItem =
       name: PlagiaAiToolName
       argsSummary: string
       reason?: string
-      status: "running" | "done" | "failed"
+      status: "pending_confirm" | "running" | "done" | "failed"
       resultPreview?: string
       error?: string
       result?: unknown
+      /** FE-04: tool args + cost echoed back on Confirm to resume dispatch. */
+      pendingConfirm?: {
+        estimatedTokens: number
+        currency: "text" | "image"
+        args: Record<string, unknown>
+      }
     }
 
 function genId() {
@@ -105,6 +111,19 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   const [recording, setRecording] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const recognitionRef = useRef<unknown>(null)
+
+  // FE-04: "Don't ask again" preference for the cost-confirm gate.
+  // Persisted in localStorage so the choice survives reloads. Read inside
+  // an effect so SSR doesn't touch `window`.
+  const [skipCostConfirm, setSkipCostConfirm] = useState(false)
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("plagia-ai-skip-cost-confirm")
+      if (stored === "true") setSkipCostConfirm(true)
+    } catch {
+      // localStorage can throw in privacy mode — fall back to default false
+    }
+  }, [])
 
   // Auto-scroll: pause when the user scrolls away from the bottom; resume on send.
   const [autoScrollPaused, setAutoScrollPaused] = useState(false)
@@ -373,9 +392,20 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   )
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (
+      text: string,
+      opts?: {
+        directDispatch?: {
+          toolName: PlagiaAiToolName
+          args: Record<string, unknown>
+          callId: string
+          reason?: string
+        }
+      },
+    ) => {
+      const isDirectDispatch = !!opts?.directDispatch
       if (streaming) return
-      if (!text.trim()) return
+      if (!isDirectDispatch && !text.trim()) return
       if (!authChecked) return
       if (!user) {
         setNeedsSignIn(true)
@@ -394,11 +424,19 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       // Resume autoscroll when the user actively sends.
       setAutoScrollPaused(false)
 
-      const userItem: ChatItem = { kind: "user", id: genId(), content: text }
+      // On a directDispatch resume we do NOT add a new user message — the
+      // user already sent their prompt; we're just unblocking the paused
+      // tool. The pending-confirm tool card stays in place; the server's
+      // next tool_call event (without pendingConfirm) will transition it
+      // to "running" via the morph in the tool_call handler below.
       const previousItems = items
-      const nextItems: ChatItem[] = [...items, userItem]
-      setItems(nextItems)
-      setInput("")
+      const nextItems: ChatItem[] = isDirectDispatch
+        ? items
+        : [...items, { kind: "user", id: genId(), content: text } as ChatItem]
+      if (!isDirectDispatch) {
+        setItems(nextItems)
+        setInput("")
+      }
       setStreaming(true)
       setPendingAssistantId(null)
 
@@ -431,14 +469,18 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           body: JSON.stringify({
             messages: conversationHistoryForServer(nextItems),
             attachedImage: sentImage || undefined,
+            ...(skipCostConfirm ? { skipCostConfirm: true } : {}),
+            ...(opts?.directDispatch ? { directDispatch: opts.directDispatch } : {}),
           }),
         })
 
         if (response.status === 401) {
           setNeedsSignIn(true)
           setStreaming(false)
-          setItems(previousItems)
-          setInput(text)
+          if (!isDirectDispatch) {
+            setItems(previousItems)
+            setInput(text)
+          }
           return
         }
 
@@ -492,13 +534,40 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             } else if (event.type === "tool_call") {
               flushAssistant()
               setPendingAssistantId(null)
-              appendItem({
-                kind: "tool",
-                id: event.id,
-                name: event.name,
-                argsSummary: event.argsSummary,
-                reason: event.reason,
-                status: "running",
+              // FE-04: morph a pending_confirm card into running when the
+              // server re-emits the same callId (post-confirm resume). The
+              // pendingConfirm payload on the event itself means we should
+              // KEEP the card pending — render confirm UI.
+              const nextStatus: "pending_confirm" | "running" = event.pendingConfirm
+                ? "pending_confirm"
+                : "running"
+              setItems((prev) => {
+                const idx = prev.findIndex((it) => it.id === event.id && it.kind === "tool")
+                if (idx === -1) {
+                  return [
+                    ...prev,
+                    {
+                      kind: "tool",
+                      id: event.id,
+                      name: event.name,
+                      argsSummary: event.argsSummary,
+                      reason: event.reason,
+                      status: nextStatus,
+                      pendingConfirm: event.pendingConfirm,
+                    },
+                  ]
+                }
+                const next = prev.slice()
+                const existing = next[idx]
+                if (existing.kind !== "tool") return prev
+                next[idx] = {
+                  ...existing,
+                  status: nextStatus,
+                  reason: event.reason ?? existing.reason,
+                  argsSummary: event.argsSummary,
+                  pendingConfirm: event.pendingConfirm,
+                }
+                return next
               })
             } else if (event.type === "tool_result") {
               updateItem(event.id, (prev) =>
@@ -564,6 +633,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       toast,
       persistAndRefresh,
       attachedImage,
+      skipCostConfirm,
     ]
   )
 
@@ -578,6 +648,49 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setInput("")
     void sendMessage(text)
   }
+
+  // FE-04 — confirm a paused tool call: resume execution via directDispatch.
+  const handleConfirmTool = useCallback(
+    (id: string) => {
+      const item = items.find((it) => it.id === id && it.kind === "tool")
+      if (!item || item.kind !== "tool" || !item.pendingConfirm) return
+      const { args } = item.pendingConfirm
+      void sendMessage("", {
+        directDispatch: {
+          toolName: item.name,
+          args,
+          callId: item.id,
+          reason: item.reason,
+        },
+      })
+    },
+    [items, sendMessage],
+  )
+
+  // FE-04 — cancel a paused tool call: just remove the pending card. The
+  // server already closed its stream when it emitted the pendingConfirm event,
+  // so there is no pending dispatch to abort server-side.
+  const handleCancelTool = useCallback(
+    (id: string) => {
+      setItems((prev) => prev.filter((it) => it.id !== id))
+    },
+    [],
+  )
+
+  // FE-04 — "Don't ask again": set the localStorage flag AND confirm the
+  // current pending tool in one click.
+  const handleDontAskAgain = useCallback(
+    (id: string) => {
+      try {
+        window.localStorage.setItem("plagia-ai-skip-cost-confirm", "true")
+      } catch {
+        // ignore
+      }
+      setSkipCostConfirm(true)
+      handleConfirmTool(id)
+    },
+    [handleConfirmTool],
+  )
 
   const handleClearConversation = () => {
     setItems([])
@@ -787,7 +900,9 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           ? "border-red-500/30 bg-red-500/5"
                           : it.status === "running"
                             ? "border-violet-500/30 bg-violet-500/5"
-                            : "border-border bg-card/60"
+                            : it.status === "pending_confirm"
+                              ? "border-amber-500/30 bg-amber-500/5"
+                              : "border-border bg-card/60"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 flex-wrap">
@@ -808,7 +923,46 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           {it.reason}
                         </p>
                       )}
-                      {it.status !== "running" && (
+                      {it.status === "pending_confirm" && it.pendingConfirm && (
+                        <div className="space-y-2 pt-1">
+                          <p className="text-xs text-foreground">
+                            About to use{" "}
+                            <span className="font-semibold tabular-nums">
+                              ~{it.pendingConfirm.estimatedTokens.toLocaleString()}
+                            </span>{" "}
+                            {it.pendingConfirm.currency} token
+                            {it.pendingConfirm.estimatedTokens === 1 ? "" : "s"}.
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Button
+                              size="sm"
+                              className="h-7 px-3 text-xs bg-violet-600 hover:bg-violet-700 text-white"
+                              onClick={() => handleConfirmTool(it.id)}
+                              disabled={streaming}
+                            >
+                              Confirm
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-3 text-xs"
+                              onClick={() => handleCancelTool(it.id)}
+                              disabled={streaming}
+                            >
+                              Cancel
+                            </Button>
+                            <button
+                              type="button"
+                              onClick={() => handleDontAskAgain(it.id)}
+                              disabled={streaming}
+                              className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline disabled:opacity-50"
+                            >
+                              Don&apos;t ask again
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {(it.status === "done" || it.status === "failed") && (
                         <div className="flex items-start gap-2 text-xs">
                           <button
                             onClick={() => toggleToolExpand(it.id)}
@@ -990,7 +1144,19 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   )
 }
 
-function ToolStatusBadge({ status }: { status: "running" | "done" | "failed" }) {
+function ToolStatusBadge({
+  status,
+}: {
+  status: "pending_confirm" | "running" | "done" | "failed"
+}) {
+  if (status === "pending_confirm") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+        <CheckCircle2 className="h-3 w-3" />
+        Confirm
+      </span>
+    )
+  }
   if (status === "running") {
     return (
       <span className="flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400">
