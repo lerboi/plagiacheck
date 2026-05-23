@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-13 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-13-sidebar-polish
 - branch: auto/fe-13-sidebar-polish (stacked on auto/fe-12-export)
 - summary: Four sidebar/chat polish improvements bundled per spec.
   (a) Active conversation row gets a 2px violet left-edge indicator (`absolute left-0 top-1 bottom-1 w-[2px] bg-violet-500 rounded-r-sm`) on top of the existing `bg-accent`. Reads at-a-glance even in long lists.

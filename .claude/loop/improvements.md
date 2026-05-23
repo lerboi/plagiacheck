@@ -343,7 +343,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-13-sidebar-polish (stacked on auto/fe-12-export)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-13-sidebar-polish (set base to `auto/fe-12-export` for a clean diff)
 - **spec:** `.claude/loop/UI-POLISH-SPEC.md` (read in full before starting)
 - **files:** `components/plagia-ai/ConversationSidebar.tsx`, `components/plagia-ai/PlagiaAiApp.tsx`
 - **acceptance:**
