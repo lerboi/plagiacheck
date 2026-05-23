@@ -376,7 +376,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-22-copy-assistant (stacked on auto/fe-21-inline-svg)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-22-copy-assistant (set base to `auto/fe-21-inline-svg`)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`
 - **why:** Users routinely want to paste an assistant answer into another doc. Currently the only way is to triple-click + Cmd-C. ChatGPT (and every chat UI worth using) puts a one-click Copy button on the assistant bubble. Hover-reveal pattern matching the FE-18 pencil — small Copy icon top-right of the bubble, opacity-0 group-hover:opacity-100. Click copies the text to clipboard + toasts "Copied".
 - **acceptance:**

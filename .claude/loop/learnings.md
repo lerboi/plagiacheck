@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-22 — shipped + FE-22/FE-23 appended
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-22-copy-assistant
 - branch: auto/fe-22-copy-assistant (stacked on auto/fe-21-inline-svg)
 - summary: Hover-revealed Copy button on every assistant text bubble. Same visual pattern as the FE-18 pencil — `-top-1.5 -right-1.5` floating circle, `h-6 w-6 rounded-full bg-background border border-border shadow-sm`, `opacity-0 group-hover:opacity-100`. Hidden while the bubble is streaming (`isStreamingThis`) AND when content is empty. Click calls `navigator.clipboard.writeText(it.content)` inside a try/catch, then toasts success or "Couldn't copy" (browser blocked it — happens inside iframes). The handler is `useCallback`-stable on `[toast]`.
 - appended-to-backlog: FE-22 (shipped this iteration — copy-to-clipboard on assistant bubbles) and FE-23 (per-run token cost footnote on done tool cards — still todo for the next iteration). Both serve the four-pillar charter — FE-22 is frictionless-interaction, FE-23 is conversational-quality/transparency.
