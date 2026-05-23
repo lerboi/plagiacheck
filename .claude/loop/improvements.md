@@ -388,7 +388,9 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-15 — Reduce-motion audit + final hardening
 - **scope:** a11y
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-15-reduce-motion-audit (stacked on auto/fe-14-tool-motion)
+- **pr:** TBD (capture after push)
 - **spec:** `.claude/loop/UI-POLISH-SPEC.md`
 - **files:** every component that uses `motion.*` or has a `transition-` class (use grep to enumerate; do NOT touch `lib/svg-templates.ts` since SVG output is not animated).
 - **acceptance:**

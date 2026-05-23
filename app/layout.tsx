@@ -5,6 +5,7 @@ import { Footer } from "@/components/footer"
 import type React from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
+import { MotionProvider } from "@/components/motion-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -37,9 +38,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <main className="flex-grow container mx-auto px-4">{children}</main>
-          <Footer />
-          <Toaster />
+          <MotionProvider>
+            <main className="flex-grow container mx-auto px-4">{children}</main>
+            <Footer />
+            <Toaster />
+          </MotionProvider>
         </ThemeProvider>
       </body>
     </html>

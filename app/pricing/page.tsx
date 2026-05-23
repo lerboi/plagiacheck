@@ -148,7 +148,7 @@ export default function Pricing() {
                 return (
                   <Card
                     key={plan.name}
-                    className={`relative transition-all duration-300 hover:shadow-xl hover:scale-105 ${
+                    className={`relative transition-all duration-300 hover:shadow-xl motion-safe:hover:scale-105 ${
                       plan.popular 
                         ? "border-primary shadow-lg ring-1 ring-primary/20" 
                         : "hover:border-primary/50"
@@ -262,7 +262,7 @@ export default function Pricing() {
                         key={tool.name}
                         className="group relative flex flex-col items-center p-4 md:p-5 rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-200"
                       >
-                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 group-hover:scale-110`} />
+                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 motion-safe:group-hover:scale-110`} />
                         <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
                         {tool.isFree && (
                           <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">FREE</span>
@@ -293,7 +293,7 @@ export default function Pricing() {
                         key={tool.name}
                         className="group flex flex-col items-center p-4 md:p-5 rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-200"
                       >
-                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 group-hover:scale-110`} />
+                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 motion-safe:group-hover:scale-110`} />
                         <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
                       </div>
                     ))}
@@ -320,7 +320,7 @@ export default function Pricing() {
                         key={tool.name}
                         className="group relative flex flex-col items-center p-4 md:p-5 rounded-xl border border-gray-200/60 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 bg-transparent hover:bg-gray-50/50 dark:hover:bg-gray-900/30 transition-all duration-200"
                       >
-                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 group-hover:scale-110`} />
+                        <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 motion-safe:group-hover:scale-110`} />
                         <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
                         {tool.isFree && (
                           <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">FREE</span>

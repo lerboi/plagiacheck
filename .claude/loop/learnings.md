@@ -17,6 +17,52 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-15 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-15-reduce-motion-audit (stacked on auto/fe-14-tool-motion)
+- summary: Reduce-motion compliance audit + hardening. Two structural fixes
+  cover the whole site:
+  1. **framer-motion gating** — new `components/motion-provider.tsx`
+     exports a thin `"use client"` MotionProvider wrapping
+     `<MotionConfig reducedMotion="user">`. Mounted in `app/layout.tsx`
+     between ThemeProvider and the children. Every `<motion.*>` below
+     this point automatically suppresses transform / scale / position
+     animations when `prefers-reduced-motion: reduce` is set (opacity
+     still animates — non-vestibular). This eliminates the need to
+     retrofit `useReducedMotion()` into each of the 16 motion-using
+     files individually.
+  2. **Tailwind transform-on-state gating** — every `hover:scale-*`,
+     `hover:-translate-*`, `group-hover:scale-*`,
+     `group-hover:translate-*`, and the shadcn Button's
+     `active:scale-[0.97]` got a `motion-safe:` prefix so the transform
+     only applies when the user has NOT set reduce-motion. 13 class
+     instances fixed across 5 files: nav.tsx, ui/button.tsx,
+     plagia-ai/OneChatAllTools.tsx, plagia-ai/SuggestionChipBar.tsx,
+     all-tools/page.tsx, pricing/page.tsx.
+  Verified: grep "hover:scale-|hover:-translate-|group-hover:scale-|group-hover:translate-|active:scale-" minus "motion-safe:" minus the disabled-state override returns ZERO ungated transforms.
+  Already-compliant surfaces (untouched): app/globals.css `button:active` has its own `@media (prefers-reduced-motion: reduce)` override; tool-page-header.tsx + ResultReveal.tsx both use `useReducedMotion()` (added in FE-14).
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: a real-browser test with OS reduce-motion enabled would confirm framer-motion's MotionConfig actually suppresses the transforms — confirmed by reading the framer-motion docs (`reducedMotion="user"` automatically reads window.matchMedia("(prefers-reduced-motion: reduce)")).
+- file-by-file outcome:
+  - components/motion-provider.tsx — NEW, mounts MotionConfig.
+  - app/layout.tsx — mounts MotionProvider below ThemeProvider.
+  - components/nav.tsx — 2 group-hover transforms gated.
+  - components/ui/button.tsx — active:scale gated.
+  - components/plagia-ai/OneChatAllTools.tsx — 1 group-hover:scale gated.
+  - components/plagia-ai/SuggestionChipBar.tsx — 2 hover translates gated.
+  - app/all-tools/page.tsx — 1 hover-translate, 1 group-hover-scale gated.
+  - app/pricing/page.tsx — 1 hover-scale, 3 group-hover-scale gated.
+  - All 16 framer-motion-using files (FAQ, FeatureShowcase, etc.) — NOT modified individually; covered globally by the new MotionConfig.
+- lesson:
+  1. **`<MotionConfig reducedMotion="user">` is the silver-bullet pattern.** Single mount in the root layout covers every `<motion.*>` in the tree. Without it, you'd need `useReducedMotion()` + ternary motion props in every component — 16 separate edits, each a small risk for inconsistency. MotionConfig is provider-pattern; framer-motion does the per-component check internally. The only files that still need explicit `useReducedMotion()` are ones doing custom transition math NOT covered by motion props (none in this repo yet).
+  2. **MotionConfig must live in a "use client" component.** App Router server layouts can't import framer-motion directly. The pattern: wrap MotionConfig in a tiny client component (12 lines) and import that. Keeps the root layout server-rendered.
+  3. **Tailwind's `motion-safe:` variant is the cheapest way to gate CSS transforms.** `motion-safe:hover:scale-110` resolves to `@media (prefers-reduced-motion: no-preference) { ...hover styles }`. Existing Tailwind variant — zero new CSS, zero new media queries to write. Applies the entire chained variant (hover + scale-110) only when motion is preferred. Use this for ANY transform-bearing class chain; don't reach for the `motion-reduce:` inverse unless you specifically need to set a fallback value.
+  4. **Already-compliant surfaces deserve a one-line note in the audit.** Two surfaces were already correct: the global `button:active` rule in globals.css (explicit `@media` override) and tool-page-header + ResultReveal (use `useReducedMotion()` directly). Mentioning them in the lesson keeps future audits from re-touching them.
+  5. **Opacity is NOT motion in the WCAG sense.** WCAG 2.3.3 only applies to non-essential motion that can trigger vestibular disorders — fades and color changes are fine. framer-motion's MotionConfig honors this: it suppresses transform / scale / position but lets opacity continue. So entrance fades still play under reduce-motion. Correct behavior; don't try to also strip the fades.
+
 ## 2026-05-24 — FE-14 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-14-tool-motion
 - branch: auto/fe-14-tool-motion (stacked on auto/fe-13-sidebar-polish)

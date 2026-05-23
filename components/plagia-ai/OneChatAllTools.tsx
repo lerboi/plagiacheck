@@ -122,7 +122,7 @@ export function OneChatAllTools() {
                     key={tool.name}
                     className="group flex items-center gap-2.5 text-sm text-foreground"
                   >
-                    <tool.icon className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-150 group-hover:scale-110 group-hover:text-foreground" />
+                    <tool.icon className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-150 motion-safe:group-hover:scale-110 group-hover:text-foreground" />
                     <span>{tool.name}</span>
                   </li>
                 ))}

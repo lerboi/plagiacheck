@@ -272,7 +272,7 @@ export function Nav() {
                         Chat with an AI that uses all your tools
                       </span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground motion-safe:group-hover:translate-x-0.5 transition-transform shrink-0" />
                   </Link>
 
                   {/* Category columns */}
@@ -298,7 +298,7 @@ export function Nav() {
                               onClick={() => setIsToolsOpen(false)}
                               className="group flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent transition-colors"
                             >
-                              <div className={`p-1.5 rounded-md ${tool.bgColor} transition-transform group-hover:scale-110`}>
+                              <div className={`p-1.5 rounded-md ${tool.bgColor} transition-transform motion-safe:group-hover:scale-110`}>
                                 <tool.icon className={`h-3.5 w-3.5 ${tool.color}`} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -337,7 +337,7 @@ export function Nav() {
                         </div>
                         <span className="text-sm font-medium">View all tools</span>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground motion-safe:group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                   </div>
                 </div>

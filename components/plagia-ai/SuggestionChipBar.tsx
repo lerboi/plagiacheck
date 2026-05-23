@@ -52,7 +52,7 @@ export function SuggestionChipBar({ onChipClick }: SuggestionChipBarProps) {
           initial="initial"
           animate="animate"
           transition={{ duration: 0.2, delay: 0.05 + i * 0.035, ease: "easeOut" }}
-          className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-accent/40 hover:bg-accent border border-border text-sm text-foreground transition-[background-color,border-color,transform] duration-150 hover:-translate-y-0.5"
+          className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-accent/40 hover:bg-accent border border-border text-sm text-foreground transition-[background-color,border-color,transform] duration-150 motion-safe:hover:-translate-y-0.5"
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
           <span>{label}</span>
@@ -67,7 +67,7 @@ export function SuggestionChipBar({ onChipClick }: SuggestionChipBarProps) {
         <Link
           href="/all-tools"
           aria-label="See all tools"
-          className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-primary/30 hover:border-primary text-sm text-foreground transition-[background-color,border-color,transform] duration-150 hover:-translate-y-0.5"
+          className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-primary/30 hover:border-primary text-sm text-foreground transition-[background-color,border-color,transform] duration-150 motion-safe:hover:-translate-y-0.5"
         >
           <span>See all tools</span>
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
