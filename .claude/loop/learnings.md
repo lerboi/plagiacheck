@@ -17,6 +17,23 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-24 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-24-pin-conversation (stacked on auto/fe-23-token-cost)
+- sql-required-one-time: `ALTER TABLE plagia_ai_conversations ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT FALSE;` (idempotent — safe to re-run). UI degrades gracefully until the user runs it: rows just sort by updated_at like before and the Pin button no-ops with a clear toast.
+- summary: ChatGPT-style conversation pinning. Storage: `StoredConversationSummary` gains optional `pinned?: boolean`; `listConversations` tries `select(... pinned)` ordered by `pinned DESC, updated_at DESC`, then falls back to the pre-migration query if Supabase errors on the missing column. New `setConversationPinned(id, pinned: boolean): Promise<boolean>` PATCHes the column + bumps updated_at. PlagiaAiApp wires `handleTogglePinConversation(id, pinned)` that calls the storage helper, toasts a migration-pointer on failure, and refetches the list on success so the new sort lands. Sidebar: third hover-revealed icon (`Pin` from lucide) between Rename and Delete; when `c.pinned` is true the icon stays VISIBLE (not hover-revealed), uses violet color, and fills (`fill-current`) so the pinned state reads at a glance. Visual separator between pinned and unpinned rows: pre-compute the first-unpinned index outside the map, then apply `border-t border-border mt-1.5 pt-1.5` to that one row. Both inline and drawer variants get the same flow via the shared ConversationList.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean after one iteration: the Supabase typed query inferred a strict shape for the primary select (with `pinned`) that didn't accept the retry's shape (without `pinned`). Fixed by storing the rows as `unknown` and asserting to the union type at return. Belt-and-suspenders: the runtime fallback works regardless of TS inference.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: needs the migration to actually pin in production. Without it the pre-migration path still works — list sorts by updated_at, pin clicks toast the migration message.
+- lesson:
+  1. **Try-then-fallback for an optional column is cleaner than feature-detection.** Considered probing the schema with a separate query before the main select. Rejected — it doubles round-trips on every list call. Try the new query, catch the error, retry with the old shape. Cost: one extra round-trip ONLY on the pre-migration error path, zero overhead post-migration.
+  2. **Supabase strict typing on selects can fight refactors.** The primary select with `pinned` infers a row type that includes `pinned`. The retry select without `pinned` infers a different row type. Assigning one to a `let` declared with the first type fails. Two clean options: (a) widen via `unknown` + final `as` cast, (b) use `any` for the intermediate variable. Picked (a) because it's explicit — the cast at return makes the type-narrowing intent visible.
+  3. **Pin button "stays visible when pinned, hover-revealed when not"** is the right asymmetric pattern. Rename and Delete are uniformly hover-revealed because they're rare actions. Pin's STATE is information — the user needs to see at a glance which rows are pinned. So the icon needs to render unconditionally for pinned rows. The styling distinction (violet + fill) reinforces the active state without needing a separate label.
+  4. **CSS border on a row is cheaper than emitting a separator element.** Considered inserting a divider element between pinned and unpinned, but AnimatePresence wants direct keyed children — a stray div risks breaking the row enter/exit animations. Applying `border-t mt-1.5 pt-1.5` to the FIRST unpinned row achieves the same visual gap with zero extra DOM nodes and zero animation interference.
+  5. **`aria-pressed` on a toggle button is the right ARIA pattern.** Pin is a stateful toggle (pinned/not), not just an action. `aria-pressed={!!c.pinned}` tells screen readers the current state alongside the action label. Convention: any button that toggles a persistent state should use `aria-pressed` + a label that reflects what the click WILL do ("Pin" / "Unpin") rather than what the state IS.
+
 ## 2026-05-24 — FE-23 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-23-token-cost
 - branch: auto/fe-23-token-cost (stacked on auto/fe-22-copy-assistant)

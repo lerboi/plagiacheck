@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import {
   MessageSquarePlus,
   Pencil,
+  Pin,
   Trash2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -24,6 +25,8 @@ interface ConversationSidebarProps {
   /** FE-20 — rename a saved conversation. Returns true on success (parent
    *  is expected to refetch the list); false on failure. */
   onRename?: (id: string, newTitle: string) => Promise<boolean>
+  /** FE-24 — toggle pin on a saved conversation. Same contract as rename. */
+  onTogglePin?: (id: string, pinned: boolean) => Promise<boolean>
   /**
    * FE-13 — render mode.
    *   - "inline" (default): desktop sidebar with width-transition collapse.
@@ -69,6 +72,8 @@ interface ListProps {
   onDelete: (id: string) => void
   /** FE-20 — see ConversationSidebarProps. */
   onRename?: (id: string, newTitle: string) => Promise<boolean>
+  /** FE-24 — see ConversationSidebarProps. */
+  onTogglePin?: (id: string, pinned: boolean) => Promise<boolean>
 }
 
 function ConversationList({
@@ -80,6 +85,7 @@ function ConversationList({
   onSelect,
   onDelete,
   onRename,
+  onTogglePin,
 }: ListProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   // FE-20 — inline rename editor. Only one row at a time can be in edit
@@ -123,12 +129,21 @@ function ConversationList({
         </div>
       )}
 
-      {!loading && (
+      {!loading && (() => {
+        // FE-24 — visual separator between pinned and unpinned rows.
+        // Computed once outside the map so the first unpinned row knows
+        // whether to render its top border.
+        const firstUnpinnedIdx = conversations.findIndex((c) => !c.pinned)
+        const hasMixedPinned =
+          firstUnpinnedIdx > 0 &&
+          conversations.some((c) => c.pinned)
+        return (
         <AnimatePresence initial={false}>
-          {conversations.map((c) => {
+          {conversations.map((c, idx) => {
             const isActive = c.id === activeId
             const confirming = confirmDeleteId === c.id
             const isRenamingThisRow = renamingId === c.id
+            const isFirstUnpinned = hasMixedPinned && idx === firstUnpinnedIdx
             const commitRename = async () => {
               const draft = renameDraft.trim()
               if (!onRename) {
@@ -167,8 +182,8 @@ function ConversationList({
                 exit="exit"
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 className={`group relative flex items-center gap-1 rounded-md transition-colors ${
-                  isActive ? "bg-accent" : "hover:bg-accent/60"
-                }`}
+                  isFirstUnpinned ? "border-t border-border mt-1.5 pt-1.5" : ""
+                } ${isActive ? "bg-accent" : "hover:bg-accent/60"}`}
               >
                 {isActive && (
                   <span
@@ -237,6 +252,27 @@ function ConversationList({
                       </div>
                     ) : (
                       <div className="flex items-center mr-1">
+                        {onTogglePin && (
+                          <button
+                            onClick={() =>
+                              void onTogglePin(c.id, !c.pinned)
+                            }
+                            className={`h-7 w-7 flex items-center justify-center transition-opacity ${
+                              c.pinned
+                                ? "opacity-100 text-violet-600 dark:text-violet-400"
+                                : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
+                            }`}
+                            aria-label={c.pinned ? "Unpin conversation" : "Pin conversation"}
+                            aria-pressed={!!c.pinned}
+                            title={c.pinned ? "Unpin" : "Pin"}
+                          >
+                            <Pin
+                              className={`h-3.5 w-3.5 ${
+                                c.pinned ? "fill-current" : ""
+                              }`}
+                            />
+                          </button>
+                        )}
                         {onRename && (
                           <button
                             onClick={() => {
@@ -266,7 +302,8 @@ function ConversationList({
             )
           })}
         </AnimatePresence>
-      )}
+        )
+      })()}
     </div>
   )
 }
@@ -285,6 +322,7 @@ export function ConversationSidebar({
   onNewChat,
   onDelete,
   onRename,
+  onTogglePin,
   variant = "inline",
   onCloseDrawer,
 }: ConversationSidebarProps) {
@@ -345,6 +383,7 @@ export function ConversationSidebar({
           onSelect={onSelect}
           onDelete={onDelete}
           onRename={onRename}
+          onTogglePin={onTogglePin}
         />
       </div>
     )
@@ -437,6 +476,7 @@ export function ConversationSidebar({
               onSelect={onSelect}
               onDelete={onDelete}
               onRename={onRename}
+              onTogglePin={onTogglePin}
             />
           </motion.div>
         )}

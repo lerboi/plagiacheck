@@ -46,6 +46,7 @@ import {
   loadConversation,
   renameConversation,
   saveConversation,
+  setConversationPinned,
   type StoredConversationSummary,
 } from "@/lib/plagia-ai/storage"
 import {
@@ -1074,6 +1075,24 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     return true
   }
 
+  // FE-24 — toggle pin on a saved conversation. The storage helper handles
+  // the UPDATE; we refetch the list so the new sort lands. Failure path
+  // tells the user the migration probably needs to be run.
+  const handleTogglePinConversation = async (id: string, pinned: boolean) => {
+    const ok = await setConversationPinned(id, pinned)
+    if (!ok) {
+      toast({
+        title: "Couldn't save pin",
+        description: "Run the FE-24 migration in Supabase, then retry.",
+        variant: "destructive",
+      })
+      return false
+    }
+    const fresh = await listConversations()
+    setConversations(fresh)
+    return true
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
@@ -1111,6 +1130,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               onNewChat={handleNewChat}
               onDelete={handleDeleteConversation}
               onRename={handleRenameConversation}
+              onTogglePin={handleTogglePinConversation}
             />
           )}
           {/* FE-13 — mobile drawer (lg:hidden). Renders a backdrop +
@@ -1151,6 +1171,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     onNewChat={handleNewChat}
                     onDelete={handleDeleteConversation}
                     onRename={handleRenameConversation}
+                    onTogglePin={handleTogglePinConversation}
                     onCloseDrawer={() => setMobileSidebarOpen(false)}
                   />
                 </motion.aside>
