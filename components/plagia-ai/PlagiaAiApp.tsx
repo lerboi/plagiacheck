@@ -23,6 +23,7 @@ import {
   MicOff,
   Settings,
   Download,
+  PanelLeftOpen,
   X,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -127,6 +128,19 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     if (typeof window === "undefined") return
     if (window.innerWidth < 1024) setSidebarCollapsed(true)
   }, [])
+
+  // FE-13 — mobile drawer state. On `< lg` the inline sidebar is hidden;
+  // tapping the chat-header hamburger opens this drawer. Closed on backdrop
+  // tap, Escape, or after a row tap (handleSelectConversation closes it).
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  useEffect(() => {
+    if (!mobileSidebarOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileSidebarOpen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [mobileSidebarOpen])
 
   // Multimodal input (FS-06): image attach + voice dictation
   const [attachedImage, setAttachedImage] = useState<AttachedImage | null>(null)
@@ -858,6 +872,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setConversationId(null)
     setAutoScrollPaused(false)
     setFollowupSuggestions([])
+    setMobileSidebarOpen(false)
     textareaRef.current?.focus()
   }
 
@@ -879,6 +894,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setInput("")
     setExpandedTools({})
     setAutoScrollPaused(false)
+    setMobileSidebarOpen(false)
   }
 
   const handleDeleteConversation = async (id: string) => {
@@ -924,6 +940,49 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               onDelete={handleDeleteConversation}
             />
           )}
+          {/* FE-13 — mobile drawer (lg:hidden). Renders a backdrop +
+              translateX drawer with the same ConversationSidebar inside.
+              No-op until the user opens it via the chat-header hamburger. */}
+          <AnimatePresence>
+            {user && mobileSidebarOpen && (
+              <div className="lg:hidden">
+                <motion.div
+                  key="backdrop"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="fixed inset-0 bg-black/40 z-40"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  aria-hidden="true"
+                />
+                <motion.aside
+                  key="drawer"
+                  initial={{ x: "-100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "-100%" }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="fixed top-14 bottom-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-xl"
+                  aria-label="Conversation history (drawer)"
+                  role="dialog"
+                  aria-modal="true"
+                >
+                  <ConversationSidebar
+                    variant="drawer"
+                    conversations={conversations}
+                    activeId={conversationId}
+                    loading={loadingConversations}
+                    collapsed={false}
+                    onToggleCollapse={() => {}}
+                    onSelect={handleSelectConversation}
+                    onNewChat={handleNewChat}
+                    onDelete={handleDeleteConversation}
+                    onCloseDrawer={() => setMobileSidebarOpen(false)}
+                  />
+                </motion.aside>
+              </div>
+            )}
+          </AnimatePresence>
           <div className="flex-1 flex flex-col min-w-0">
             <div className="w-full max-w-3xl mx-auto px-4 py-6 flex-1 flex flex-col">
           {needsSignIn && !user && (
@@ -935,14 +994,26 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           {/* Chat header: settings + conversation actions */}
           {user && (
             <div className="flex items-center justify-between mb-2 px-1">
-              {conversationStarted ? (
-                <span className="text-xs text-muted-foreground">
-                  {items.filter((it) => it.kind === "user").length} message
-                  {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
-                </span>
-              ) : (
-                <span />
-              )}
+              <div className="flex items-center gap-2 min-w-0">
+                {/* FE-13 — mobile drawer trigger (hidden on lg+) */}
+                <button
+                  type="button"
+                  onClick={() => setMobileSidebarOpen(true)}
+                  className="lg:hidden h-8 w-8 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
+                  aria-label="Open conversations"
+                  title="Conversations"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </button>
+                {conversationStarted ? (
+                  <span className="text-xs text-muted-foreground truncate">
+                    {items.filter((it) => it.kind === "user").length} message
+                    {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
+                  </span>
+                ) : (
+                  <span />
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1016,6 +1087,19 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           )}
 
           <div className="relative flex-1 flex flex-col">
+            {/* FE-13 — cross-fade the chat thread when switching between
+                conversations. Keyed by conversationId so a loadConversation
+                triggers a remount + opacity fade. `mode="wait"` keeps the
+                two states from stacking during the transition. */}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={conversationStarted ? (conversationId ?? "active") : "empty"}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="flex-1 flex flex-col min-h-0"
+              >
             {!conversationStarted ? (
               <EmptyState>
                 <SuggestionChipBar onChipClick={handleSuggestedPrompt} />
@@ -1230,6 +1314,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               </AnimatePresence>
             </div>
             )}
+              </motion.div>
+            </AnimatePresence>
 
             {/* Scroll-to-bottom floating button */}
             <AnimatePresence>

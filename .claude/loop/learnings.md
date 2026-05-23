@@ -17,6 +17,26 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-13 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-13-sidebar-polish (stacked on auto/fe-12-export)
+- summary: Four sidebar/chat polish improvements bundled per spec.
+  (a) Active conversation row gets a 2px violet left-edge indicator (`absolute left-0 top-1 bottom-1 w-[2px] bg-violet-500 rounded-r-sm`) on top of the existing `bg-accent`. Reads at-a-glance even in long lists.
+  (b) Per-row entrance: extracted `ConversationList` internal component, wrapped its row mapping in `AnimatePresence initial={false}` with motion.div rows using `layout="position"` + `{opacity:0, y:-4} → {opacity:1, y:0}` (200ms ease-out). New conversations (after saveConversation) animate in; deletes animate out. The OUTER AnimatePresence (for collapse list-fade) stays at the wrapper level; they don't fight because they target disjoint elements.
+  (c) Chat-thread cross-fade on conversation switch: wrapped the empty-state/scroll-area branches in `AnimatePresence mode="wait"` + a single motion.div keyed by `conversationStarted ? (conversationId ?? "active") : "empty"`. 150ms opacity. `mode="wait"` is critical because the chat scroll-area mounts a new `ref={scrollRef}` element — overlapping the old + new during transition would let the scroll-tracker bind the wrong DOM node.
+  (d) Mobile drawer: ConversationSidebar got a `variant: "inline" | "drawer"` prop. Inline = existing desktop behavior (`hidden lg:flex`, width-transition collapse). Drawer = always-expanded body with an X close button, no `hidden lg:flex`. PlagiaAiApp adds `mobileSidebarOpen` state, a `lg:hidden` hamburger button in the chat header, and an AnimatePresence-wrapped drawer using `translateX(-100%) → 0` (200ms) + a fading backdrop. Drawer closes on backdrop tap, on Escape (keydown listener registered only while open), and after row tap (handleSelectConversation + handleNewChat both set `mobileSidebarOpen = false`). `role="dialog" aria-modal="true"` for screen readers.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing billing + image-to-text warnings only).
+  - Behavior verification gap: drawer slide-in + active indicator look right in mental model; need a real mobile viewport to confirm the drawer width (280px max-w-[85vw]) feels right vs 90vw.
+- lesson:
+  1. **Nested AnimatePresences are fine when they target disjoint DOM trees.** Two layered Presences in the sidebar: outer fades the WHOLE list on collapse; inner animates individual row enter/exit. They never compete because the outer animates its child (the list wrapper) and the inner animates the row siblings inside that wrapper. The classic "fighting Presences" bug only happens when both target the SAME element via different mechanisms. Disjoint trees = safe.
+  2. **`mode="wait"` is mandatory when the element being cross-faded carries a ref the parent relies on.** The chat scroll-area has `ref={scrollRef}` used by auto-scroll. With default `mode="popLayout"`, two scroll-area DOM nodes briefly co-exist — the ref binds to whichever React assigns last. That causes auto-scroll to jump to the old (exiting) element for a frame. `mode="wait"` serializes the transition so refs are stable. Pattern: cross-fade only with `mode="wait"` whenever the wrapped element has stateful descendant behavior (refs, focus, scroll position).
+  3. **Drawer as separate variant beats prop-controlled outer wrapper.** Considered passing `forceVisible` / `className` overrides to make ConversationSidebar render either inline or drawer based on parent context. Picked `variant: "inline" | "drawer"` instead. Reasoning: the inline mode owns collapse logic; the drawer mode is always expanded. Squashing both into one render path forced a half-dozen ternaries and made the inline outer `<aside>` lie about itself. Branching at the top of the component keeps each mode self-describing.
+  4. **Hamburger placement: chat header beats nav.** Considered putting the conversations toggle in the nav bar. Chat header is better because the action is scoped to the PlagiaAI surface — putting it in the nav implies it works on tool pages too, which it doesn't. Convention: surface-local actions live in the surface header; site-wide actions live in the nav.
+  5. **Escape-key listener registered ONLY while drawer is open.** A long-lived window-level keydown listener catches every Escape across the page (closing menus that may not exist). Gating the listener on `mobileSidebarOpen` with the useEffect's dependency array means it's installed when the drawer opens and torn down when it closes. Cheap, zero side effects elsewhere.
+
 ## 2026-05-24 — FE-12 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-12-export
 - branch: auto/fe-12-export (stacked on auto/fix-home-viewport-fill)

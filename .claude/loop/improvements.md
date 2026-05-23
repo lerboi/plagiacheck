@@ -341,7 +341,9 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-13 — Sidebar polish: active-conversation indicator + conversation-switch animation
 - **scope:** ui
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-13-sidebar-polish (stacked on auto/fe-12-export)
+- **pr:** TBD (capture after push)
 - **spec:** `.claude/loop/UI-POLISH-SPEC.md` (read in full before starting)
 - **files:** `components/plagia-ai/ConversationSidebar.tsx`, `components/plagia-ai/PlagiaAiApp.tsx`
 - **acceptance:**
