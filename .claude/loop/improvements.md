@@ -376,7 +376,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-16-result-reveal-rest (stacked on auto/fe-15-reduce-motion-audit)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-16-result-reveal-rest (set base to `auto/fe-15-reduce-motion-audit`)
 - **spec:** `.claude/loop/UI-POLISH-SPEC.md`
 - **files:** `app/ai-humanizer/page.tsx`, `app/plagiarism-checker/content.tsx`, `app/image-to-text/page.tsx`, `app/chart-generator/page.tsx`, `app/infographic-generator/page.tsx`, `app/thumbnail-generator/page.tsx`, `app/voice-to-essay/page.tsx`, `app/audio-summarizer/page.tsx`, `app/speech-to-text/page.tsx`
 - **why-the-followup:** FE-14 created `components/plagia-ai/ResultReveal.tsx` and applied it to 4 representative pages (paraphraser, summarizer, ai-detector, grammar-checker). The remaining 9 tool pages still hard-mount their result panels — UI consistency demands all of them adopt the wrapper.

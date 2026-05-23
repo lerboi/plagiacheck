@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-16 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-16-result-reveal-rest
 - branch: auto/fe-16-result-reveal-rest (stacked on auto/fe-15-reduce-motion-audit)
 - summary: Extended `<ResultReveal>` (created in FE-14) to the remaining 9 tool pages so every tool now has a consistent reveal animation when its result lands. Per page:
   - ai-humanizer: wrapped the words-changed + actions toolbar.
