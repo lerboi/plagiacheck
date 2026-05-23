@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-23 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-23-token-cost
 - branch: auto/fe-23-token-cost (stacked on auto/fe-22-copy-assistant)
 - summary: Per-run token cost footnote on done tool cards. Surprise: every underlying tool route ALREADY returns `tokensUsed: cost` in its JSON response (ai-tools, check-plagiarism, speech-to-text, image-to-text, voice-tools, generate-image — all of them). So no migration, no orchestrator-side pre-balance lookup; just plumb the value through. Dispatcher: extended DispatchSuccess with `tokensUsed?: number` and used `replace_all` twice (text + image currency variants) to add the field to all 12 return sites. SSE: PlagiaAiToolResultEvent gained `tokensUsed?: number`. Server route emits it from `outcome.tokensUsed`. Client ChatItem.tool gained `tokensUsed?: number` + `tokensCurrency?: "text" | "image"`. tool_result handler infers the currency from whichever remaining-tokens field came back (mutually exclusive per the dispatcher contract). Render: small `text-[11px] text-muted-foreground/70 tabular-nums` footnote below the result-preview line on done cards. Singular/plural-aware ("1 text token" vs "12 text tokens"). Failed cards skip the footnote (refund/no-deduct).
 - NO-ACCESS-FILES audit: clean.
