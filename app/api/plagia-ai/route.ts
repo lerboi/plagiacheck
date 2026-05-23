@@ -5,6 +5,7 @@ import { MISTRAL_TOOLS, summarizeArgs } from "@/lib/plagia-ai/tools"
 import { dispatchTool } from "@/lib/plagia-ai/dispatcher"
 import { estimateToolCost } from "@/lib/plagia-ai/config"
 import { buildPreferencesSystemMessage, loadPreferences } from "@/lib/plagia-ai/preferences"
+import { getFallbackFollowups } from "@/lib/plagia-ai/followups"
 import {
   PLAGIA_AI_TOOL_NAMES,
   type PlagiaAiMessage,
@@ -318,6 +319,11 @@ export async function POST(req: Request) {
       }
 
       try {
+        // FE-11 — name of the most recent tool that succeeded in this turn.
+        // Used to look up a deterministic follow-up set when the model's
+        // wrap-up didn't include a [[FOLLOWUPS:...]] marker.
+        let lastSuccessfulToolName: PlagiaAiToolName | null = null
+
         // ─── directDispatch resume path (FE-04) ──────────────────────
         // The client has confirmed a previously-paused tool call. Dispatch
         // it directly here (no model round), then fall through to the
@@ -368,6 +374,7 @@ export async function POST(req: Request) {
             ]
 
             if (outcome.ok) {
+              lastSuccessfulToolName = toolName
               controller.enqueue(
                 encode({
                   type: "tool_result",
@@ -466,8 +473,23 @@ export async function POST(req: Request) {
             controller.enqueue(encode({ type: "delta", content: assistantText }))
           }
 
-          if (!hasToolCalls && followups.length > 0) {
-            controller.enqueue(encode({ type: "suggestions", suggestions: followups }))
+          // FE-11 — if the model's wrap-up didn't include a [[FOLLOWUPS:...]]
+          // marker AND a tool actually succeeded this turn, fall back to the
+          // deterministic per-tool defaults from lib/plagia-ai/followups.ts.
+          // The model's own marker still wins when present; this only fires
+          // when the marker is absent — defensive parity for when rule 10
+          // gets ignored.
+          const effectiveFollowups =
+            followups.length > 0
+              ? followups
+              : lastSuccessfulToolName
+                ? getFallbackFollowups(lastSuccessfulToolName)
+                : []
+
+          if (!hasToolCalls && effectiveFollowups.length > 0) {
+            controller.enqueue(
+              encode({ type: "suggestions", suggestions: effectiveFollowups }),
+            )
           }
 
           if (!hasToolCalls) {
@@ -607,6 +629,10 @@ export async function POST(req: Request) {
               // FE-05 — success clears the retry counter for this tool so
               // future calls in the same turn start fresh.
               failureCounts.delete(fnName)
+              // FE-11 — remember the most recent successful tool so the
+              // followups fallback below can synthesize defaults if the
+              // model's wrap-up omits the marker.
+              lastSuccessfulToolName = fnName
               controller.enqueue(
                 encode({
                   type: "tool_result",
