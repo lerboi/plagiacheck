@@ -172,7 +172,7 @@ export default function AllToolsPage() {
                 <Link
                   key={tool.name}
                   href={tool.href}
-                  className="group rounded-xl border border-border p-4 hover:border-foreground/20 hover:bg-accent/40 transition-colors"
+                  className="group rounded-xl border border-border p-4 hover:border-foreground/20 hover:bg-accent/40 transition-[background-color,border-color,transform] duration-150 hover:-translate-y-0.5"
                 >
                   <div className="flex items-start gap-3">
                     <div className={`p-2 rounded-lg ${tool.bgColor} shrink-0 transition-transform group-hover:scale-110`}>

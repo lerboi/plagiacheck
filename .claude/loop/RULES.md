@@ -1,21 +1,16 @@
 # Loop Rules — read every iteration before doing anything
 
-## 🛑 LOOP PAUSED BY USER — 2026-05-11
+## 🎯 CURRENT RUN SCOPE — read every iteration (set 2026-05-11)
 
-**If you are reading this, STOP IMMEDIATELY.** The user paused this loop at the end of iteration 14. A queued ScheduleWakeup may have fired you up — ignore it.
+**This loop run is constrained to PlagiaAI work only.** Until further notice:
 
-Do NOT:
-- Pick a new backlog item
-- Create a branch
-- Make any code changes
-- Open a PR
-- Call ScheduleWakeup
+- **Only pick FS-* or FE-* items.** Skip every P0-XX, P1-XX, and P2-XX item entirely — even if it would be the "next" pick under the default cadence rule below. Treat them as if they weren't in the backlog.
+- The active priority order is: FS-07 → FS-08 → FS-09 (in numeric order, per the FLAGSHIP rule). After all three FS items are `done`, the loop falls through to **FE items in priority order (P0 > P1 > P2 within FE)**, picked one per iteration. The "every 3rd iteration is FE" cadence is suspended for this run — every iteration is an FE item once flagship work is done.
+- The `plagia-ai continuous evolution` rule (1–2 new FE items per shipped iteration when follow-ups are obvious) **stays in effect** — keep appending FE items so the loop has work.
+- **Read `.claude/loop/PLAGIA-AI-REDESIGN-SPEC.md` in full before starting FS-07, FS-08, or FS-09.** It contains the authoritative UX spec, file lists, acceptance criteria details, and risk notes.
+- If no FS or FE `todo` items remain AND no obvious PlagiaAI follow-ups exist to append, stop the loop. Do NOT fall through to P0/P1/P2.
 
-Do this instead:
-1. Reply to the user with a one-line confirmation that the loop is paused and that you read the STOP banner.
-2. Exit. Do not schedule another wakeup.
-
-The user can resume the loop by removing this banner OR by invoking `/loop` themselves.
+When this scope is lifted, the user will edit this section. Until then, treat it as a hard constraint with the same weight as the restricted-paths rule.
 
 ---
 
@@ -25,16 +20,23 @@ You are running inside a `/loop` autonomous improvement run on the Plagiacheck r
 
 ## ⛔ ABSOLUTE PROHIBITION — read this first, every iteration
 
-**`C:\Users\leheh\.Projects\plagiacheck\.claude\NO-ACCESS-FILES\`** is OFF-LIMITS.
+**The `.claude/NO-ACCESS-FILES/` directory is OFF-LIMITS.** It is identified by the relative path `.claude/NO-ACCESS-FILES/` from the repo root, regardless of OS. Concrete absolute paths it may resolve to:
+- macOS: `/Users/leroyngzz/Projects/plagiacheck/.claude/NO-ACCESS-FILES/`
+- Windows (legacy): `C:\Users\leheh\.Projects\plagiacheck\.claude\NO-ACCESS-FILES\`
 
-- Do **not** read any file inside it.
-- Do **not** list its contents (no `ls`, no `Glob`, no `Bash dir`).
+Reconfirmed by the user 2026-05-11: **zero interaction with any file or folder inside this directory, full stop.**
+
+- Do **not** read any file inside it (no `Read`, no `cat`, no `head`, no `tail`).
+- Do **not** list its contents (no `ls`, no `Glob`, no `Bash dir`, no `find` results that include it, no `tree`).
 - Do **not** modify, move, rename, or delete anything inside it.
 - Do **not** include any path under it in `git add` or any commit.
 - Do **not** reference its contents in PR descriptions or commit messages.
+- Do **not** copy from it, even into the repo's other directories.
 - If a backlog item ever appears to require touching this folder, **immediately mark it `blocked: NO-ACCESS-FILES` and stop the iteration.**
-- If you find yourself about to glob `.claude/**` or `**/*`, narrow the pattern to exclude `.claude/NO-ACCESS-FILES/**`.
-- Violating this rule **stops the entire loop**, full stop.
+- If you find yourself about to glob `.claude/**` or `**/*`, narrow the pattern to exclude `.claude/NO-ACCESS-FILES/**`. Example safe glob for `.claude`: `.claude/loop/**` or `.claude/skills/**`. Never `.claude/**`.
+- When running `find` from the repo root, prune the directory: `find . -path ./.claude/NO-ACCESS-FILES -prune -o -name '<pattern>' -print`.
+- When running `grep -r` from the repo root, exclude it: `grep -r --exclude-dir=.claude/NO-ACCESS-FILES …`.
+- Violating this rule **stops the entire loop**, full stop. There is no condition under which a backlog item or audit finding overrides this rule.
 
 Treat that folder as if it does not exist on disk.
 

@@ -1,3 +1,6 @@
+"use client"
+
+import { motion } from "framer-motion"
 import {
   Shield,
   Brain,
@@ -79,20 +82,31 @@ export function OneChatAllTools() {
   return (
     <section className="py-16 md:py-20 border-t border-border">
       <div className="container max-w-5xl mx-auto px-4">
-        <div className="text-center mb-10 md:mb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="text-center mb-10 md:mb-12"
+        >
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight">
             One chat. Every tool.
           </h2>
           <p className="mt-3 text-base text-muted-foreground max-w-xl mx-auto">
             Just describe what you need. PlagiaAI picks the right tool and runs it.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {CATEGORIES.map((category) => (
-            <div
+          {CATEGORIES.map((category, i) => (
+            <motion.div
               key={category.label}
-              className="rounded-2xl border border-border p-5"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.45, delay: i * 0.08, ease: "easeOut" }}
+              whileHover={{ y: -3 }}
+              className="rounded-2xl border border-border bg-card/40 p-5 transition-colors hover:border-foreground/20"
             >
               <div className="flex items-center gap-2.5 mb-4">
                 <div className={`p-1.5 rounded-md ${category.bgColor}`}>
@@ -106,14 +120,14 @@ export function OneChatAllTools() {
                 {category.tools.map((tool) => (
                   <li
                     key={tool.name}
-                    className="flex items-center gap-2.5 text-sm text-foreground"
+                    className="group flex items-center gap-2.5 text-sm text-foreground"
                   >
-                    <tool.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <tool.icon className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-150 group-hover:scale-110 group-hover:text-foreground" />
                     <span>{tool.name}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

@@ -35,6 +35,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ThemeToggle } from "./theme-toggle"
@@ -389,10 +390,24 @@ export function Nav() {
       </div>
 
       {/* Mobile Menu Overlay */}
+      <AnimatePresence>
       {isMobileMenuOpen && (
         <div className="lg:hidden">
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={closeMobileMenu} />
-          <div className="fixed top-14 left-0 right-0 bg-background border-b shadow-lg z-50 max-h-[calc(100vh-3.5rem)] overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
+            onClick={closeMobileMenu}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="fixed top-14 left-0 right-0 bg-background border-b shadow-lg z-50 max-h-[calc(100vh-3.5rem)] overflow-y-auto"
+          >
             <div className="p-4 space-y-2">
 
               {/* Mobile token summary */}
@@ -532,9 +547,10 @@ export function Nav() {
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
+      </AnimatePresence>
     </nav>
   )
 }

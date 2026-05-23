@@ -879,8 +879,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     <div className="min-h-screen bg-background flex flex-col">
       <Nav />
 
-      <section className="flex-1 flex flex-col">
-        <div className="container max-w-6xl mx-auto w-full px-4 py-6 flex-1 flex flex-row gap-1">
+      <section className="flex-1 flex flex-col min-h-[calc(100svh-3.5rem)]">
+        <div className="flex-1 flex flex-row min-h-0">
           {user && (
             <ConversationSidebar
               conversations={conversations}
@@ -893,7 +893,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               onDelete={handleDeleteConversation}
             />
           )}
-          <div className="flex-1 max-w-3xl mx-auto w-full flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="w-full max-w-3xl mx-auto px-4 py-6 flex-1 flex flex-col">
           {needsSignIn && !user && (
             <div className="mb-4">
               <ToolSignInPrompt />
@@ -1350,7 +1351,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 </Button>
               </div>
             </div>
-          </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

@@ -112,7 +112,7 @@ A new top-level tool at `/plagia-ai`. The user chats with an AI assistant; the a
 - **status:** done (2026-05-11)
 - **branch:** auto/fs-06-plagia-ai-multimodal (branched off auto/fs-05-plagia-ai-storage)
 - **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fs-06-plagia-ai-multimodal (set PR base to `auto/fs-05-plagia-ai-storage`)
-- **note:** **ALL 6 FLAGSHIP ITEMS NOW COMPLETE.** From here, the loop alternates: every 3rd iteration picks an FE item from the PLAGIA-AI EVOLUTION section; the other 2 iterations work top-down through P0/P1/P2. See RULES.md step 2.
+- **note:** FS-01 through FS-06 complete (initial PlagiaAI build). FS-07/08/09 added 2026-05-11 for the homepage swap. See RULES.md `CURRENT RUN SCOPE` — the loop is now restricted to FS-* and FE-* items only until further notice.
 - **files:** `lib/plagia-ai/tools.ts`, `lib/plagia-ai/dispatcher.ts`, `app/plagia-ai/page.tsx`
 - **acceptance:**
   - Add image-to-text to the tool registry. Add a paperclip/image-upload affordance in the chat input that lets the user attach an image; the message includes the image as base64. When the model decides to call image-to-text, the dispatcher uses the attached image.
@@ -120,6 +120,86 @@ A new top-level tool at `/plagia-ai`. The user chats with an AI assistant; the a
   - text-to-speech and word-counter remain client-only and are NOT in the registry — but the assistant is taught (via system prompt) to mention them when relevant.
   - Lint + build pass. Smoke test each new tool path.
 - **note:** If FS-05 has not landed, FS-06 can still proceed — they don't depend on each other.
+
+### FS-07 — Move plagiarism checker to `/plagiarism-checker` (simplified, tool-only)
+- **scope:** refactor + new-route
+- **status:** done (2026-05-11)
+- **priority:** P0 (blocks FS-09)
+- **branch:** `auto/fs-07-plagiarism-route` (branched off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fs-07-plagiarism-route
+- **spec:** `.claude/loop/PLAGIA-AI-REDESIGN-SPEC.md` (read in full before starting — section "Plagiarism-checker move (FS-07)")
+- **files:**
+  - NEW: `app/plagiarism-checker/page.tsx` (server, exports metadata) + `app/plagiarism-checker/content.tsx` (`"use client"`, the tool UI)
+  - EDIT: `components/nav.tsx` (add Plagiarism Checker entry under Writing tools — desktop + mobile)
+  - EDIT: `app/all-tools/page.tsx` (add Plagiarism Checker card in Writing grid)
+  - EDIT: `app/history/page.tsx` (when tool === "plagiarism", view-tool link points at `/plagiarism-checker`)
+  - EDIT: `app/sitemap.ts` if it exists (add new route)
+  - **DO NOT touch `app/page.tsx`** in this PR — FS-09 handles the home swap. After FS-07 ships, plagiarism is intentionally reachable at both `/` and `/plagiarism-checker`.
+- **acceptance:**
+  - `/plagiarism-checker` renders the plagiarism tool with the standard tool-page skeleton (Nav, ToolPageHeader with Shield icon and title "Plagiarism Checker", `<section className="container max-w-5xl …">`, FAQ).
+  - Tool functionality is identical to current home — `/api/check-plagiarism` SSE streaming, drop-zone, PlagiarismResults, token deduction all unchanged.
+  - Page splits into server `page.tsx` (exports `metadata`) + client `content.tsx` (the actual UI). Pattern matches `/all-tools` (see `learnings.md` 2026-05-11 P0-05).
+  - Marketing JSX (Hero copy, TrustSection, FeatureShowcase) is NOT copied to the new route — only the tool itself + FAQ.
+  - Nav mega-menu and `/all-tools` link to the new route.
+  - `/history` rows for plagiarism runs link to `/plagiarism-checker`.
+  - `npx tsc --noEmit` clean. `npm run lint` clean. Smoke test `/plagiarism-checker` returns 200 on `PORT=3100`.
+- **branch:** `auto/fs-07-plagiarism-route`
+- **pr:** TBD (set base to `main` — this is independent of FS-08/09)
+
+### FS-08 — PlagiaAI UI redesign: ChatGPT-style empty state + suggestion chips
+- **scope:** new-feature (UI redesign)
+- **status:** done (2026-05-11)
+- **priority:** P0
+- **branch:** `auto/fs-08-plagia-ai-redesign` (branched off `main` — independent of FS-07)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fs-08-plagia-ai-redesign
+- **spec:** `.claude/loop/PLAGIA-AI-REDESIGN-SPEC.md` (read in full before starting — sections "Layout — above the fold (empty state)", "Suggestion chips spec", "PlagiaAI redesign at `/plagia-ai` (FS-08)")
+- **files:**
+  - NEW: `components/plagia-ai/EmptyState.tsx` — H1 ("What can I help with today?") + sub ("One chat. 15 tools.")
+  - NEW: `components/plagia-ai/SuggestionChipBar.tsx` — 6 chips per spec (5 tool starters + 1 "See all tools" outline link)
+  - EDIT: `app/plagia-ai/page.tsx` — replace the existing empty-state JSX with `<EmptyState />` + `<SuggestionChipBar onChipClick={handlePrefill} />`. Add `handlePrefill(prefill)` that sets the textarea content and focuses it.
+- **acceptance:**
+  - Empty state (messages.length === 0) renders the new full-viewport hero with chips above the input.
+  - Chips prefill the textarea — they do NOT auto-submit.
+  - Cursor is positioned at the end of the prefill so the user types where it goes.
+  - "See all tools" chip links to `/all-tools` (use Next.js `<Link>`, outline variant).
+  - Chip row wraps on mobile (no horizontal scroll). Single row on desktop.
+  - Chip row has `role="group"` + `aria-label="Suggested prompts"`; each chip has accessible labels.
+  - Once messages.length > 0, the empty state is hidden and the existing chat thread layout renders unchanged.
+  - Sidebar (from FS-05), auth flow, token gating, ToolSignInPrompt — all untouched.
+  - **Do NOT add marketing sections in this PR.** That's FS-09.
+  - `npx tsc --noEmit` clean. `npm run lint` clean. Smoke test `/plagia-ai` on `PORT=3110` returns 200; grep the rendered HTML for "What can I help with today?" and "See all tools".
+- **branch:** `auto/fs-08-plagia-ai-redesign`
+- **pr:** TBD (set base to `main` — independent of FS-07; can ship in either order)
+
+### FS-09 — Swap `/` to PlagiaAI + add scroll-down marketing
+- **scope:** new-feature (home page swap)
+- **status:** done (2026-05-11)
+- **priority:** P0
+- **branch:** `auto/fs-09-home-swap` (branched off `auto/fs-08-plagia-ai-redesign`, merged in `auto/fs-07-plagiarism-route`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fs-09-home-swap (PR includes FS-07 + FS-08 + FS-09 because neither predecessor was merged at branch time; user can either set the base to whichever of FS-07/08 lands last, or merge all three together)
+- **deviation-from-spec:** User asked mid-iteration to also remove the ToolPageHeader from PlagiaAI for a minimal/ChatGPT look. Done — ToolPageHeader is no longer rendered on either `/` or `/plagia-ai`. The "header prop" approach from the spec was unneeded; both routes are just Nav + chat now.
+- **depends-on:** FS-07 AND FS-08 both merged to `main`
+- **spec:** `.claude/loop/PLAGIA-AI-REDESIGN-SPEC.md` (read in full before starting — sections "Homepage swap (FS-09)", "Layout — below the fold")
+- **files:**
+  - REWRITE: `app/page.tsx` — render PlagiaAI chat (using shared `<PlagiaAiApp />`) + scroll-down marketing sections.
+  - NEW: `components/plagia-ai/PlagiaAiApp.tsx` — extracted from `app/plagia-ai/page.tsx`. Single source of truth for the chat. Both `/` and `/plagia-ai` import this.
+  - EDIT: `app/plagia-ai/page.tsx` — thin shell that renders `<PlagiaAiApp />` without marketing.
+  - NEW: `components/plagia-ai/OneChatAllTools.tsx` — the "One chat. Every tool." 3-column explainer (Writing / Image / Voice).
+  - EDIT: `components/nav.tsx` — "PlagiaAI" entry now points at `/` (not `/plagia-ai`).
+  - EDIT: `app/all-tools/page.tsx` — featured PlagiaAI hero card → `/`.
+  - EDIT/EXTRACT: `components/TrustSection.tsx` if it doesn't already exist as a standalone — extract from current `app/page.tsx` JSX during this PR.
+- **acceptance:**
+  - `/` renders the PlagiaAI empty-state hero (not the old plagiarism UI).
+  - Below the fold (visible only when messages.length === 0): "One chat. Every tool." section, "How it works" 3-step, TrustSection, FAQ, Footer.
+  - When the user sends a message, marketing sections disappear; chat takes over.
+  - `/plagia-ai` continues to work (renders the chat without marketing).
+  - `/plagiarism-checker` (from FS-07) continues to work.
+  - Page metadata on `/`: title includes "Plagiacheck — AI plagiarism checker, paraphraser, summarizer, and 12 more tools"; description mentions the key tool keywords for SEO continuity.
+  - Nav "PlagiaAI" links to `/`. `/all-tools` featured hero links to `/`.
+  - `npx tsc --noEmit` clean. `npm run lint` clean. Smoke test `PORT=3120`: `/` 200 + grep for "What can I help with today?" + "One chat. Every tool."; `/plagia-ai` 200; `/plagiarism-checker` 200.
+- **branch:** `auto/fs-09-home-swap` (branched off whichever of FS-07/FS-08 lands last)
+- **pr:** TBD (set base depending on merge state — if FS-07 + FS-08 are both on main, base `main`)
+- **rollback:** if FS-09 ships and breaks, reverting just `app/page.tsx` restores the previous home. `/plagia-ai` (via `PlagiaAiApp`) still works. `/plagiarism-checker` still works.
 
 ---
 
@@ -173,58 +253,130 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-03 — Show tool reasoning inline (transparency)
 - **scope:** ui
 - **pillar:** conversational-quality
-- **status:** todo
+- **status:** done (2026-05-11)
+- **branch:** `auto/fe-03-tool-reasoning` (branched off `auto/fs-09-home-swap` — chat code lives in PlagiaAiApp post-extraction)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-03-tool-reasoning
 - **files:** `app/plagia-ai/page.tsx`, `app/api/plagia-ai/route.ts`
 - **acceptance:** When the assistant decides to call a tool, the tool card includes a one-sentence "Why this tool" caption derived from the assistant's reasoning. Implement by prompting Mistral to emit a brief reason alongside the tool call (in the assistant's text immediately before the tool call). Render it as small muted text inside the tool card.
 
 ### FE-04 — Token-cost preview before expensive tool calls
 - **scope:** ux
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-04-cost-preview` (branched off local `main` — local main has FS-07/08/09 + FE-03 merged in but origin/main is still behind awaiting review)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-04-cost-preview
 - **files:** `app/plagia-ai/page.tsx`, `lib/plagia-ai/tools.ts`
 - **acceptance:** For any tool call whose estimated cost exceeds a threshold (e.g. >50 text tokens or any image-token tool), the tool card first shows "About to use ~X tokens" with a "Confirm" / "Cancel" button before dispatching. Threshold and confirmation logic configurable in `lib/plagia-ai/config.ts`. User can toggle this off in a settings menu (`localStorage` flag).
 
 ### FE-05 — Retry-with-feedback on failed tool calls
 - **scope:** tool-fn
 - **pillar:** speed-and-reliability
-- **status:** todo
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-05-retry-feedback` (stacked on `auto/fe-04-cost-preview` because both touch app/api/plagia-ai/route.ts)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-05-retry-feedback
 - **files:** `app/api/plagia-ai/route.ts`, `lib/plagia-ai/dispatcher.ts`
 - **acceptance:** When a tool returns an error (4xx/5xx, validation failure, etc.), the orchestrator feeds the error back to Mistral as a `tool` message with the failure reason and asks the model to either (a) retry with different args, (b) try a different tool, or (c) tell the user. Hard cap: 2 retries per tool call (to avoid infinite loops). Verify by deliberately corrupting an arg (e.g. negative length) and observing the model recover.
 
 ### FE-06 — Streaming tool results when available
 - **scope:** tool-fn
 - **pillar:** speed-and-reliability
-- **status:** todo
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-06-streaming-tool-results` (stacked on `auto/fe-05-retry-feedback`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-06-streaming-tool-results
 - **files:** `lib/plagia-ai/dispatcher.ts`, `app/api/plagia-ai/route.ts`, `app/plagia-ai/page.tsx`
 - **acceptance:** For tools whose underlying route streams (currently only `/api/check-plagiarism`), the dispatcher streams intermediate progress events back to the client as `tool_progress` SSE events. The tool card shows a progress indicator instead of just "running…". Once the underlying stream completes, the dispatcher feeds the final aggregated result back to Mistral for the conversational wrap-up.
 
 ### FE-07 — Mobile polish pass on /plagia-ai
 - **scope:** ui
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-07-mobile-polish` (stacked on `auto/fe-06-streaming-tool-results`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-07-mobile-polish
 - **files:** `app/plagia-ai/page.tsx`
 - **acceptance:** Test at 360px, 414px, 768px. Sticky input doesn't get covered by mobile keyboard (use `visualViewport` API). Tool cards remain readable. Sidebar (if FS-05 shipped) collapses to a hamburger. No horizontal scroll. Tap targets >= 44px.
 
 ### FE-08 — Accessibility audit + ARIA roles for chat
 - **scope:** a11y
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-08-a11y` (stacked on `auto/fe-07-mobile-polish`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-08-a11y
 - **files:** `app/plagia-ai/page.tsx`
 - **acceptance:** Chat thread has `role="log" aria-live="polite"`. Each message has an appropriate label ("You said:", "Assistant said:"). Tool cards announce status changes. Keyboard-only flow: Tab through messages, Enter to expand tool cards, focus stays on input by default. Verify with a screenreader pass (axe or similar in browser devtools).
 
 ### FE-09 — Persistent personalization (user preferences)
 - **scope:** new-feature
 - **pillar:** intent-accuracy
-- **status:** todo
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-09-preferences` (stacked on `auto/fe-08-a11y`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-09-preferences
+- **sql-required:** Yes — `ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS plagia_ai_preferences JSONB DEFAULT '{}'::jsonb;` (one-time). UI degrades gracefully until the user runs it.
 - **files:** new column `plagia_ai_preferences` on `user_profiles` table (document SQL in PR), `app/plagia-ai/page.tsx`, `app/api/plagia-ai/route.ts`
 - **acceptance:** Small settings panel in the chat (gear icon in header) lets the user save persistent preferences passed to the system prompt: default paraphrase mode, preferred tone for humanizer, summary length default, "always confirm before image-token spend", etc. Stored in Supabase per user. Pre-prompt the model with these on every turn. Don't bloat the system prompt — only include preferences the user has explicitly set.
 
 ### FE-10 — Suggested follow-up actions after each tool result
 - **scope:** ux
 - **pillar:** conversational-quality
+- **status:** done (2026-05-22)
+- **branch:** `auto/fe-10-followups` (stacked on `auto/fe-09-preferences`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-10-followups
+
+### FE-11 — Server-side follow-up fallback when model omits the marker
+- **scope:** tool-fn
+- **pillar:** conversational-quality
+- **status:** done (2026-05-24)
+- **branch:** bundled into the 2026-05-24 hand-fix branch (not a numbered `auto/fe-11-*` branch)
+- **files:** `app/api/plagia-ai/route.ts`, `lib/plagia-ai/followups.ts` (NEW)
+- **acceptance:** After every successful tool dispatch, if the model's final wrap-up didn't include a `[[FOLLOWUPS:...]]` marker, the server synthesizes 2-3 default suggestions deterministically from the tool name. E.g. after `paraphrase` returns ok: `["Check it for grammar", "Make it shorter", "Detect any AI signals"]`. After `summarize`: `["Paraphrase the summary formally", "Expand it back to full text"]`. Mapping lives in `lib/plagia-ai/followups.ts`. The model's own marker still wins when present; this is purely a defensive fallback. Verify by deliberately removing rule 10 from the system prompt and chatting — suggestions should still appear.
+
+### FE-12 — Conversation export (Markdown)
+- **scope:** new-feature
+- **pillar:** frictionless-interaction
 - **status:** todo
-- **files:** `app/plagia-ai/page.tsx`, `app/api/plagia-ai/route.ts`
-- **acceptance:** After the assistant finishes its conversational wrap-up of a tool result, show 2-3 chip-style follow-up suggestions ("Paraphrase the result formally", "Check it for grammar", "Summarize it shorter"). Each chip, on click, becomes the next user message. The model generates these as a `suggestions` SSE event before `done`.
+- **files:** `components/plagia-ai/PlagiaAiApp.tsx`, `lib/plagia-ai/export.ts` (NEW)
+- **acceptance:** Add a "⤓ Export" link next to "Clear" in the chat header (only when conversation has started). On click, downloads the conversation as a `.md` file with the structure: `# PlagiaAI conversation — <date>` then each turn as `## You` / `## PlagiaAI` blocks. Tool calls render as fenced code blocks: \`\`\`tool plagiarism_check\n<args summary>\n<result preview>\n\`\`\`. Filename: `plagia-ai-<YYYY-MM-DD-HHMM>.md`. No server round-trip — pure client-side using `Blob` + `URL.createObjectURL`.
+
+### FE-13 — Sidebar polish: active-conversation indicator + conversation-switch animation
+- **scope:** ui
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **spec:** `.claude/loop/UI-POLISH-SPEC.md` (read in full before starting)
+- **files:** `components/plagia-ai/ConversationSidebar.tsx`, `components/plagia-ai/PlagiaAiApp.tsx`
+- **acceptance:**
+  - Active conversation row in the sidebar gets a left-edge violet bar (2px, full height of the row) in addition to the existing `bg-accent` styling, so it stands out at a glance the way ChatGPT does.
+  - When the user clicks a different conversation, the chat thread cross-fades (opacity 0 → 1, 150ms) instead of hard-swapping. Wrap the chat thread render in framer-motion `AnimatePresence` keyed by `conversationId ?? "empty"`.
+  - When a conversation row enters the list (after `saveConversation` adds a new row), animate it in (`opacity: 0, y: -4` → `opacity: 1, y: 0`, 200ms). Use `AnimatePresence` around the list mapping. **Important:** when collapsing the sidebar, the existing list-fade animation must continue to work — don't nest two AnimatePresence layers that fight each other; the outer fade is on the whole list, the inner motion is per-row.
+  - Mobile (`< lg`) gets a drawer-style sidebar: tapping the existing hamburger reveals the sidebar from the left edge with a `translateX(-100%) → 0` animation (200ms), with a backdrop dim behind it (same pattern as the nav mobile menu). Drawer closes on backdrop tap, on row tap (after the conversation loads), and on Escape. **No drawer on desktop** — the existing inline sidebar stays.
+  - Preserve all existing ARIA labels and `prefers-reduced-motion` behavior.
+- **out of scope:** sidebar search, conversation pinning, multi-select.
+
+### FE-14 — Tool-page motion pass (ToolPageHeader + result reveals)
+- **scope:** ui
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **spec:** `.claude/loop/UI-POLISH-SPEC.md`
+- **files:** `components/tool-page-header.tsx`, each `app/<tool>/page.tsx` that renders a result panel (paraphraser, summarizer, humanizer, ai-detector, grammar-checker, plagiarism-checker, image-to-text, chart-generator, infographic-generator, thumbnail-generator, voice-to-essay, audio-summarizer, speech-to-text)
+- **acceptance:**
+  - `ToolPageHeader` becomes a `"use client"` component with a framer-motion entrance (`opacity: 0, y: 8` → `opacity: 1, y: 0`, 300ms). Server pages can still import it.
+  - Each tool's result panel animates in when it transitions from empty → populated. Cheapest implementation: wrap the result `<div>` in a framer-motion `AnimatePresence` keyed by whether a result exists. Use `opacity: 0, y: 6` → `opacity: 1, y: 0`, 250ms.
+  - Skeleton loaders (where present) cross-fade to the real result (no hard pop).
+  - Respect `prefers-reduced-motion` via `useReducedMotion()` from framer-motion — when true, return instantly without motion props.
+  - **No layout shift** — the result panel's container reserves space before motion starts (e.g. via `min-h` or by mounting an empty placeholder).
+  - Lint + tsc clean. Smoke test at least two tool pages manually.
+- **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
+
+### FE-15 — Reduce-motion audit + final hardening
+- **scope:** a11y
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **spec:** `.claude/loop/UI-POLISH-SPEC.md`
+- **files:** every component that uses `motion.*` or has a `transition-` class (use grep to enumerate; do NOT touch `lib/svg-templates.ts` since SVG output is not animated).
+- **acceptance:**
+  - Survey every framer-motion `<motion.*>` in the repo and ensure the animation is suppressed when `useReducedMotion()` is true. Pattern: read the hook at the top of the component, then pass `initial={false}` or omit the motion variants when reduced motion is preferred.
+  - The global `button:active` press feedback already respects `prefers-reduced-motion: reduce` — verify in DevTools.
+  - Any custom `transition-*` className that animates a transform should have an `@media (prefers-reduced-motion: reduce) { transform: none }` fallback OR be wrapped in a Tailwind variant. Adding a `motion-safe:` prefix to those classes is the cheapest fix (Tailwind ships this variant by default).
+  - PR description must list every file inspected and the outcome (already-compliant vs. fixed).
+- **out of scope:** redesigning any animation; this is a compliance audit pass.
 
 ---
 

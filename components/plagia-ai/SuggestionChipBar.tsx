@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { motion } from "framer-motion"
 import {
   Shield,
   Pencil,
@@ -29,6 +30,11 @@ interface SuggestionChipBarProps {
   onChipClick: (prefill: string) => void
 }
 
+const itemVariants = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+}
+
 export function SuggestionChipBar({ onChipClick }: SuggestionChipBarProps) {
   return (
     <div
@@ -36,26 +42,37 @@ export function SuggestionChipBar({ onChipClick }: SuggestionChipBarProps) {
       aria-label="Suggested prompts"
       className="flex flex-wrap gap-2 justify-center"
     >
-      {CHIPS.map(({ label, icon: Icon, prefill }) => (
-        <button
+      {CHIPS.map(({ label, icon: Icon, prefill }, i) => (
+        <motion.button
           key={label}
           type="button"
           onClick={() => onChipClick(prefill)}
           aria-label={label}
-          className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-accent/40 hover:bg-accent border border-border text-sm text-foreground transition-colors"
+          variants={itemVariants}
+          initial="initial"
+          animate="animate"
+          transition={{ duration: 0.2, delay: 0.05 + i * 0.035, ease: "easeOut" }}
+          className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-accent/40 hover:bg-accent border border-border text-sm text-foreground transition-[background-color,border-color,transform] duration-150 hover:-translate-y-0.5"
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
           <span>{label}</span>
-        </button>
+        </motion.button>
       ))}
-      <Link
-        href="/all-tools"
-        aria-label="See all tools"
-        className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-primary/30 hover:border-primary text-sm text-foreground transition-colors"
+      <motion.div
+        variants={itemVariants}
+        initial="initial"
+        animate="animate"
+        transition={{ duration: 0.2, delay: 0.05 + CHIPS.length * 0.035, ease: "easeOut" }}
       >
-        <span>See all tools</span>
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </Link>
+        <Link
+          href="/all-tools"
+          aria-label="See all tools"
+          className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-primary/30 hover:border-primary text-sm text-foreground transition-[background-color,border-color,transform] duration-150 hover:-translate-y-0.5"
+        >
+          <span>See all tools</span>
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      </motion.div>
     </div>
   )
 }
