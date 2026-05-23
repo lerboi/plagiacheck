@@ -371,6 +371,35 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
   - Lint + tsc clean. Smoke test at least two tool pages manually.
 - **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
 
+### FE-19 — Regenerate the last assistant response
+- **scope:** new-feature
+- **pillar:** conversational-quality
+- **status:** todo
+- **files:** `components/plagia-ai/PlagiaAiApp.tsx`
+- **why:** ChatGPT has a "regenerate" affordance below the latest assistant turn — re-run the model on the same conversation history for a different answer. Distinct from FE-18's edit-and-resend (which changes the prompt); FE-19 keeps the prompt and re-rolls the response. Filters as "speed and reliability" too — when the model gave a poor answer, regenerating is faster than retyping.
+- **acceptance:**
+  - Below the most recent `assistant` text bubble (not below tool cards), show a small "Regenerate" button (lucide `RotateCcw` icon + label). Visible only when the bubble is the LAST item in `items` AND `!streaming` AND `!editingMessageId`.
+  - Click: drop everything AT and AFTER the previous user message → tool block → assistant bubble, then call `sendMessage(<previous user content>, { baseItems: truncated })`. In effect, we rewind to just before the assistant's turn and let the model re-roll.
+  - Disabled while streaming.
+  - Behavior with tool calls: if the last assistant text is preceded by tool cards in the same turn, treat the whole turn (user → tool[s] → assistant) as the unit to re-run.
+  - Don't show on assistant bubbles in the MIDDLE of the conversation — only the latest, to avoid breaking earlier-turn semantics.
+- **out of scope:** branching alternative responses (keeping multiple regenerations as siblings), regenerate-on-tool-card.
+
+### FE-20 — Rename a saved conversation
+- **scope:** new-feature
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **files:** `components/plagia-ai/ConversationSidebar.tsx`, `lib/plagia-ai/storage.ts` (extend), `components/plagia-ai/PlagiaAiApp.tsx`
+- **why:** Conversation titles are auto-derived from the first user message and immutable. After a few weeks the sidebar fills with "Check this text for plagiarism: ..." titles that are hard to scan. Letting users rename their saved chats is the same pattern every chat app supports.
+- **acceptance:**
+  - Conversation row in the sidebar gets a small rename button (lucide `Pencil`) that appears on hover next to the existing delete button. Hidden by default; reveals on `group-hover`.
+  - Click: row morphs into an inline input pre-filled with the current title. Save on Enter or blur; cancel on Escape.
+  - Save calls a new `renameConversation(id, newTitle)` helper in `lib/plagia-ai/storage.ts` that PATCHes the `plagia_ai_conversations` row (title column already exists from FS-05 — no migration needed).
+  - On success, refetch `listConversations()` so the sidebar shows the new title. On failure, toast the error and revert the row to the pre-edit display.
+  - Trim whitespace; reject empty titles (re-show input with the empty state highlighted).
+  - Drawer variant (mobile) gets the same flow.
+- **out of scope:** custom emoji/icon per conversation, color-coding, manual reordering.
+
 ### FE-17 — Conversation list filter (sidebar search)
 - **scope:** new-feature
 - **pillar:** frictionless-interaction
@@ -393,7 +422,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** conversational-quality
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-18-edit-message (stacked on auto/fe-17-sidebar-filter)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-18-edit-message (set base to `auto/fe-17-sidebar-filter`)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`
 - **why:** Common pain in any chat UI — user typo or unclear phrasing forces a fresh message that loses context. ChatGPT lets you click your own bubble to edit; on submit it truncates the conversation back to that turn and re-runs from there. Cheap to implement client-side because we already have the full `items` array.
 - **acceptance:**
