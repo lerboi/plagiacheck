@@ -371,6 +371,38 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
   - Lint + tsc clean. Smoke test at least two tool pages manually.
 - **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
 
+### FE-17 — Conversation list filter (sidebar search)
+- **scope:** new-feature
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **files:** `components/plagia-ai/ConversationSidebar.tsx`
+- **why:** Once a user has 10+ saved conversations the sidebar becomes a scroll-fest. ChatGPT solves this with a small filter input above the list. Pure client-side filter (no server round-trip) since `conversations` is already loaded in state.
+- **acceptance:**
+  - Add a single `<input type="search">` between the "New chat" header row and the conversation list, only in inline (desktop) mode AND only when `conversations.length >= 6` (small lists don't need a filter).
+  - Filter is case-insensitive substring match against `c.title`.
+  - Empty state when the filter is non-empty but no matches: "No matches" with a "Clear" button that resets the input.
+  - Existing AnimatePresence row enter/exit handles the filtered list shrinking/growing.
+  - Drawer (mobile) variant: also add the input for parity. Same threshold.
+  - Preserve all existing ARIA labels. The input gets `aria-label="Filter conversations"`.
+- **out of scope:** server-side search, regex, multi-word relevance.
+
+### FE-18 — Edit a previous user message (retry turn)
+- **scope:** new-feature
+- **pillar:** conversational-quality
+- **status:** todo
+- **files:** `components/plagia-ai/PlagiaAiApp.tsx`
+- **why:** Common pain in any chat UI — user typo or unclear phrasing forces a fresh message that loses context. ChatGPT lets you click your own bubble to edit; on submit it truncates the conversation back to that turn and re-runs from there. Cheap to implement client-side because we already have the full `items` array.
+- **acceptance:**
+  - Hover state on a user bubble (right-aligned `bg-primary/10`) shows a small pencil icon button (top-right of the bubble, `opacity-0 group-hover:opacity-100`).
+  - Clicking it replaces the bubble content with an editable textarea (same size, focus moves there, cursor at the end).
+  - Two buttons below the textarea: "Save and resend" (primary) and "Cancel" (ghost).
+  - Save: truncate `items` to drop everything AT and AFTER the edited message, then call `sendMessage(editedText)` with the new content. Existing send logic handles the rest (history persistence, follow-ups, etc.).
+  - Cancel: discard the edit, restore the original bubble.
+  - Disabled while `streaming`. Disabled if the edited text is empty or unchanged.
+  - Keyboard: Escape cancels, Ctrl/Cmd+Enter saves.
+  - Mobile: same flow but full-width textarea.
+- **out of scope:** editing assistant messages, branching multiple alternative responses, history of edits.
+
 ### FE-16 — Extend ResultReveal to the remaining tool pages
 - **scope:** ui
 - **pillar:** frictionless-interaction
