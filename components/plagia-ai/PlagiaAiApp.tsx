@@ -43,6 +43,7 @@ import {
   deriveConversationTitle,
   listConversations,
   loadConversation,
+  renameConversation,
   saveConversation,
   type StoredConversationSummary,
 } from "@/lib/plagia-ai/storage"
@@ -1016,6 +1017,27 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     }
   }
 
+  // FE-20 — rename a saved conversation. The sidebar handles the inline-
+  // editor UX; this handler just calls the storage helper and refreshes
+  // the list on success. Failure toast points at the most likely cause
+  // (auth lapsed mid-edit, transient network).
+  const handleRenameConversation = async (id: string, newTitle: string) => {
+    const trimmed = newTitle.trim()
+    if (!trimmed) return false
+    const ok = await renameConversation(id, trimmed)
+    if (!ok) {
+      toast({
+        title: "Couldn't rename conversation",
+        description: "Try again in a moment.",
+        variant: "destructive",
+      })
+      return false
+    }
+    const fresh = await listConversations()
+    setConversations(fresh)
+    return true
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault()
@@ -1052,6 +1074,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               onSelect={handleSelectConversation}
               onNewChat={handleNewChat}
               onDelete={handleDeleteConversation}
+              onRename={handleRenameConversation}
             />
           )}
           {/* FE-13 — mobile drawer (lg:hidden). Renders a backdrop +
@@ -1091,6 +1114,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     onSelect={handleSelectConversation}
                     onNewChat={handleNewChat}
                     onDelete={handleDeleteConversation}
+                    onRename={handleRenameConversation}
                     onCloseDrawer={() => setMobileSidebarOpen(false)}
                   />
                 </motion.aside>

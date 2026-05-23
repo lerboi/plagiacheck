@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-20 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-20-rename-conversation (stacked on auto/fe-19-regenerate)
+- summary: User-renameable conversation titles. Storage: new `renameConversation(id, newTitle)` in `lib/plagia-ai/storage.ts` — a pure UPDATE on `plagia_ai_conversations.title` + `updated_at` bump. Trims whitespace + clamps to `TITLE_MAX_CHARS` (60) server-side. Returns boolean for the UI to act on. UI: ConversationSidebar's row gets a third state alongside (normal | confirming-delete): renaming. When `renamingId === c.id`, the row renders an autofocused `<input type="text">` instead of the title button. Enter commits, Escape cancels, blur commits, empty draft keeps the editor open with a red border. The row's action area now shows TWO hover-revealed icons (Pencil for rename, Trash2 for delete) wrapped in a small flex container. Both inline and drawer variants share the same flow because filter state + rename state both live in `ConversationList`. Parent `PlagiaAiApp` provides `handleRenameConversation(id, newTitle)` which calls the storage helper, toasts on failure, and refetches the list on success so the sidebar shows the new title without a manual reload.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: needs a real Supabase row to confirm the UPDATE writes correctly. Mental model: click pencil → input appears with current title → type new → Enter → row briefly shows new title (from refetch) → input dismounts.
+- lesson:
+  1. **Refetch the list, don't optimistically update.** Considered locally setting `conversations[i].title = newTitle` to skip the network round-trip. Rejected because Supabase RLS might silently reject the UPDATE (e.g. row belongs to another user — shouldn't happen but defensive). Refetching ensures the UI never diverges from the database. Cost is one extra round-trip per rename — negligible on this surface.
+  2. **`onBlur` commits + Escape cancels + Enter commits is the right keyboard contract for inline rename.** Users expect "click away = save" in this idiom (file explorers, Notion, Linear). Wrapping the same `commitRename` in both Enter and onBlur means one path. Escape gets its own handler that just clears the editing state without calling the API.
+  3. **Visual error state via border-color, not toast, for "empty title".** A toast on every empty-string submit would be noisy. The input border flips red when `renameDraft.trim() === ""`. The commit handler short-circuits before hitting Supabase. Pattern: validation feedback should be co-located with the input that triggered it; toasts are for transient errors that aren't visible at the input.
+  4. **maxLength on the input mirrors the server-side clamp.** Storage helper does `.slice(0, TITLE_MAX_CHARS)`. The input gets `maxLength={60}` so the user can't type more than the database will store. Belt-and-suspenders: even if the input attribute is bypassed (devtools edit), the server still trims.
+  5. **TWO hover-revealed icons demand a container.** Originally `<button delete /> <button rename />` would stack at different opacity-transition timings. Wrapping both in `<div className="flex items-center mr-1">` makes them rise/fall as one unit. Cosmetic but noticeably smoother.
+
 ## 2026-05-24 — FE-19 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-19-regenerate
 - branch: auto/fe-19-regenerate (stacked on auto/fe-18-edit-message)

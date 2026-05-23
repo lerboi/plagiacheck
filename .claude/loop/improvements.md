@@ -390,7 +390,9 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-20 — Rename a saved conversation
 - **scope:** new-feature
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-20-rename-conversation (stacked on auto/fe-19-regenerate)
+- **pr:** TBD (capture after push)
 - **files:** `components/plagia-ai/ConversationSidebar.tsx`, `lib/plagia-ai/storage.ts` (extend), `components/plagia-ai/PlagiaAiApp.tsx`
 - **why:** Conversation titles are auto-derived from the first user message and immutable. After a few weeks the sidebar fills with "Check this text for plagiarism: ..." titles that are hard to scan. Letting users rename their saved chats is the same pattern every chat app supports.
 - **acceptance:**

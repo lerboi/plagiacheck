@@ -4,6 +4,7 @@ import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   MessageSquarePlus,
+  Pencil,
   Trash2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,6 +21,9 @@ interface ConversationSidebarProps {
   onSelect: (id: string) => void
   onNewChat: () => void
   onDelete: (id: string) => void
+  /** FE-20 — rename a saved conversation. Returns true on success (parent
+   *  is expected to refetch the list); false on failure. */
+  onRename?: (id: string, newTitle: string) => Promise<boolean>
   /**
    * FE-13 — render mode.
    *   - "inline" (default): desktop sidebar with width-transition collapse.
@@ -63,6 +67,8 @@ interface ListProps {
   onClearFilter?: () => void
   onSelect: (id: string) => void
   onDelete: (id: string) => void
+  /** FE-20 — see ConversationSidebarProps. */
+  onRename?: (id: string, newTitle: string) => Promise<boolean>
 }
 
 function ConversationList({
@@ -73,8 +79,14 @@ function ConversationList({
   onClearFilter,
   onSelect,
   onDelete,
+  onRename,
 }: ListProps) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  // FE-20 — inline rename editor. Only one row at a time can be in edit
+  // mode; switching to a different row commits/cancels the previous edit
+  // implicitly (the click target unmounts the old input).
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState("")
 
   return (
     <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5 min-h-0">
@@ -116,6 +128,35 @@ function ConversationList({
           {conversations.map((c) => {
             const isActive = c.id === activeId
             const confirming = confirmDeleteId === c.id
+            const isRenamingThisRow = renamingId === c.id
+            const commitRename = async () => {
+              const draft = renameDraft.trim()
+              if (!onRename) {
+                setRenamingId(null)
+                setRenameDraft("")
+                return
+              }
+              if (!draft) {
+                // Empty title — keep editor open with visual error.
+                return
+              }
+              if (draft === (c.title || "")) {
+                setRenamingId(null)
+                setRenameDraft("")
+                return
+              }
+              const ok = await onRename(c.id, draft)
+              if (ok) {
+                setRenamingId(null)
+                setRenameDraft("")
+              }
+              // On failure the parent already toasts; leave editor open for retry.
+            }
+            const cancelRename = () => {
+              setRenamingId(null)
+              setRenameDraft("")
+            }
+
             return (
               <motion.div
                 key={c.id}
@@ -135,45 +176,91 @@ function ConversationList({
                     className="absolute left-0 top-1 bottom-1 w-[2px] rounded-r-sm bg-violet-500"
                   />
                 )}
-                <button
-                  onClick={() => onSelect(c.id)}
-                  className={`flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 text-left ${
-                    isActive ? "text-foreground" : "text-foreground/85"
-                  }`}
-                >
-                  <span className="text-xs truncate flex-1">
-                    {c.title || "Untitled"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                    {relativeTime(c.updated_at)}
-                  </span>
-                </button>
-                {confirming ? (
-                  <div className="flex items-center gap-0.5 pr-1">
-                    <button
-                      onClick={() => setConfirmDeleteId(null)}
-                      className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground rounded"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => {
-                        onDelete(c.id)
-                        setConfirmDeleteId(null)
+                {isRenamingThisRow ? (
+                  <div className="flex-1 min-w-0 px-1.5 py-1">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={renameDraft}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          e.preventDefault()
+                          cancelRename()
+                        } else if (e.key === "Enter") {
+                          e.preventDefault()
+                          void commitRename()
+                        }
                       }}
-                      className="h-6 px-1.5 text-[10px] text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium rounded"
-                    >
-                      Delete
-                    </button>
+                      onBlur={() => void commitRename()}
+                      className={`w-full h-7 px-2 rounded-md border bg-background text-xs focus:outline-none focus:ring-1 ${
+                        !renameDraft.trim()
+                          ? "border-red-400 focus:ring-red-400"
+                          : "border-violet-500 focus:ring-violet-500"
+                      }`}
+                      aria-label="Rename conversation"
+                      maxLength={60}
+                    />
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setConfirmDeleteId(c.id)}
-                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-opacity mr-1"
-                    aria-label="Delete conversation"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button
+                      onClick={() => onSelect(c.id)}
+                      className={`flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 text-left ${
+                        isActive ? "text-foreground" : "text-foreground/85"
+                      }`}
+                    >
+                      <span className="text-xs truncate flex-1">
+                        {c.title || "Untitled"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                        {relativeTime(c.updated_at)}
+                      </span>
+                    </button>
+                    {confirming ? (
+                      <div className="flex items-center gap-0.5 pr-1">
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground rounded"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            onDelete(c.id)
+                            setConfirmDeleteId(null)
+                          }}
+                          className="h-6 px-1.5 text-[10px] text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium rounded"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center mr-1">
+                        {onRename && (
+                          <button
+                            onClick={() => {
+                              setRenamingId(c.id)
+                              setRenameDraft(c.title || "")
+                            }}
+                            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground transition-opacity"
+                            aria-label="Rename conversation"
+                            title="Rename"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setConfirmDeleteId(c.id)}
+                          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-opacity"
+                          aria-label="Delete conversation"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </motion.div>
             )
@@ -197,6 +284,7 @@ export function ConversationSidebar({
   onSelect,
   onNewChat,
   onDelete,
+  onRename,
   variant = "inline",
   onCloseDrawer,
 }: ConversationSidebarProps) {
@@ -256,6 +344,7 @@ export function ConversationSidebar({
           onClearFilter={() => setFilterQuery("")}
           onSelect={onSelect}
           onDelete={onDelete}
+          onRename={onRename}
         />
       </div>
     )
@@ -347,6 +436,7 @@ export function ConversationSidebar({
               onClearFilter={() => setFilterQuery("")}
               onSelect={onSelect}
               onDelete={onDelete}
+              onRename={onRename}
             />
           </motion.div>
         )}

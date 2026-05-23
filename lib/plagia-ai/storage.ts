@@ -95,6 +95,31 @@ export async function saveConversation(
   return data.id as string
 }
 
+/**
+ * FE-20 — rename a saved conversation. The `title` column already exists
+ * (FS-05) so this is a pure UPDATE — no migration needed. Trims the input
+ * server-side so the database never holds whitespace-only titles even if
+ * the client forgets to. Caps at `TITLE_MAX_CHARS` (60) to match what
+ * `deriveConversationTitle` produces for auto-generated names.
+ */
+export async function renameConversation(
+  id: string,
+  newTitle: string,
+): Promise<boolean> {
+  const trimmed = newTitle.trim().slice(0, TITLE_MAX_CHARS)
+  if (!trimmed) return false
+  const supabase = getClient()
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ title: trimmed, updated_at: new Date().toISOString() })
+    .eq("id", id)
+  if (error) {
+    console.error("Failed to rename conversation:", error.message)
+    return false
+  }
+  return true
+}
+
 export async function deleteConversation(id: string): Promise<boolean> {
   const supabase = getClient()
   const { error } = await supabase.from(TABLE).delete().eq("id", id)
