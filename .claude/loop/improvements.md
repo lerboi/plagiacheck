@@ -376,7 +376,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** conversational-quality
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-19-regenerate (stacked on auto/fe-18-edit-message)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-19-regenerate (set base to `auto/fe-18-edit-message`)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`
 - **why:** ChatGPT has a "regenerate" affordance below the latest assistant turn — re-run the model on the same conversation history for a different answer. Distinct from FE-18's edit-and-resend (which changes the prompt); FE-19 keeps the prompt and re-rolls the response. Filters as "speed and reliability" too — when the model gave a poor answer, regenerating is faster than retyping.
 - **acceptance:**

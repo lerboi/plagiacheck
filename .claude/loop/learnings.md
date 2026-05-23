@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-19 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-19-regenerate
 - branch: auto/fe-19-regenerate (stacked on auto/fe-18-edit-message)
 - summary: ChatGPT-style "Regenerate" button under the most recent assistant text bubble. Pre-compute `lastAssistantId` once before the items.map (cheap; items is short). Inside the assistant render branch, `isLastAssistant = it.id === lastAssistantId`. Show the button only when `isLastAssistant && !streaming && !editingMessageId && it.content.trim()`. Click: walk back from end of `items` to find last assistant, then walk back to the immediately preceding user message; truncate items to drop the user message and everything after; call `sendMessage(userTurn.content, { baseItems: truncated })`. This rewinds to just before the user→assistant pair (and any intervening tool calls) and re-runs the same prompt for a different answer. Button uses `RotateCcw` icon (same as the existing error-retry banner — consistent visual vocabulary).
 - NO-ACCESS-FILES audit: clean.
