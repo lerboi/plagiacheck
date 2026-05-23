@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-17 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-17-sidebar-filter (stacked on auto/fe-16-result-reveal-rest)
+- summary: Client-side substring filter for the conversation sidebar. ConversationSidebar gains a `filterQuery` state + a `<input type="search">` slot above the conversation list. Visible only when `conversations.length >= FILTER_MIN_CONVERSATIONS` (= 6) — small lists don't need filtering. Filter is case-insensitive substring on `c.title`. Both variants (inline desktop sidebar, mobile drawer) share the input — the state lives at the outer component so they can't drift. ConversationList signature got two new props (`isFiltered`, `onClearFilter`) so its empty-state branch can distinguish "no conversations yet" from "no matches for the current filter". Filtered empty state shows "No matches" + a violet "Clear filter" button that resets the query.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: Need a real account with 6+ saved conversations to see the input render. Mental test against the threshold logic: at 5 conversations the input stays hidden; at 6 it appears; with a non-matching query the "No matches" branch fires.
+- lesson:
+  1. **Filter state at the OUTER component, not the list.** Tempted to put the input + state inside ConversationList. Bad: both inline and drawer variants render the list separately, so the input would either need to be duplicated OR the variants would have separate filter state (worst — switching modes would lose the query). Putting state at the outer component means the filter is "owned by the sidebar instance" and applies regardless of how it's rendered.
+  2. **Threshold-gated filter UI is the better pattern than always-show.** A filter input for 3 conversations is visual noise — it's faster to just scan. `FILTER_MIN_CONVERSATIONS = 6` reflects a reasonable point where scanning becomes annoying. ChatGPT does the same thing (their search appears as the list gets long). Constant-named threshold makes it tweakable later.
+  3. **Empty-state context is a prop, not a guess.** ConversationList's empty state previously assumed `conversations.length === 0` = "no saved yet". With filtering, the array can be empty because nothing matches — different UX. Adding `isFiltered` as an explicit prop lets the component render the right state without re-deriving from outer state.
+  4. **`<input type="search">` gives the user the clear-X for free** in most browsers — they get a small clear button at the right edge of the field when there's content. Combined with our custom "Clear filter" link in the empty state, two ways to clear. Pattern: prefer `type="search"` over `type="text"` for anything that filters.
+  5. **`focus:ring-1` is the cheap focus indicator** to match the rest of the site. Tailwind's default `focus:ring` is 3px which is heavy for a small input. 1px reads cleaner.
+
 ## 2026-05-24 — FE-16 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-16-result-reveal-rest
 - appended-to-backlog: FE-17 (sidebar conversation filter — frictionless-interaction) and FE-18 (edit a previous user message — conversational-quality). Both serve the four-pillar charter and are obvious ChatGPT-style gaps surfaced by the FE-13 sidebar polish + the broader UX consistency pass.

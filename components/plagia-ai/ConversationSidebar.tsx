@@ -57,6 +57,10 @@ interface ListProps {
   conversations: StoredConversationSummary[]
   activeId: string | null
   loading: boolean
+  /** FE-17 — when true the empty-list state means "no matches for the
+   *  current filter query" rather than "no conversations at all". */
+  isFiltered?: boolean
+  onClearFilter?: () => void
   onSelect: (id: string) => void
   onDelete: (id: string) => void
 }
@@ -65,6 +69,8 @@ function ConversationList({
   conversations,
   activeId,
   loading,
+  isFiltered = false,
+  onClearFilter,
   onSelect,
   onDelete,
 }: ListProps) {
@@ -84,10 +90,25 @@ function ConversationList({
         </>
       )}
 
-      {!loading && conversations.length === 0 && (
+      {!loading && conversations.length === 0 && !isFiltered && (
         <p className="text-xs text-muted-foreground px-2 py-3">
           No saved conversations yet. Send a message to start one.
         </p>
+      )}
+
+      {!loading && conversations.length === 0 && isFiltered && (
+        <div className="flex flex-col items-start gap-1.5 px-2 py-3">
+          <p className="text-xs text-muted-foreground">No matches.</p>
+          {onClearFilter && (
+            <button
+              type="button"
+              onClick={onClearFilter}
+              className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline underline-offset-2"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
       )}
 
       {!loading && (
@@ -163,6 +184,10 @@ function ConversationList({
   )
 }
 
+// FE-17 — threshold below which the filter input stays hidden.
+// Small lists don't need filtering; the input would just be visual noise.
+const FILTER_MIN_CONVERSATIONS = 6
+
 export function ConversationSidebar({
   conversations,
   activeId,
@@ -175,6 +200,20 @@ export function ConversationSidebar({
   variant = "inline",
   onCloseDrawer,
 }: ConversationSidebarProps) {
+  // FE-17 — filter query (case-insensitive substring on `title`).
+  // Lives at the outer component so both drawer and inline modes share it,
+  // and so the empty-state branch can know whether to say "No matches" vs
+  // "No conversations yet".
+  const [filterQuery, setFilterQuery] = useState("")
+  const showFilter = conversations.length >= FILTER_MIN_CONVERSATIONS
+  const normalizedQuery = filterQuery.trim().toLowerCase()
+  const filteredConversations = normalizedQuery
+    ? conversations.filter((c) =>
+        (c.title || "").toLowerCase().includes(normalizedQuery),
+      )
+    : conversations
+  const hasActiveFilter = normalizedQuery.length > 0
+
   if (variant === "drawer") {
     // Drawer mode: always expanded, no width transition, no `hidden lg:flex`.
     // Parent supplies the position-fixed + translateX overlay.
@@ -197,10 +236,24 @@ export function ConversationSidebar({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {showFilter && (
+          <div className="px-2 pb-2">
+            <input
+              type="search"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder="Filter conversations"
+              aria-label="Filter conversations"
+              className="w-full h-8 px-2.5 rounded-md border border-border bg-background text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+        )}
         <ConversationList
-          conversations={conversations}
+          conversations={filteredConversations}
           activeId={activeId}
           loading={loading}
+          isFiltered={hasActiveFilter}
+          onClearFilter={() => setFilterQuery("")}
           onSelect={onSelect}
           onDelete={onDelete}
         />
@@ -274,10 +327,24 @@ export function ConversationSidebar({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex-1 flex flex-col min-h-0"
           >
+            {showFilter && (
+              <div className="px-2 pb-2">
+                <input
+                  type="search"
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  placeholder="Filter conversations"
+                  aria-label="Filter conversations"
+                  className="w-full h-8 px-2.5 rounded-md border border-border bg-background text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
+            )}
             <ConversationList
-              conversations={conversations}
+              conversations={filteredConversations}
               activeId={activeId}
               loading={loading}
+              isFiltered={hasActiveFilter}
+              onClearFilter={() => setFilterQuery("")}
               onSelect={onSelect}
               onDelete={onDelete}
             />
