@@ -17,6 +17,23 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-18 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-18-edit-message (stacked on auto/fe-17-sidebar-filter)
+- summary: ChatGPT-style edit-and-resend on user bubbles. Hover state on a user bubble reveals a small pencil button (top-right corner, `-top-1.5 -right-1.5`, `opacity-0 group-hover:opacity-100`). Click → bubble morphs into an inline editor: Textarea + Cancel + "Save and resend" buttons. Save: truncate `items` to drop everything AT and AFTER the edited message, then call `sendMessage(editedText, { baseItems: truncated })`. Keyboard: Escape cancels, Ctrl/Cmd+Enter saves. Save button is disabled when text is empty, unchanged, or `streaming`. Editing state (`editingMessageId`, `editingDraft`) is cleared on conversation switch, Clear, and New chat to prevent stale editor state across surface changes.
+- key refactor: `sendMessage` gained an `opts.baseItems?: ChatItem[]` parameter. Without it, the truncate-then-resend flow races React's state batching — `setItems(truncated)` doesn't flush before `sendMessage` reads `items` from its closure, so the truncate is lost and the new message appends to the pre-edit history. `baseItems` lets the caller hand sendMessage the exact starting point. Default behavior (`baseItems ?? items`) preserves every existing call site.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: needs a real chat with multiple turns to confirm the truncate-and-resend behavior. Mental model says yes: click pencil on message #3 of 5 → 1, 2, edit-textarea visible; click save → 1, 2, new message #3' appears + assistant response streams. Messages 4 and 5 are gone (expected).
+- lesson:
+  1. **`sendMessage` had a hidden coupling to `items` from closure.** Originally `const nextItems = [...items, newMsg]`. Refactoring to `[...base, newMsg]` where `base = opts.baseItems ?? items` lets the caller short-circuit closure-staleness. Pattern: any send-style function that reads "the current list" from closure should accept an optional override for callers who need to start from a different list. Cheaper than a ref-based workaround.
+  2. **`requestAnimationFrame` for post-mount focus + cursor-positioning.** When the textarea is conditionally rendered (mounted only when `editingMessageId === it.id`), calling `el.focus()` synchronously won't work — the element doesn't exist yet. `requestAnimationFrame(() => { el.focus(); el.setSelectionRange(...) })` runs on the next paint when React has flushed the new DOM. Same pattern is already used in `handleSuggestedPrompt` for the textarea — repeating it here for consistency.
+  3. **Pencil placement: `-top-1.5 -right-1.5` outside the bubble corner.** Putting the pencil inline inside the bubble would shift content or compete with text. Floating it OUTSIDE via negative top/right keeps the bubble body unchanged and signals "this acts on the whole bubble". The `h-6 w-6 rounded-full bg-background border` styling makes it look like a small floating action button. ChatGPT uses a similar pattern.
+  4. **Disable Save when text is empty OR unchanged.** Edge cases the user will hit: blanking the text by mistake, or opening the editor and clicking Save without typing. Both should no-op. Easy guard: `editingDraft.trim() === userContent` covers the unchanged case; `!editingDraft.trim()` covers the empty case. Both gate the button's `disabled` attribute.
+  5. **Clear editing state on EVERY surface-change.** New chat, Clear conversation, Select different conversation — all three blow away the items array. If `editingMessageId` survives, the editor would render against a missing ID OR, worse, hijack a different conversation's message ID. Trivial bug, easy to forget. Resetting alongside the other state cleanups is the right pattern.
+
 ## 2026-05-24 — FE-17 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-17-sidebar-filter
 - branch: auto/fe-17-sidebar-filter (stacked on auto/fe-16-result-reveal-rest)

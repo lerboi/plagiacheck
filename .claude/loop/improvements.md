@@ -391,7 +391,9 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-18 — Edit a previous user message (retry turn)
 - **scope:** new-feature
 - **pillar:** conversational-quality
-- **status:** todo
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-18-edit-message (stacked on auto/fe-17-sidebar-filter)
+- **pr:** TBD (capture after push)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`
 - **why:** Common pain in any chat UI — user typo or unclear phrasing forces a fresh message that loses context. ChatGPT lets you click your own bubble to edit; on submit it truncates the conversation back to that turn and re-runs from there. Cheap to implement client-side because we already have the full `items` array.
 - **acceptance:**

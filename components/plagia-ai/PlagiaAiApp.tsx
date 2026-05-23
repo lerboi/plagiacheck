@@ -24,6 +24,7 @@ import {
   Settings,
   Download,
   PanelLeftOpen,
+  Pencil,
   X,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -114,6 +115,14 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({})
   const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
+
+  // FE-18 — edit-and-resend a previous user message. editingMessageId is
+  // the ChatItem.id of the user bubble currently being edited (null when
+  // nothing is being edited). editingDraft holds the in-progress text so
+  // Cancel can discard without losing the original.
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingDraft, setEditingDraft] = useState("")
+  const editingTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Persistence
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -518,6 +527,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           callId: string
           reason?: string
         }
+        /** FE-18 — override the base item list. Used by the edit-and-resend
+         *  flow which needs to truncate the conversation BEFORE appending
+         *  the new user message. Without this override, sendMessage's
+         *  closure still sees the pre-truncate items and the truncate is
+         *  lost. */
+        baseItems?: ChatItem[]
       },
     ) => {
       const isDirectDispatch = !!opts?.directDispatch
@@ -546,10 +561,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       // tool. The pending-confirm tool card stays in place; the server's
       // next tool_call event (without pendingConfirm) will transition it
       // to "running" via the morph in the tool_call handler below.
-      const previousItems = items
+      const base = opts?.baseItems ?? items
+      const previousItems = base
       const nextItems: ChatItem[] = isDirectDispatch
-        ? items
-        : [...items, { kind: "user", id: genId(), content: text } as ChatItem]
+        ? base
+        : [...base, { kind: "user", id: genId(), content: text } as ChatItem]
       if (!isDirectDispatch) {
         setItems(nextItems)
         setInput("")
@@ -836,6 +852,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setAutoScrollPaused(false)
     setConversationId(null)
     setFollowupSuggestions([])
+    setEditingMessageId(null)
+    setEditingDraft("")
   }
 
   // FE-12 — export the current conversation as Markdown. The export
@@ -864,6 +882,58 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     })
   }
 
+  // FE-18 — open the inline editor on a user bubble. Capture the current
+  // content into editingDraft so Cancel can discard without re-reading
+  // items (in case items mutates between open and cancel).
+  const handleStartEditMessage = (id: string, currentContent: string) => {
+    if (streaming) return
+    setEditingMessageId(id)
+    setEditingDraft(currentContent)
+    // Focus + cursor-at-end on the next paint when the textarea mounts.
+    requestAnimationFrame(() => {
+      const el = editingTextareaRef.current
+      if (!el) return
+      el.focus()
+      try {
+        el.setSelectionRange(currentContent.length, currentContent.length)
+      } catch {
+        // Some browsers throw if the textarea isn't in the DOM yet — ignore.
+      }
+    })
+  }
+
+  const handleCancelEditMessage = () => {
+    setEditingMessageId(null)
+    setEditingDraft("")
+  }
+
+  // FE-18 — save edit: truncate items to drop everything AT and AFTER the
+  // edited message, then call sendMessage with the new content using the
+  // baseItems override so the truncate isn't lost to React's state batching.
+  const handleSaveEditMessage = () => {
+    if (!editingMessageId) return
+    const editedText = editingDraft.trim()
+    if (!editedText) return
+    const editIndex = items.findIndex((it) => it.id === editingMessageId)
+    if (editIndex === -1) {
+      handleCancelEditMessage()
+      return
+    }
+    const original = items[editIndex]
+    if (original.kind !== "user") {
+      handleCancelEditMessage()
+      return
+    }
+    if (editedText === original.content) {
+      handleCancelEditMessage()
+      return
+    }
+    const truncated = items.slice(0, editIndex)
+    setEditingMessageId(null)
+    setEditingDraft("")
+    void sendMessage(editedText, { baseItems: truncated })
+  }
+
   const handleNewChat = () => {
     setItems([])
     setExpandedTools({})
@@ -873,6 +943,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setAutoScrollPaused(false)
     setFollowupSuggestions([])
     setMobileSidebarOpen(false)
+    setEditingMessageId(null)
+    setEditingDraft("")
     textareaRef.current?.focus()
   }
 
@@ -895,6 +967,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setExpandedTools({})
     setAutoScrollPaused(false)
     setMobileSidebarOpen(false)
+    setEditingMessageId(null)
+    setEditingDraft("")
   }
 
   const handleDeleteConversation = async (id: string) => {
@@ -1123,6 +1197,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               <AnimatePresence initial={false}>
                 {items.map((it) => {
                   if (it.kind === "user") {
+                    const isEditing = editingMessageId === it.id
+                    const userContent = it.content
                     return (
                       <motion.div
                         key={it.id}
@@ -1134,10 +1210,68 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         transition={{ duration: 0.15 }}
                         className="flex justify-end"
                       >
-                        <div className="max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                          <span className="sr-only">You said: </span>
-                          {it.content}
-                        </div>
+                        {isEditing ? (
+                          <div className="w-full max-w-[85%] sm:max-w-[75%] rounded-2xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+                            <Textarea
+                              ref={editingTextareaRef}
+                              value={editingDraft}
+                              onChange={(e) => setEditingDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                  e.preventDefault()
+                                  handleCancelEditMessage()
+                                } else if (
+                                  e.key === "Enter" &&
+                                  (e.ctrlKey || e.metaKey)
+                                ) {
+                                  e.preventDefault()
+                                  handleSaveEditMessage()
+                                }
+                              }}
+                              rows={2}
+                              className="min-h-[60px] resize-none border-0 bg-transparent text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                              aria-label="Edit your message"
+                            />
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs px-2"
+                                onClick={handleCancelEditMessage}
+                                disabled={streaming}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs px-3 bg-violet-600 hover:bg-violet-700 text-white"
+                                onClick={handleSaveEditMessage}
+                                disabled={
+                                  streaming ||
+                                  !editingDraft.trim() ||
+                                  editingDraft.trim() === userContent
+                                }
+                              >
+                                Save and resend
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="group relative max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
+                            <span className="sr-only">You said: </span>
+                            {userContent}
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditMessage(it.id, userContent)}
+                              disabled={streaming}
+                              className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity disabled:opacity-0"
+                              aria-label="Edit message"
+                              title="Edit message"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
                       </motion.div>
                     )
                   }
