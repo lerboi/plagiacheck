@@ -90,6 +90,9 @@ export interface PlagiaAiToolResultEvent {
   result?: unknown
   remainingTextTokens?: number
   remainingImageTokens?: number
+  /** FE-23 — actual cost of this single dispatch. Currency is implied by
+   *  whichever of remainingTextTokens / remainingImageTokens is set. */
+  tokensUsed?: number
   error?: string
 }
 

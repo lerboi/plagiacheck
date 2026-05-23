@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-23 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-23-token-cost (stacked on auto/fe-22-copy-assistant)
+- summary: Per-run token cost footnote on done tool cards. Surprise: every underlying tool route ALREADY returns `tokensUsed: cost` in its JSON response (ai-tools, check-plagiarism, speech-to-text, image-to-text, voice-tools, generate-image — all of them). So no migration, no orchestrator-side pre-balance lookup; just plumb the value through. Dispatcher: extended DispatchSuccess with `tokensUsed?: number` and used `replace_all` twice (text + image currency variants) to add the field to all 12 return sites. SSE: PlagiaAiToolResultEvent gained `tokensUsed?: number`. Server route emits it from `outcome.tokensUsed`. Client ChatItem.tool gained `tokensUsed?: number` + `tokensCurrency?: "text" | "image"`. tool_result handler infers the currency from whichever remaining-tokens field came back (mutually exclusive per the dispatcher contract). Render: small `text-[11px] text-muted-foreground/70 tabular-nums` footnote below the result-preview line on done cards. Singular/plural-aware ("1 text token" vs "12 text tokens"). Failed cards skip the footnote (refund/no-deduct).
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: needs a live PlagiaAI dispatch to confirm the footnote renders. Mental model: paraphrase 50 chars → ai-tools returns `tokensUsed: 9` → tool card shows "Used 9 text tokens".
+- lesson:
+  1. **Read the existing API response shape before designing the data flow.** Initially planned to do a pre-balance snapshot + delta on the orchestrator (or client), then discovered every tool route already returns the cost. Plumbing a known value through is 10x cheaper than computing one — and more accurate (you don't have to guess what the tool charged). Lesson: when extending an existing data flow, grep the producer side first.
+  2. **`replace_all` on stable substring patterns is the right batch-edit tool.** The dispatcher had 12 return sites where I wanted to add the same field. Two `replace_all` calls (one for text-currency, one for image-currency) covered all 12. Surgical alternatives would have been 12 separate Edit calls. The pattern needed enough specificity to not match unrelated lines — `remainingTextTokens: r.data.remainingTokens,` is unique to the success-return path.
+  3. **"Currency mutually exclusive" is an implicit contract worth documenting.** The dispatcher returns either remainingTextTokens OR remainingImageTokens but never both — a tool is either text-billed or image-billed. The new code at tool_result depends on this: it infers currency from whichever is set. Added a code comment so future iterations don't accidentally set both and break the inference. Real-world incidents from violated implicit contracts are a known footgun.
+  4. **`tokensUsed > 0` guard in the render hides zero-cost runs.** Some tools (the deferred-cost ones, or future free tools) might return `tokensUsed: 0`. The footnote shouldn't say "Used 0 tokens" — that's not informative. Guarding on `> 0` makes the footnote opt-in via meaningful cost. The same guard naturally also skips runs where the field is missing (older clients or fallback paths).
+  5. **`text-[11px] text-muted-foreground/70` is the right footnote weight.** Smaller than the result-preview text (text-xs), more muted than muted-foreground itself. Reads as "additional context, not primary info". Pattern: any "tertiary" inline data on a card should drop both font-size and opacity by one step relative to the secondary content above it.
+
 ## 2026-05-24 — FE-22 — shipped + FE-22/FE-23 appended
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-22-copy-assistant
 - branch: auto/fe-22-copy-assistant (stacked on auto/fe-21-inline-svg)

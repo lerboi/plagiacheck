@@ -89,6 +89,10 @@ type ChatItem =
       progress?: number
       /** FE-06: optional short progress hint, e.g. "analyzing sentence 3 of 12". */
       progressMessage?: string
+      /** FE-23: actual token cost of this dispatch. Currency is inferred
+       *  from `tokensCurrency` below. Only present on `status: "done"`. */
+      tokensUsed?: number
+      tokensCurrency?: "text" | "image"
     }
 
 function genId() {
@@ -720,6 +724,15 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   : prev,
               )
             } else if (event.type === "tool_result") {
+              // FE-23 — infer the cost currency from whichever remaining-
+              // tokens field came back. text and image are mutually
+              // exclusive per the dispatcher contract.
+              const tokensCurrency: "text" | "image" | undefined =
+                event.remainingTextTokens !== undefined
+                  ? "text"
+                  : event.remainingImageTokens !== undefined
+                    ? "image"
+                    : undefined
               updateItem(event.id, (prev) =>
                 prev.kind === "tool"
                   ? {
@@ -728,6 +741,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                       resultPreview: event.resultPreview,
                       error: event.error,
                       result: event.result,
+                      tokensUsed: event.ok ? event.tokensUsed : undefined,
+                      tokensCurrency: event.ok ? tokensCurrency : undefined,
                     }
                   : prev
               )
@@ -1554,6 +1569,18 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                                 {it.resultPreview || "Completed"}
                               </span>
                             )}
+                            {/* FE-23 — per-run cost footnote. Done cards
+                                only; failed cards refunded / didn't deduct. */}
+                            {it.status === "done" &&
+                              typeof it.tokensUsed === "number" &&
+                              it.tokensUsed > 0 &&
+                              it.tokensCurrency && (
+                                <div className="mt-1 text-[11px] text-muted-foreground/70 tabular-nums">
+                                  Used {it.tokensUsed.toLocaleString()}{" "}
+                                  {it.tokensCurrency} token
+                                  {it.tokensUsed === 1 ? "" : "s"}
+                                </div>
+                              )}
                             {isExpanded && resultText && (
                               <pre className="mt-2 text-xs whitespace-pre-wrap break-words text-foreground bg-background/50 rounded-md p-3 border border-border max-h-[320px] overflow-y-auto">
                                 {resultText}

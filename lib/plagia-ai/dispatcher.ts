@@ -5,6 +5,11 @@ export interface DispatchSuccess {
   result: Record<string, unknown>
   remainingTextTokens?: number
   remainingImageTokens?: number
+  /** FE-23 — actual cost of this single dispatch in the same currency as
+   *  remainingTextTokens / remainingImageTokens (whichever is set). All
+   *  underlying tool routes return `tokensUsed: cost` in their JSON, so
+   *  we just pass it through. */
+  tokensUsed?: number
   resultPreview: string
 }
 
@@ -166,6 +171,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: previewText(r.data.result?.paraphrasedText),
       }
     }
@@ -188,6 +194,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: previewText(preview),
       }
     }
@@ -202,6 +209,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: previewText(r.data.result?.humanizedText),
       }
     }
@@ -217,6 +225,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: verdict ? `${verdict} — ${score}% AI` : "Analysis complete",
       }
     }
@@ -231,6 +240,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: `${issueCount} issue${issueCount === 1 ? "" : "s"} found`,
       }
     }
@@ -245,6 +255,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: `${Math.round(pct)}% plagiarism · ${matches} match${matches === 1 ? "" : "es"}`,
       }
     }
@@ -258,6 +269,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingImageTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: `Infographic: ${r.data.result?.title || "Untitled"}`,
       }
     }
@@ -272,6 +284,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingImageTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: `Chart (${r.data.result?.chartType || "auto"}): ${r.data.result?.title || "Untitled"}`,
       }
     }
@@ -293,6 +306,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingImageTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: extracted
           ? `Extracted ${(extracted as string).length} chars${confidence ? ` (${confidence} confidence)` : ""}`
           : "No text extracted",
@@ -310,6 +324,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: typeof wordCount === "number" ? `${title} · ${wordCount} words` : String(title),
       }
     }
@@ -325,6 +340,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingTextTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: `${title} · ${points} key point${points === 1 ? "" : "s"}`,
       }
     }
@@ -339,6 +355,7 @@ export async function dispatchTool(
         ok: true,
         result: r.data,
         remainingImageTokens: r.data.remainingTokens,
+        tokensUsed: r.data.tokensUsed,
         resultPreview: `Thumbnail: ${r.data.result?.title || "Untitled"}`,
       }
     }

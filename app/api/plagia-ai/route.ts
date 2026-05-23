@@ -384,6 +384,7 @@ export async function POST(req: Request) {
                   result: outcome.result,
                   remainingTextTokens: outcome.remainingTextTokens,
                   remainingImageTokens: outcome.remainingImageTokens,
+                  tokensUsed: outcome.tokensUsed,
                 }),
               )
               conversation.push({
@@ -642,6 +643,7 @@ export async function POST(req: Request) {
                   result: outcome.result,
                   remainingTextTokens: outcome.remainingTextTokens,
                   remainingImageTokens: outcome.remainingImageTokens,
+                  tokensUsed: outcome.tokensUsed,
                 })
               )
               conversation.push({

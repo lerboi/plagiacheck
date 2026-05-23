@@ -390,7 +390,9 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-23 — Per-run token cost footnote on done tool cards
 - **scope:** ui
 - **pillar:** conversational-quality
-- **status:** todo
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-23-token-cost (stacked on auto/fe-22-copy-assistant)
+- **pr:** TBD (capture after push)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`, `lib/plagia-ai/types.ts` (extend the SSE result event)
 - **why:** Users can see remaining tokens in the nav badge but never see how much THIS specific tool run cost. After dispatching multiple tools they have to subtract to figure out spend. A small "Used N tokens" footnote on each done tool card surfaces the actual cost transparently.
 - **acceptance:**
