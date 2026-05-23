@@ -371,6 +371,22 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
   - Lint + tsc clean. Smoke test at least two tool pages manually.
 - **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
 
+### FE-24 — Pin a saved conversation
+- **scope:** new-feature
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **files:** `components/plagia-ai/ConversationSidebar.tsx`, `lib/plagia-ai/storage.ts` (extend), `components/plagia-ai/PlagiaAiApp.tsx`
+- **sql-required:** Yes — `ALTER TABLE plagia_ai_conversations ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT FALSE;` (one-time, idempotent). UI degrades gracefully (no pin actions) until the user runs it.
+- **why:** ChatGPT pins. Plagiacheck users with many saved conversations need a way to keep their most-used ones at the top of the sidebar. Pinned rows sort to the top regardless of `updated_at`. Standard chat-app pattern; covers the same gap as FE-17's filter but for keeping favorites accessible without typing.
+- **acceptance:**
+  - DB: new `pinned: boolean` column on `plagia_ai_conversations`, default false. SQL goes in the PR description, NOT migrated by the loop.
+  - Storage: `StoredConversationSummary` gains `pinned: boolean`. `listConversations` orders by `pinned DESC, updated_at DESC`. New `setConversationPinned(id, pinned: boolean): Promise<boolean>` helper.
+  - Sidebar row: third hover-revealed icon (lucide `Pin`) next to Rename and Delete. When pinned, the icon stays visible (not hover-revealed) AND fills (`fill-current`) so the user can see the pin state at a glance. Click toggles.
+  - Pinned rows render at the top of the list, separated from unpinned by a small `border-t` gap.
+  - When the user pins or unpins, parent refetches via `listConversations()` so the new sort lands. Handle in `handleTogglePinConversation(id, pinned)` in PlagiaAiApp.
+  - Defensive: if the column doesn't exist yet (migration not run), `pinned` is undefined → treat as false → all rows sort by updated_at as today. Toast on the rename helper's pattern: "Couldn't save pin — run the FE-24 migration".
+- **out of scope:** multi-pin limit, drag-to-reorder, pinning across browsers (the sort already syncs).
+
 ### FE-22 — Copy-to-clipboard on assistant text bubbles
 - **scope:** ui
 - **pillar:** frictionless-interaction
