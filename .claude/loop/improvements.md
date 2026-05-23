@@ -334,7 +334,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-12-export (stacked on auto/fix-home-viewport-fill)
-- **pr:** TBD (capture push URL after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-12-export (set base to `auto/fix-home-viewport-fill` for a clean diff against the hand-fix; the chain back to `main` is the same stack as FE-04..FE-11)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`, `lib/plagia-ai/export.ts` (NEW)
 - **acceptance:** Add a "⤓ Export" link next to "Clear" in the chat header (only when conversation has started). On click, downloads the conversation as a `.md` file with the structure: `# PlagiaAI conversation — <date>` then each turn as `## You` / `## PlagiaAI` blocks. Tool calls render as fenced code blocks: \`\`\`tool plagiarism_check\n<args summary>\n<result preview>\n\`\`\`. Filename: `plagia-ai-<YYYY-MM-DD-HHMM>.md`. No server round-trip — pure client-side using `Blob` + `URL.createObjectURL`.
 

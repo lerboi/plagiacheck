@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-12 — shipped
-- pr: TBD (capture from `git push` output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-12-export
 - branch: auto/fe-12-export (stacked on auto/fix-home-viewport-fill)
 - summary: Markdown export of the current conversation. New `lib/plagia-ai/export.ts` ships three pure helpers (`formatExportTimestamp`, `formatExportFilename`, `conversationToMarkdown`) plus the impure `downloadConversationMarkdown` that builds a Blob + clicks a synthesized `<a download>`. Filename format: `plagia-ai-YYYY-MM-DD-HHMM.md` (local time). Body format: H1 with the human date, then per-turn `## You` / `## PlagiaAI` H2s separated by blank lines, tool turns rendered as fenced \`\`\`tool <name> blocks containing `<argsSummary>` line and either `<resultPreview>` (done) or `<error>` (failed) or a `(in progress)` / `(awaiting confirmation)` status label. Empty assistant text is skipped (matches the on-screen render). `PlagiaAiApp.tsx` adds a Download-icon Export button in the chat header, placed between the Settings button and the Clear flow, only visible when `conversationStarted && !confirmingClear`. Disabled while streaming. On click, maps the local `ChatItem[]` to the export's `ExportableMessage[]` (strips IDs / progress / pendingConfirm / result — none of those belong in a static Markdown artifact), calls `downloadConversationMarkdown`, then toasts the filename.
 - NO-ACCESS-FILES audit: clean.
