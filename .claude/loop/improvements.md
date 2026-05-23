@@ -359,7 +359,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-14-tool-motion (stacked on auto/fe-13-sidebar-polish)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-14-tool-motion (set base to `auto/fe-13-sidebar-polish` for a clean diff)
 - **spec:** `.claude/loop/UI-POLISH-SPEC.md`
 - **files:** `components/tool-page-header.tsx`, each `app/<tool>/page.tsx` that renders a result panel (paraphraser, summarizer, humanizer, ai-detector, grammar-checker, plagiarism-checker, image-to-text, chart-generator, infographic-generator, thumbnail-generator, voice-to-essay, audio-summarizer, speech-to-text)
 - **acceptance:**

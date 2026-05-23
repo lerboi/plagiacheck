@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-14 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-14-tool-motion
 - branch: auto/fe-14-tool-motion (stacked on auto/fe-13-sidebar-polish)
 - summary: Two new motion surfaces + applied to 4 representative tool pages.
   1. `components/tool-page-header.tsx` — wrapped its root in `motion.div` with `{opacity:0, y:8} → {opacity:1, y:0}` (300ms ease-out). `useReducedMotion()` from framer-motion short-circuits the motion props to `{}` under `prefers-reduced-motion: reduce`, so reduced-motion users see the header instantly with zero translate.
