@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-19 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-19-regenerate (stacked on auto/fe-18-edit-message)
+- summary: ChatGPT-style "Regenerate" button under the most recent assistant text bubble. Pre-compute `lastAssistantId` once before the items.map (cheap; items is short). Inside the assistant render branch, `isLastAssistant = it.id === lastAssistantId`. Show the button only when `isLastAssistant && !streaming && !editingMessageId && it.content.trim()`. Click: walk back from end of `items` to find last assistant, then walk back to the immediately preceding user message; truncate items to drop the user message and everything after; call `sendMessage(userTurn.content, { baseItems: truncated })`. This rewinds to just before the user→assistant pair (and any intervening tool calls) and re-runs the same prompt for a different answer. Button uses `RotateCcw` icon (same as the existing error-retry banner — consistent visual vocabulary).
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: needs a real chat with multiple turns to confirm. Mental model: after a wrap-up, button appears below the latest assistant bubble; clicking re-runs the model. While streaming the button hides (good). After streaming completes it re-appears.
+- lesson:
+  1. **Pre-compute "is last X" once, not per-item in the map.** Doing `items.slice().reverse().find(...)` inside each map iteration is O(N²) on large lists. Pre-computing `lastAssistantId` before the map is O(N) total. For chat threads this rarely matters but the pattern scales better when the list gets long. Worth doing by default.
+  2. **`sendMessage` with `{ baseItems: truncated }` is the FE-18 refactor paying dividends.** Same pattern as edit-and-resend, just a different truncation index. The override prevents the closure-staleness race that would otherwise lose the truncate. FE-18 and FE-19 are conceptually different (edit vs re-roll) but share the underlying mechanism: "rewind history, append a new user turn, let the server run from there".
+  3. **Tool calls are not a separate edge case for regenerate — they're implicit.** The spec mentioned "treat the whole turn (user → tool[s] → assistant) as the unit". My truncate logic just walks back to the preceding USER message — everything between (tool cards, assistant reasoning text) gets dropped automatically because they're all AFTER the user turn. No special-case code needed. The slice index does all the work.
+  4. **Disable the button while editing is in flight.** If the user opens the edit-message editor (FE-18) AND the Regenerate button is visible, clicking Regenerate while the editor is open would create confusing state. Gating on `!editingMessageId` removes the conflict cleanly.
+  5. **Visual vocabulary: RotateCcw for "redo this".** Existing error-retry banner uses the same icon. Consistent: any "re-run this thing" surface across the app uses RotateCcw. Future regenerate-on-cost-failure (or similar) should reuse the icon.
+
 ## 2026-05-24 — FE-18 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-18-edit-message
 - branch: auto/fe-18-edit-message (stacked on auto/fe-17-sidebar-filter)

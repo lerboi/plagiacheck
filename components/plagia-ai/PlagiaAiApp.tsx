@@ -910,6 +910,35 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   // FE-18 — save edit: truncate items to drop everything AT and AFTER the
   // edited message, then call sendMessage with the new content using the
   // baseItems override so the truncate isn't lost to React's state batching.
+  // FE-19 — regenerate the last assistant turn. Walk back from the end of
+  // `items` to find the most recent assistant bubble; from there walk back
+  // to the immediately preceding user message; truncate items to drop the
+  // user message and everything after; then send the original user content
+  // again. The model re-rolls a new answer on the same prompt.
+  const handleRegenerate = useCallback(() => {
+    if (streaming) return
+    let lastAssistantIdx = -1
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].kind === "assistant") {
+        lastAssistantIdx = i
+        break
+      }
+    }
+    if (lastAssistantIdx === -1) return
+    let priorUserIdx = -1
+    for (let i = lastAssistantIdx - 1; i >= 0; i--) {
+      if (items[i].kind === "user") {
+        priorUserIdx = i
+        break
+      }
+    }
+    if (priorUserIdx === -1) return
+    const userTurn = items[priorUserIdx]
+    if (userTurn.kind !== "user") return
+    const truncated = items.slice(0, priorUserIdx)
+    void sendMessage(userTurn.content, { baseItems: truncated })
+  }, [streaming, items, sendMessage])
+
   const handleSaveEditMessage = () => {
     if (!editingMessageId) return
     const editedText = editingDraft.trim()
@@ -995,6 +1024,17 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   }
 
   const conversationStarted = items.length > 0
+
+  // FE-19 — id of the last assistant text bubble in `items`, used to gate
+  // the "Regenerate" button (visible only under the most recent answer).
+  // Computed inline because items is a small array and React renders are
+  // already cheap here.
+  const lastAssistantId = (() => {
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].kind === "assistant") return items[i].id
+    }
+    return null
+  })()
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1277,6 +1317,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   }
                   if (it.kind === "assistant") {
                     const isStreamingThis = streaming && it.id === pendingAssistantId
+                    const isLastAssistant = it.id === lastAssistantId
+                    const showRegenerate =
+                      isLastAssistant &&
+                      !streaming &&
+                      !editingMessageId &&
+                      it.content.trim().length > 0
                     return (
                       <motion.div
                         key={it.id}
@@ -1295,6 +1341,18 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                             <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" aria-hidden="true" />
                           )}
                         </div>
+                        {showRegenerate && (
+                          <button
+                            type="button"
+                            onClick={handleRegenerate}
+                            className="mt-1.5 inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            aria-label="Regenerate response"
+                            title="Regenerate response"
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                            Regenerate
+                          </button>
+                        )}
                       </motion.div>
                     )
                   }
