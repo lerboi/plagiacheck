@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-15 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-15-reduce-motion-audit
 - branch: auto/fe-15-reduce-motion-audit (stacked on auto/fe-14-tool-motion)
 - summary: Reduce-motion compliance audit + hardening. Two structural fixes
   cover the whole site:
