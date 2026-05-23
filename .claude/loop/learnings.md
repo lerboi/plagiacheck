@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-21 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-21-inline-svg
 - branch: auto/fe-21-inline-svg (stacked on auto/fe-20-rename-conversation)
 - summary: Inline SVG rendering for chart / infographic / thumbnail tool cards. New `components/plagia-ai/InlineSvgPreview.tsx` takes `svg: string` + `toolName: PlagiaAiToolName` and renders the SVG inside a white-background container (always white regardless of theme, to match the downloaded file appearance) with a "Download SVG" link button below. Fade-in via framer-motion `opacity: 0 → 1` (250ms); `useReducedMotion()` short-circuits via empty motion props. SR-only label "(Chart|Infographic|Thumbnail) output" precedes the SVG so screen readers don't read the markup. Wiring: new `getInlineSvg(it)` helper at the bottom of PlagiaAiApp returns the SVG string or null; the tool-card render slots `<InlineSvgPreview svg={inlineSvg} toolName={it.name} />` between the running/progress block and the done/failed expandable preview. Download mechanism reuses the FE-12 Blob + URL.createObjectURL + synthesized `<a download>` pattern with a `setTimeout(revoke)` on the next tick.
 - NO-ACCESS-FILES audit: clean.

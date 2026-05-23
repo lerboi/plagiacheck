@@ -376,7 +376,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** conversational-quality
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-21-inline-svg (stacked on auto/fe-20-rename-conversation)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-21-inline-svg (set base to `auto/fe-20-rename-conversation`)
 - **files:** `components/plagia-ai/PlagiaAiApp.tsx`, possibly a new `components/plagia-ai/ToolResultPreview.tsx`
 - **why:** When PlagiaAI dispatches `generate_chart` / `generate_infographic` / `generate_thumbnail`, the resulting SVG is returned in `tool_result.result.svg`. Currently the tool card shows a "Done" pill with "SVG output (X chars). View in the standalone tool to render." That's a UX dead-end — the user has to leave the chat to see what they asked for. ChatGPT renders DALL-E images inline; the same should happen here for SVG tools.
 - **acceptance:**
