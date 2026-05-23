@@ -357,7 +357,9 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 ### FE-14 — Tool-page motion pass (ToolPageHeader + result reveals)
 - **scope:** ui
 - **pillar:** frictionless-interaction
-- **status:** todo
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-14-tool-motion (stacked on auto/fe-13-sidebar-polish)
+- **pr:** TBD (capture after push)
 - **spec:** `.claude/loop/UI-POLISH-SPEC.md`
 - **files:** `components/tool-page-header.tsx`, each `app/<tool>/page.tsx` that renders a result panel (paraphraser, summarizer, humanizer, ai-detector, grammar-checker, plagiarism-checker, image-to-text, chart-generator, infographic-generator, thumbnail-generator, voice-to-essay, audio-summarizer, speech-to-text)
 - **acceptance:**
@@ -368,6 +370,20 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
   - **No layout shift** — the result panel's container reserves space before motion starts (e.g. via `min-h` or by mounting an empty placeholder).
   - Lint + tsc clean. Smoke test at least two tool pages manually.
 - **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
+
+### FE-16 — Extend ResultReveal to the remaining tool pages
+- **scope:** ui
+- **pillar:** frictionless-interaction
+- **status:** todo
+- **spec:** `.claude/loop/UI-POLISH-SPEC.md`
+- **files:** `app/ai-humanizer/page.tsx`, `app/plagiarism-checker/content.tsx`, `app/image-to-text/page.tsx`, `app/chart-generator/page.tsx`, `app/infographic-generator/page.tsx`, `app/thumbnail-generator/page.tsx`, `app/voice-to-essay/page.tsx`, `app/audio-summarizer/page.tsx`, `app/speech-to-text/page.tsx`
+- **why-the-followup:** FE-14 created `components/plagia-ai/ResultReveal.tsx` and applied it to 4 representative pages (paraphraser, summarizer, ai-detector, grammar-checker). The remaining 9 tool pages still hard-mount their result panels — UI consistency demands all of them adopt the wrapper.
+- **acceptance:**
+  - Each listed tool page imports `ResultReveal` from `@/components/plagia-ai/ResultReveal` and wraps its conditional "result/toolbar exists" block with `<ResultReveal show={!!result}>...</ResultReveal>`.
+  - Visual gating: only the toolbar / chip block that mounts on result-existence needs the wrapper. The main result container (which usually has `min-h-*` to reserve space) can stay as-is — no layout shift is introduced.
+  - Skeleton loaders (where present) can also be wrapped if cross-fading them to the real result feels right.
+  - Lint + tsc clean. Smoke test each of the touched pages visually (or at least 3 of them).
+- **out of scope:** changing result content, copy, API contracts, or any tool's logic.
 
 ### FE-15 — Reduce-motion audit + final hardening
 - **scope:** a11y

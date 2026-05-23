@@ -14,6 +14,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 export default function Paraphraser() {
   const [text, setText] = useState("")
@@ -211,7 +212,7 @@ export default function Paraphraser() {
 
           {/* RIGHT — output */}
           <div className="space-y-3">
-            {paraphrasedText && (
+            <ResultReveal show={!!paraphrasedText}>
               <div className="flex items-center gap-4 px-3.5 py-2 rounded-lg border border-border bg-card text-xs flex-wrap">
                 <span className="text-muted-foreground capitalize font-medium text-cyan-600 dark:text-cyan-400">{mode}</span>
                 <span className="text-muted-foreground">·</span>
@@ -230,7 +231,7 @@ export default function Paraphraser() {
                   </Button>
                 </div>
               </div>
-            )}
+            </ResultReveal>
             <div className="min-h-[360px] max-h-[520px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-[1.75] whitespace-pre-wrap relative">
               {paraphrasedText || (
                 <span className="absolute inset-0 flex items-center justify-center text-muted-foreground/40 text-sm">

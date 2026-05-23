@@ -1,5 +1,6 @@
 "use client"
 
+import { motion, useReducedMotion } from "framer-motion"
 import type { LucideIcon } from "lucide-react"
 
 interface ToolPageHeaderProps {
@@ -23,8 +24,19 @@ export function ToolPageHeader({
   iconBg,
   categoryColor,
 }: ToolPageHeaderProps) {
+  // FE-14 — soft entrance for the header. Falls back to no motion when
+  // the user has prefers-reduced-motion set.
+  const prefersReducedMotion = useReducedMotion()
+  const motionProps = prefersReducedMotion
+    ? {}
+    : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.3, ease: "easeOut" as const },
+      }
+
   return (
-    <div className="border-b border-border">
+    <motion.div {...motionProps} className="border-b border-border">
       <div className="container max-w-5xl mx-auto px-4 py-10 md:py-14 flex items-center justify-between gap-8">
         {/* Left — text */}
         <div className="space-y-3 flex-1 min-w-0">
@@ -48,6 +60,6 @@ export function ToolPageHeader({
           <div className={`absolute w-36 h-36 rounded-full border opacity-8 ${iconBg.split(" ")[1] || "border-border"}`} />
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

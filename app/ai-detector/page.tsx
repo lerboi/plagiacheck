@@ -15,6 +15,7 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { generateAIDetectorReport } from "@/lib/pdf-generator"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 interface SentenceAnalysis {
   text: string
@@ -287,7 +288,8 @@ export default function AIDetector() {
         </div>
 
         {/* Score card — shown when result exists */}
-        {result && (
+        <ResultReveal show={!!result}>
+          {result && (
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="p-5 flex items-center gap-6">
               {/* Circular SVG score */}
@@ -387,7 +389,8 @@ export default function AIDetector() {
               </>
             )}
           </div>
-        )}
+          )}
+        </ResultReveal>
         {/* ── Informational content ── */}
         <div className="mt-10 pt-8 border-t border-border space-y-8">
 

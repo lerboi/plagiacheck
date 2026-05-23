@@ -14,6 +14,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 interface GrammarIssue {
   type: "error" | "warning" | "suggestion"
@@ -252,7 +253,7 @@ export default function GrammarChecker() {
           {/* RIGHT — results */}
           <div className="space-y-3">
             {/* Summary bar — only when results exist */}
-            {(correctedText || issues.length > 0) && (
+            <ResultReveal show={!!correctedText || issues.length > 0}>
               <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-border bg-card text-sm flex-wrap">
                 {issues.length === 0 ? (
                   <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
@@ -281,7 +282,7 @@ export default function GrammarChecker() {
                   </Button>
                 )}
               </div>
-            )}
+            </ResultReveal>
 
             {/* Corrected text — styled document view */}
             {correctedText ? (

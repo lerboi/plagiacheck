@@ -17,6 +17,27 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-14 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-14-tool-motion (stacked on auto/fe-13-sidebar-polish)
+- summary: Two new motion surfaces + applied to 4 representative tool pages.
+  1. `components/tool-page-header.tsx` — wrapped its root in `motion.div` with `{opacity:0, y:8} → {opacity:1, y:0}` (300ms ease-out). `useReducedMotion()` from framer-motion short-circuits the motion props to `{}` under `prefers-reduced-motion: reduce`, so reduced-motion users see the header instantly with zero translate.
+  2. `components/plagia-ai/ResultReveal.tsx` (NEW) — small client wrapper that takes `show: boolean` + `children` and renders the children inside an `AnimatePresence mode="wait"` keyed by `"result"` with `{opacity:0, y:6} → {opacity:1, y:0}` (250ms). Also `useReducedMotion()` gated.
+  3. Applied to 4 representative tool pages: paraphraser, summarizer, ai-detector, grammar-checker. The wrapper goes around the conditional toolbar/chip block that mounts when a result exists — the main result container (which has `min-h-*` to reserve space) stays as-is, so no layout shift.
+  - Remaining 9 tool pages tracked as the new FE-16 backlog item.
+- appended-to-backlog: FE-16 — extend ResultReveal to the 9 remaining tool pages (humanizer, plagiarism-checker, image-to-text, chart-generator, infographic-generator, thumbnail-generator, voice-to-essay, audio-summarizer, speech-to-text).
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing billing + image-to-text warnings only).
+  - Behavior verification gap: motion looks right in mental model; would benefit from a real-browser pass to confirm the 250ms reveal vs the 300ms header entrance reads as polished, not staggered.
+- lesson:
+  1. **`useReducedMotion()` short-circuits cleanly via empty motion props.** Pattern: `const props = prefersReducedMotion ? {} : { initial, animate, transition }`. Then spread `{...props}` on `<motion.div>`. Empty object means framer-motion uses neither initial nor animate — the element just renders in its final styled state. Cheaper than gating with `if/else` rendering paths and survives mid-tree mounts gracefully.
+  2. **A shared `ResultReveal` wrapper beats per-page `motion.div` inlines.** Without it, every tool page would need three import lines (`motion`, `AnimatePresence`, `useReducedMotion`) plus six lines of motion props per result block. The wrapper exports a 1-line API (`<ResultReveal show={cond}>...</ResultReveal>`) and centralizes the timing constants. Future tweaks (faster, slower, easing change) happen in one place.
+  3. **The conditional toolbar is the right thing to animate — not the container.** Most tool pages structure their result panel as: a conditional toolbar (mounts on result existence) + a main container (always mounted, `min-h-*` reserves space). Animating the toolbar gives the user a clear "the result arrived" signal without layout shift. Animating the entire container would either cause shift OR require pre-mounting an empty motion.div with reserved height, which is more code.
+  4. **`mode="wait"` is the safer AnimatePresence default for single-child reveals.** Even when there's only one conditional child, mode="wait" prevents transient double-mounts during state changes (e.g. result A → result B). Default popLayout briefly stacks both during transition.
+  5. **Ship the wrapper + N representative applications, file follow-up for the rest.** When an item touches "every tool page", shipping all 13 in one iteration risks bloat. Spec-justified scope: wrapper + 2-3 demonstrations. The extension to the rest gets its own backlog entry (FE-16). Keeps iterations focused without blocking the user on a 13-page diff.
+
 ## 2026-05-24 — FE-13 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-13-sidebar-polish
 - branch: auto/fe-13-sidebar-polish (stacked on auto/fe-12-export)

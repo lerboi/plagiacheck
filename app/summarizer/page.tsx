@@ -16,6 +16,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 export default function Summarizer() {
   const [text, setText] = useState("")
@@ -248,7 +249,7 @@ export default function Summarizer() {
 
           {/* RIGHT — output */}
           <div className="space-y-3">
-            {(summary || bulletPoints.length > 0) && (
+            <ResultReveal show={!!summary || bulletPoints.length > 0}>
               <div className="flex items-center gap-4 px-3.5 py-2 rounded-lg border border-border bg-card text-xs flex-wrap">
                 {text.trim() && (
                   <>
@@ -282,7 +283,7 @@ export default function Summarizer() {
                   </Button>
                 </div>
               </div>
-            )}
+            </ResultReveal>
             {outputType === "bullets" && bulletPoints.length > 0 ? (
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <ul className="divide-y divide-border/50">
