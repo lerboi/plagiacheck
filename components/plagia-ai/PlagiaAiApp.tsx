@@ -22,6 +22,7 @@ import {
   Mic,
   MicOff,
   Settings,
+  Copy,
   Download,
   PanelLeftOpen,
   Pencil,
@@ -915,6 +916,25 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   // FE-19 — regenerate the last assistant turn. Walk back from the end of
   // `items` to find the most recent assistant bubble; from there walk back
   // to the immediately preceding user message; truncate items to drop the
+  // FE-22 — copy an assistant bubble's text to the clipboard. Toasts on
+  // success and on the rare failure (clipboard permission denied,
+  // typically inside an iframe). Best-effort — clipboard API is async.
+  const handleCopyAssistant = useCallback(
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text)
+        toast({ title: "Copied", variant: "success" })
+      } catch {
+        toast({
+          title: "Couldn't copy",
+          description: "Your browser blocked clipboard access.",
+          variant: "destructive",
+        })
+      }
+    },
+    [toast],
+  )
+
   // user message and everything after; then send the original user content
   // again. The model re-rolls a new answer on the same prompt.
   const handleRegenerate = useCallback(() => {
@@ -1359,11 +1379,22 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         transition={{ duration: 0.15 }}
                         className="flex flex-col items-start"
                       >
-                        <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                        <div className="group relative max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
                           <span className="sr-only">Assistant said: </span>
                           {it.content}
                           {isStreamingThis && (
                             <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" aria-hidden="true" />
+                          )}
+                          {!isStreamingThis && it.content.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyAssistant(it.content)}
+                              className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                              aria-label="Copy answer"
+                              title="Copy answer"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
                           )}
                         </div>
                         {showRegenerate && (

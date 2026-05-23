@@ -371,6 +371,36 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
   - Lint + tsc clean. Smoke test at least two tool pages manually.
 - **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
 
+### FE-22 — Copy-to-clipboard on assistant text bubbles
+- **scope:** ui
+- **pillar:** frictionless-interaction
+- **status:** done (2026-05-24)
+- **branch:** auto/fe-22-copy-assistant (stacked on auto/fe-21-inline-svg)
+- **pr:** TBD (capture after push)
+- **files:** `components/plagia-ai/PlagiaAiApp.tsx`
+- **why:** Users routinely want to paste an assistant answer into another doc. Currently the only way is to triple-click + Cmd-C. ChatGPT (and every chat UI worth using) puts a one-click Copy button on the assistant bubble. Hover-reveal pattern matching the FE-18 pencil — small Copy icon top-right of the bubble, opacity-0 group-hover:opacity-100. Click copies the text to clipboard + toasts "Copied".
+- **acceptance:**
+  - On every assistant text bubble, render a `Copy` icon button positioned at top-right of the bubble (`-top-1.5 -right-1.5`, `h-6 w-6 rounded-full bg-background border border-border shadow-sm`). Hidden by default, revealed on `group-hover` (and focus-visible for keyboard).
+  - On click: `navigator.clipboard.writeText(it.content)` then toast `{ title: "Copied", variant: "success" }`.
+  - Hide while streaming (the bubble is still being written; copying an incomplete answer is confusing).
+  - Hide when the bubble is empty (just-mounted streaming placeholder).
+  - SR-only label `aria-label="Copy answer"`.
+- **out of scope:** copying as Markdown, copying with attribution metadata, share-link feature.
+
+### FE-23 — Per-run token cost footnote on done tool cards
+- **scope:** ui
+- **pillar:** conversational-quality
+- **status:** todo
+- **files:** `components/plagia-ai/PlagiaAiApp.tsx`, `lib/plagia-ai/types.ts` (extend the SSE result event)
+- **why:** Users can see remaining tokens in the nav badge but never see how much THIS specific tool run cost. After dispatching multiple tools they have to subtract to figure out spend. A small "Used N tokens" footnote on each done tool card surfaces the actual cost transparently.
+- **acceptance:**
+  - The server already returns `remainingTextTokens` / `remainingImageTokens` on the tool_result event. Compute the per-run delta by subtracting from the pre-run balance and pass it as a new `tokensUsed: number` field on the SSE event, with a `currency: "text" | "image"` tag.
+  - Client extends ChatItem.tool to store `tokensUsed?: number` + `tokensCurrency?: "text" | "image"`.
+  - Render below the result-preview line on done cards (failed cards skip the footnote — they didn't deduct, or refunded): "Used 12 text tokens" / "Used 1 image token" in muted text.
+  - Singular/plural aware ("1 text token" not "1 text tokens").
+  - Failed cards continue to show only the error.
+- **out of scope:** running totals per turn, cost projections, multi-tool aggregate.
+
 ### FE-21 — Inline render of generated SVGs in the chat thread
 - **scope:** ui
 - **pillar:** conversational-quality

@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-22 — shipped + FE-22/FE-23 appended
+- pr: TBD (capture from git push output)
+- branch: auto/fe-22-copy-assistant (stacked on auto/fe-21-inline-svg)
+- summary: Hover-revealed Copy button on every assistant text bubble. Same visual pattern as the FE-18 pencil — `-top-1.5 -right-1.5` floating circle, `h-6 w-6 rounded-full bg-background border border-border shadow-sm`, `opacity-0 group-hover:opacity-100`. Hidden while the bubble is streaming (`isStreamingThis`) AND when content is empty. Click calls `navigator.clipboard.writeText(it.content)` inside a try/catch, then toasts success or "Couldn't copy" (browser blocked it — happens inside iframes). The handler is `useCallback`-stable on `[toast]`.
+- appended-to-backlog: FE-22 (shipped this iteration — copy-to-clipboard on assistant bubbles) and FE-23 (per-run token cost footnote on done tool cards — still todo for the next iteration). Both serve the four-pillar charter — FE-22 is frictionless-interaction, FE-23 is conversational-quality/transparency.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: navigator.clipboard requires a secure context (HTTPS or localhost) so localhost dev works; production via vercel.app HTTPS works. Mental test: click button → toast appears → paste somewhere else → original text.
+- lesson:
+  1. **`group relative` + absolute-positioned hover-revealed button is now the established pattern.** First introduced in FE-18 (pencil on user bubble), then FE-13 (delete on sidebar row), now FE-22 (copy on assistant bubble). Pattern: parent gets `group relative`, the action button gets `absolute -top-1.5 -right-1.5 ... opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity`. Reusable, three lines of utility classes. Worth a small `<HoverActionButton>` extract if more surfaces adopt it.
+  2. **Clipboard API needs the try/catch even though TypeScript thinks it returns void.** `navigator.clipboard.writeText` throws synchronously OR rejects asynchronously depending on browser + context. Wrapping the await in try/catch covers both. The "Couldn't copy" toast is rare but real — iframes, browsers without clipboard permission, ancient Safari.
+  3. **`isStreamingThis` + `it.content.trim()` together prevent a flicker.** Without these gates, the Copy button would appear briefly during streaming as soon as the bubble had any content, then disappear when the cursor caught up, then re-appear when streaming ends. Gating on `!isStreamingThis && it.content.trim()` keeps it out of view until the bubble is settled.
+  4. **`useCallback([toast])` is enough; don't depend on items / content.** The handler takes `text` as a parameter, so it doesn't close over per-bubble state. Including `items` or `content` in the deps would cause unnecessary re-creates on every render. Pattern: prefer pass-through parameters over closing over component state when stable handlers are important.
+
 ## 2026-05-24 — FE-21 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-21-inline-svg
 - branch: auto/fe-21-inline-svg (stacked on auto/fe-20-rename-conversation)
