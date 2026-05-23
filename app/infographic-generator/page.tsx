@@ -14,6 +14,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 export default function InfographicGenerator() {
   const [text, setText] = useState("")
@@ -166,7 +167,7 @@ export default function InfographicGenerator() {
             <span className="text-sm font-medium">Generated Infographic</span>
 
             {/* Metadata strip */}
-            {svgOutput && (
+            <ResultReveal show={!!svgOutput}>
               <div className="flex items-center gap-3 px-4 py-2.5 rounded-t-xl border border-b-0 border-border bg-card text-xs">
                 {title && <span className="font-medium">{title}</span>}
                 <div className="ml-auto flex gap-1">
@@ -174,7 +175,7 @@ export default function InfographicGenerator() {
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}><Download className="h-3 w-3" />Download</Button>
                 </div>
               </div>
-            )}
+            </ResultReveal>
             <div ref={svgContainerRef} className={`p-4 ${svgOutput ? "rounded-b-xl border border-border bg-white shadow-sm" : "rounded-xl border border-border bg-card dark:bg-card min-h-[320px] flex items-center justify-center"}`}>
               {svgOutput
                 ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full" />

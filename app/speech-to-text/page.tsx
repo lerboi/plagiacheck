@@ -15,6 +15,7 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 export default function SpeechToText() {
   const [isRecording, setIsRecording] = useState(false)
@@ -361,7 +362,7 @@ export default function SpeechToText() {
             </Card>
 
             {/* Cleaned Transcript */}
-            {cleanedText && (
+            <ResultReveal show={!!cleanedText}>
               <Card className="rounded-xl border border-border bg-card p-6">
                 <div className="space-y-3">
                   {/* Stats bar */}
@@ -405,7 +406,7 @@ export default function SpeechToText() {
                   </div>
                 </div>
               </Card>
-            )}
+            </ResultReveal>
           </>
         )}
 

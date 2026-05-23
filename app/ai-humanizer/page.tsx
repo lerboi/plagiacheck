@@ -17,6 +17,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 export default function AIHumanizer() {
   const [text, setText] = useState("")
@@ -303,7 +304,7 @@ export default function AIHumanizer() {
               <span className="w-2 h-2 rounded-full bg-green-500"></span>
               <span className="text-xs font-medium text-muted-foreground">Humanized</span>
             </div>
-            {humanizedText && (
+            <ResultReveal show={!!humanizedText}>
               <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-border bg-card text-xs flex-wrap gap-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className="text-muted-foreground">Words changed</span>
@@ -332,7 +333,7 @@ export default function AIHumanizer() {
                   </Button>
                 </div>
               </div>
-            )}
+            </ResultReveal>
             <div className="min-h-[320px] max-h-[480px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">
               {humanizedText || <span className="text-muted-foreground/40">Humanized text appears here</span>}
             </div>

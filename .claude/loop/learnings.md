@@ -17,6 +17,33 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-16 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-16-result-reveal-rest (stacked on auto/fe-15-reduce-motion-audit)
+- summary: Extended `<ResultReveal>` (created in FE-14) to the remaining 9 tool pages so every tool now has a consistent reveal animation when its result lands. Per page:
+  - ai-humanizer: wrapped the words-changed + actions toolbar.
+  - chart-generator: wrapped the metadata strip (chart-type pill + title + actions). Required switching `chartInfo.X` → `chartInfo?.X` inside the wrapper since the TS narrower no longer reaches inside.
+  - image-to-text: wrapped the confidence + word-count + copy toolbar.
+  - infographic-generator: wrapped the title + SVG/download actions strip.
+  - thumbnail-generator: wrapped the entire preview block (header chip + SVG aspect-ratio frame). Container has its own border/bg, so no layout shift when reveal fires.
+  - voice-to-essay: wrapped the entire Essay Output card (header + body + action chips). Larger reveal but the card has min-height implicitly via content; acceptable.
+  - audio-summarizer: wrapped the Summary Output card. Required adding an inner `{summary && (...)}` narrower to satisfy TS for the ~10 `summary.X` accesses inside.
+  - speech-to-text: wrapped the Cleaned Transcript card.
+  - plagiarism-checker: replaced the inline `<motion.div initial animate>` with `<ResultReveal show={isChecking || !!result}>`. The motion.div was ungated for reduce-motion and used `y: 16` (larger than ResultReveal's default y: 6) — the swap makes it consistent + respects MotionConfig.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean (after fixing two TS-narrowing cases: optional-chaining on chart-generator's `chartInfo`, and adding the inner `{summary && ...}` guard on audio-summarizer).
+  - `npm run lint` clean (pre-existing billing + image-to-text warnings only).
+  - Behavior verification gap: needs a real-browser pass to confirm each reveal feels right against each tool's specific output shape. Mental model says yes; the wrapper is opacity + small Y, so even on larger result blocks (voice-to-essay, audio-summarizer) the motion stays subtle.
+- lesson:
+  1. **AnimatePresence breaks TypeScript narrowing on the wrapped children.** Patterns like `{result && (<div>{result.foo}</div>)}` give TS the narrowing inside `{}`. After `<ResultReveal show={!!result}>{<div>{result.foo}</div>}</ResultReveal>`, TS sees the children as a normal subtree where `result` could still be null. Two fixes:
+     - Optional chaining (`result?.foo`) — cheap if the inner has a handful of accesses.
+     - Inner runtime guard (`{result && (<div>...</div>)}`) — better when there are many accesses (chart-generator had 6 references; audio-summarizer had ~10).
+     Use whichever is fewer source-line edits. Avoid non-null assertion (`result!.foo`) — masks bugs if the runtime narrowing in the parent ever loosens.
+  2. **Swapping inline `motion.div` for `<ResultReveal>` is the right consolidation.** The plagiarism-checker had its own `motion.div initial animate transition` predating FE-14. Replacing it with `<ResultReveal>` (a) makes the entrance consistent with the other 12 tools, (b) gets `prefers-reduced-motion` gating for free via the wrapper's `useReducedMotion()` + MotionConfig, and (c) removes 4 lines of motion-prop boilerplate. Any future inline motion.div on a result panel is now a code smell — convert to ResultReveal.
+  3. **Smoke-test surface: pick 3 with distinct shapes.** Not all 9 tool pages have the same render. ai-humanizer is a horizontal stat strip; chart-generator is a chip + SVG; voice-to-essay wraps a whole card. Verifying behavior on one variant doesn't transfer to the others. Manual test list: paraphraser (FE-14 baseline), thumbnail-generator (image SVG, distinct from text), audio-summarizer (largest block, motion most visible). Document this in the PR description.
+  4. **Bulk-apply iterations: read all targets first, then edit.** Tried to be efficient by surveying each file's result-render pattern in one grep pass before opening any edit. Caught the chart-generator chartInfo-narrowing issue mentally but it still tripped tsc; the audio-summarizer narrower-needed issue was a surprise. Future bulk-apply iterations should pre-check whether the wrapped content uses ANY refs to the truthy-checked variable — those are the narrowing-loss spots.
+
 ## 2026-05-24 — FE-15 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-15-reduce-motion-audit
 - branch: auto/fe-15-reduce-motion-audit (stacked on auto/fe-14-tool-motion)

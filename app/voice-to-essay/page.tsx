@@ -15,6 +15,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 export default function VoiceToEssay() {
   const [isRecording, setIsRecording] = useState(false)
@@ -311,7 +312,7 @@ export default function VoiceToEssay() {
         </Card>
 
         {/* Essay Output */}
-        {essay && (
+        <ResultReveal show={!!essay}>
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             {/* Essay header */}
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -343,7 +344,7 @@ export default function VoiceToEssay() {
               </div>
             </div>
           </div>
-        )}
+        </ResultReveal>
 
         {/* ── Informational content ── */}
         <div className="mt-10 pt-8 border-t border-border space-y-8">

@@ -14,6 +14,7 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 import { ScanText } from "lucide-react"
 
 export default function ImageToText() {
@@ -287,7 +288,7 @@ export default function ImageToText() {
             </div>
 
             {/* Confidence / type badge bar */}
-            {extractedText && (
+            <ResultReveal show={!!extractedText}>
               <div className="flex items-center gap-3 flex-wrap text-xs">
                 {confidence && (
                   <span className={`px-2 py-1 rounded-full font-medium ${
@@ -306,7 +307,7 @@ export default function ImageToText() {
                   {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
                 </Button>
               </div>
-            )}
+            </ResultReveal>
 
             {/* Clean document card */}
             <div className="min-h-[280px] max-h-[480px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">

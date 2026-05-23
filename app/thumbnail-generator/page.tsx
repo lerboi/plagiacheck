@@ -13,6 +13,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 const STYLES = [
   { value: "modern", label: "Modern" },
@@ -180,7 +181,7 @@ export default function ThumbnailGenerator() {
         </div>
 
         {/* SVG Output */}
-        {svgOutput && (
+        <ResultReveal show={!!svgOutput}>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Preview · 1200×630</span>
@@ -193,7 +194,7 @@ export default function ThumbnailGenerator() {
               <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full h-full" />
             </div>
           </div>
-        )}
+        </ResultReveal>
 
         {/* ── Informational content ── */}
         <div className="mt-10 pt-8 border-t border-border space-y-8">

@@ -14,6 +14,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
 const CHART_TYPES = [
   { value: "auto-detect", label: "Auto-Detect" },
@@ -194,13 +195,13 @@ export default function ChartGenerator() {
             <span className="text-sm font-medium">Generated Chart</span>
 
             {/* Metadata strip + SVG container */}
-            {svgOutput && chartInfo && (
+            <ResultReveal show={!!(svgOutput && chartInfo)}>
               <div className="flex items-center gap-3 px-4 py-2.5 rounded-t-xl border border-b-0 border-border bg-card text-xs">
-                {chartInfo.chartType && (
+                {chartInfo?.chartType && (
                   <span className="px-2 py-1 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium capitalize">{chartInfo.chartType}</span>
                 )}
-                {chartInfo.title && <span className="font-medium text-foreground">{chartInfo.title}</span>}
-                {chartInfo.description && <span className="text-muted-foreground hidden sm:inline">{chartInfo.description}</span>}
+                {chartInfo?.title && <span className="font-medium text-foreground">{chartInfo.title}</span>}
+                {chartInfo?.description && <span className="text-muted-foreground hidden sm:inline">{chartInfo.description}</span>}
                 <div className="ml-auto flex gap-1">
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}>
                     <Copy className="h-3 w-3" />SVG
@@ -210,7 +211,7 @@ export default function ChartGenerator() {
                   </Button>
                 </div>
               </div>
-            )}
+            </ResultReveal>
             <div className={`overflow-hidden p-4 ${svgOutput && chartInfo ? "rounded-b-xl border border-border" : "rounded-xl border border-border"} ${svgOutput ? "bg-white shadow-sm" : "bg-card dark:bg-card min-h-[280px] flex items-center justify-center"}`}>
               {svgOutput
                 ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full" />

@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
@@ -417,15 +418,9 @@ export default function PlagiarismCheckerContent() {
                 </div>
               </div>
 
-              {(isChecking || result) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <PlagiarismResults isChecking={isChecking} progress={progress} result={result} originalText={text} />
-                </motion.div>
-              )}
+              <ResultReveal show={isChecking || !!result}>
+                <PlagiarismResults isChecking={isChecking} progress={progress} result={result} originalText={text} />
+              </ResultReveal>
             </div>
           </Card>
         </motion.div>
