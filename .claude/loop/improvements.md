@@ -376,7 +376,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-24-pin-conversation (stacked on auto/fe-23-token-cost)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-24-pin-conversation (set base to `auto/fe-23-token-cost`)
 - **files:** `components/plagia-ai/ConversationSidebar.tsx`, `lib/plagia-ai/storage.ts` (extend), `components/plagia-ai/PlagiaAiApp.tsx`
 - **sql-required:** Yes — `ALTER TABLE plagia_ai_conversations ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT FALSE;` (one-time, idempotent). UI degrades gracefully (no pin actions) until the user runs it.
 - **why:** ChatGPT pins. Plagiacheck users with many saved conversations need a way to keep their most-used ones at the top of the sidebar. Pinned rows sort to the top regardless of `updated_at`. Standard chat-app pattern; covers the same gap as FE-17's filter but for keeping favorites accessible without typing.

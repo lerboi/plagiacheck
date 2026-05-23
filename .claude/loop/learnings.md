@@ -17,8 +17,25 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — LOOP SESSION COMPLETE
+- session: 2026-05-24 (started during the hand-fix, ran ~14 iterations end-to-end)
+- shipped: FE-11, FE-12, FE-13, FE-14, FE-15, FE-16, FE-17, FE-18, FE-19, FE-20, FE-21, FE-22, FE-23, FE-24 (14 items) + the hand-fix bundle that preceded the loop. All on stacked branches off `auto/fix-home-viewport-fill` → `auto/fe-N-*`. Final stack tip: `auto/fe-24-pin-conversation`. None merged to main yet — that's the user's call.
+- blocked: 0.
+- backlog state at stop: zero todo items remain. Self-generating FE items has dried up — the remaining ideas (multi-pin reorder, voice playback in chat, real-time collab, light-mode polish pass) are either out-of-scope per the PlagiaAI charter or polish-on-polish.
+- meta-pattern recap:
+  1. **Stacked-branch chain off the hand-fix lets the loop ship anything without waiting on PR merges.** Each iteration branches from the previous one's tip. The full chain back to main is one logical merge when the user is ready (`auto/fe-24-pin-conversation` → `auto/fix-home-viewport-fill` → `main` would land all 14+ PRs in dependency order).
+  2. **`sendMessage({ baseItems })` was the foundational refactor that unlocked FE-18 (edit) AND FE-19 (regenerate).** Both rewind the conversation to an earlier point and re-run; both needed an explicit override to defeat closure staleness. Pattern: any "send" function tied to a list-state closure should accept the list as an optional override.
+  3. **MotionConfig at the root + motion-safe: variants on Tailwind transforms = comprehensive reduce-motion compliance in one PR.** Without MotionConfig you'd need useReducedMotion() in 16 files. With it, every motion.* below the provider behaves correctly. Pair with `motion-safe:` on each transform-bearing class chain (hover:scale-, hover:-translate-, active:scale-) for CSS-side coverage.
+  4. **`<ResultReveal>` is a reusable building block for any conditional-results UI.** Originally created for tool pages (FE-14), then extended to 9 more tool pages (FE-16). The pattern (one client wrapper with show: boolean + useReducedMotion gate) generalizes beyond tool pages — any "this content appears when X is true" surface should consider it.
+  5. **Sidebar evolution went: collapse → drawer → active indicator → filter → rename → pin (FE-13, 17, 20, 24).** Each iteration added a small ChatGPT-parity capability. The ConversationList internal component absorbed three new state slots (renamingId, renameDraft, plus inferred from filter) without bloating. Lesson: extracting an internal component early made each subsequent feature a 30-line patch instead of a 100-line rewrite.
+  6. **Closure-of-loop discipline mattered.** Appended 1 FE item per shipped iteration (capped at 2 by RULES). When the natural follow-ups dried up, stopped. The 14-item session lifespan was emergent, not pre-planned.
+- next-session pointers:
+  - The user must run the FE-09 SQL (`plagia_ai_preferences`) + FE-24 SQL (`pinned` column) in Supabase. Both documented in their PR descriptions.
+  - FE-11's followups.ts helper is wired but unverified against a live model that omits the marker. Worth a manual smoke test in the next session.
+  - If the user wants a NEXT round of work after merging the stack, three obvious candidates: multi-conversation export (zip), voice playback of assistant text (TTS integration), conversation folder organization. None added to the backlog yet — wait for the user to direct.
+
 ## 2026-05-24 — FE-24 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-24-pin-conversation
 - branch: auto/fe-24-pin-conversation (stacked on auto/fe-23-token-cost)
 - sql-required-one-time: `ALTER TABLE plagia_ai_conversations ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT FALSE;` (idempotent — safe to re-run). UI degrades gracefully until the user runs it: rows just sort by updated_at like before and the Pin button no-ops with a clear toast.
 - summary: ChatGPT-style conversation pinning. Storage: `StoredConversationSummary` gains optional `pinned?: boolean`; `listConversations` tries `select(... pinned)` ordered by `pinned DESC, updated_at DESC`, then falls back to the pre-migration query if Supabase errors on the missing column. New `setConversationPinned(id, pinned: boolean): Promise<boolean>` PATCHes the column + bumps updated_at. PlagiaAiApp wires `handleTogglePinConversation(id, pinned)` that calls the storage helper, toasts a migration-pointer on failure, and refetches the list on success so the new sort lands. Sidebar: third hover-revealed icon (`Pin` from lucide) between Rename and Delete; when `c.pinned` is true the icon stays VISIBLE (not hover-revealed), uses violet color, and fills (`fill-current`) so the pinned state reads at a glance. Visual separator between pinned and unpinned rows: pre-compute the first-unpinned index outside the map, then apply `border-t border-border mt-1.5 pt-1.5` to that one row. Both inline and drawer variants get the same flow via the shared ConversationList.
