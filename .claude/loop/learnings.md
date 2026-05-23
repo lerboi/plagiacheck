@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-20 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-20-rename-conversation
 - branch: auto/fe-20-rename-conversation (stacked on auto/fe-19-regenerate)
 - summary: User-renameable conversation titles. Storage: new `renameConversation(id, newTitle)` in `lib/plagia-ai/storage.ts` — a pure UPDATE on `plagia_ai_conversations.title` + `updated_at` bump. Trims whitespace + clamps to `TITLE_MAX_CHARS` (60) server-side. Returns boolean for the UI to act on. UI: ConversationSidebar's row gets a third state alongside (normal | confirming-delete): renaming. When `renamingId === c.id`, the row renders an autofocused `<input type="text">` instead of the title button. Enter commits, Escape cancels, blur commits, empty draft keeps the editor open with a red border. The row's action area now shows TWO hover-revealed icons (Pencil for rename, Trash2 for delete) wrapped in a small flex container. Both inline and drawer variants share the same flow because filter state + rename state both live in `ConversationList`. Parent `PlagiaAiApp` provides `handleRenameConversation(id, newTitle)` which calls the storage helper, toasts on failure, and refetches the list on success so the sidebar shows the new title without a manual reload.
 - NO-ACCESS-FILES audit: clean.

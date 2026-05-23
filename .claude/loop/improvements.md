@@ -371,6 +371,21 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
   - Lint + tsc clean. Smoke test at least two tool pages manually.
 - **out of scope:** rewriting any tool logic, changing copy, changing API contracts.
 
+### FE-21 — Inline render of generated SVGs in the chat thread
+- **scope:** ui
+- **pillar:** conversational-quality
+- **status:** todo
+- **files:** `components/plagia-ai/PlagiaAiApp.tsx`, possibly a new `components/plagia-ai/ToolResultPreview.tsx`
+- **why:** When PlagiaAI dispatches `generate_chart` / `generate_infographic` / `generate_thumbnail`, the resulting SVG is returned in `tool_result.result.svg`. Currently the tool card shows a "Done" pill with "SVG output (X chars). View in the standalone tool to render." That's a UX dead-end — the user has to leave the chat to see what they asked for. ChatGPT renders DALL-E images inline; the same should happen here for SVG tools.
+- **acceptance:**
+  - When a `tool` ChatItem has `status: "done"`, `result.result.svg` is a non-empty string, AND its name is one of `generate_chart` / `generate_infographic` / `generate_thumbnail`, render the SVG inline inside the tool card BEFORE the expandable preview block.
+  - SVG container: white background (always, regardless of theme — matches the downloaded file appearance), rounded corners, max-width 100% of the card, fixed aspect-ratio matching the SVG dimensions (thumbnails are 1200x630; charts/infographics size themselves).
+  - Below the rendered SVG: a small "Download SVG" link button. Click downloads the same Blob the standalone tool would (reuse the dataURL→Blob pattern in `lib/plagia-ai/export.ts` is overkill; just `new Blob([svg], { type: "image/svg+xml" })` inline).
+  - For `image_to_text` (OCR), `paraphrase`, `summarize`, etc., NO inline rich render — they're text-output tools. Only SVG-output tools get the inline render.
+  - Respect `prefers-reduced-motion` for any fade-in on the SVG mount (use the existing ResultReveal pattern or a manual `useReducedMotion()`).
+  - SR-only label so screen readers don't get a wall of SVG markup: `<span className="sr-only">{toolName} output</span>` above the container.
+- **out of scope:** rendering DALL-E / external image URLs (we don't generate those), embedding charts as React components, editing the SVG inline.
+
 ### FE-19 — Regenerate the last assistant response
 - **scope:** new-feature
 - **pillar:** conversational-quality
@@ -392,7 +407,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-20-rename-conversation (stacked on auto/fe-19-regenerate)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-20-rename-conversation (set base to `auto/fe-19-regenerate`)
 - **files:** `components/plagia-ai/ConversationSidebar.tsx`, `lib/plagia-ai/storage.ts` (extend), `components/plagia-ai/PlagiaAiApp.tsx`
 - **why:** Conversation titles are auto-derived from the first user message and immutable. After a few weeks the sidebar fills with "Check this text for plagiarism: ..." titles that are hard to scan. Letting users rename their saved chats is the same pattern every chat app supports.
 - **acceptance:**
