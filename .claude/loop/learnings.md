@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-12 — shipped
+- pr: TBD (capture from `git push` output)
+- branch: auto/fe-12-export (stacked on auto/fix-home-viewport-fill)
+- summary: Markdown export of the current conversation. New `lib/plagia-ai/export.ts` ships three pure helpers (`formatExportTimestamp`, `formatExportFilename`, `conversationToMarkdown`) plus the impure `downloadConversationMarkdown` that builds a Blob + clicks a synthesized `<a download>`. Filename format: `plagia-ai-YYYY-MM-DD-HHMM.md` (local time). Body format: H1 with the human date, then per-turn `## You` / `## PlagiaAI` H2s separated by blank lines, tool turns rendered as fenced \`\`\`tool <name> blocks containing `<argsSummary>` line and either `<resultPreview>` (done) or `<error>` (failed) or a `(in progress)` / `(awaiting confirmation)` status label. Empty assistant text is skipped (matches the on-screen render). `PlagiaAiApp.tsx` adds a Download-icon Export button in the chat header, placed between the Settings button and the Clear flow, only visible when `conversationStarted && !confirmingClear`. Disabled while streaming. On click, maps the local `ChatItem[]` to the export's `ExportableMessage[]` (strips IDs / progress / pendingConfirm / result — none of those belong in a static Markdown artifact), calls `downloadConversationMarkdown`, then toasts the filename.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing billing + image-to-text warnings only).
+  - Behavior verification gap: a live download triggers in a real browser; the Blob/URL.createObjectURL path is exercised every click. Mental smoke-test only — no test framework wired into this repo.
+- lesson:
+  1. **Decouple the export shape from the component's local discriminated union.** `PlagiaAiApp.tsx` has its own `ChatItem` union with progress / pendingConfirm / IDs that don't belong in a static artifact. Instead of importing `ChatItem` from the component into the lib (which would create a backwards dependency), I declared a thin `ExportableMessage` in the lib with just the fields the renderer needs. The component does a one-screen mapping at the call site. Cheaper than refactoring the chat union into a shared module, and the lib stays pure (no React, no component knowledge).
+  2. **Return the filename from `downloadConversationMarkdown` so the caller can toast it.** The download is impure but the helper is a thin shim, not a UX surface — it doesn't know if a toast system exists. Returning the filename lets the caller decide whether to surface it. Pattern: side-effect functions that produce a piece of state worth reporting should return that state, not just `void`.
+  3. **`setTimeout(() => URL.revokeObjectURL(url), 0)` is the canonical cleanup.** Revoking synchronously after `.click()` cancels the download in some browsers because the URL is still in use. The tick delay gives the browser time to start the download, and the URL is freed shortly after.
+  4. **The chat header button order matters.** Settings → Export → Clear reads left-to-right as "configure → save your work → destructive action". Putting Export between Preferences and the Clear flow naturally gates the destructive action with the save option, even though they're separate flows. ChatGPT does the same thing (history download next to delete-all in the data controls).
+  5. **`!confirmingClear` gating on Export prevents visual collision.** The confirming-clear state replaces the Clear button with a "Clear this conversation? Cancel / Confirm clear" row that already takes the right-hand width. Showing Export in parallel would push the row off-screen on narrow viewports. Easy to miss when adding adjacent buttons.
+
 ## 2026-05-24 — FE-11 — shipped (bundled into the hand-fix branch)
 - pr: bundled — see the 2026-05-24 hand-fix commit
 - branch: same as the hand-fix branch

@@ -22,6 +22,7 @@ import {
   Mic,
   MicOff,
   Settings,
+  Download,
   X,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -43,6 +44,10 @@ import {
   saveConversation,
   type StoredConversationSummary,
 } from "@/lib/plagia-ai/storage"
+import {
+  downloadConversationMarkdown,
+  type ExportableMessage,
+} from "@/lib/plagia-ai/export"
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
 import { EmptyState } from "@/components/plagia-ai/EmptyState"
 import { SuggestionChipBar } from "@/components/plagia-ai/SuggestionChipBar"
@@ -819,6 +824,32 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     setFollowupSuggestions([])
   }
 
+  // FE-12 — export the current conversation as Markdown. The export
+  // shape is a thin subset of ChatItem (no IDs, no progress state) —
+  // map here so lib/plagia-ai/export.ts stays decoupled from the
+  // component's local ChatItem union.
+  const handleExportConversation = () => {
+    if (items.length === 0) return
+    const exportable: ExportableMessage[] = items.map((it) => {
+      if (it.kind === "user") return { kind: "user", content: it.content }
+      if (it.kind === "assistant") return { kind: "assistant", content: it.content }
+      return {
+        kind: "tool",
+        name: it.name,
+        argsSummary: it.argsSummary,
+        status: it.status,
+        resultPreview: it.resultPreview,
+        error: it.error,
+      }
+    })
+    const filename = downloadConversationMarkdown(exportable)
+    toast({
+      title: "Conversation exported",
+      description: filename,
+      variant: "success",
+    })
+  }
+
   const handleNewChat = () => {
     setItems([])
     setExpandedTools({})
@@ -923,6 +954,20 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   <Settings className="h-3 w-3" />
                   <span className="hidden sm:inline">Preferences</span>
                 </button>
+                {conversationStarted && !confirmingClear && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={handleExportConversation}
+                    disabled={streaming}
+                    aria-label="Export conversation as Markdown"
+                    title="Export conversation as Markdown"
+                  >
+                    <Download className="h-3 w-3" />
+                    <span className="hidden sm:inline">Export</span>
+                  </Button>
+                )}
                 {conversationStarted &&
                   (confirmingClear ? (
                     <>
