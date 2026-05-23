@@ -17,6 +17,22 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 
 ---
 
+## 2026-05-24 — FE-21 — shipped
+- pr: TBD (capture from git push output)
+- branch: auto/fe-21-inline-svg (stacked on auto/fe-20-rename-conversation)
+- summary: Inline SVG rendering for chart / infographic / thumbnail tool cards. New `components/plagia-ai/InlineSvgPreview.tsx` takes `svg: string` + `toolName: PlagiaAiToolName` and renders the SVG inside a white-background container (always white regardless of theme, to match the downloaded file appearance) with a "Download SVG" link button below. Fade-in via framer-motion `opacity: 0 → 1` (250ms); `useReducedMotion()` short-circuits via empty motion props. SR-only label "(Chart|Infographic|Thumbnail) output" precedes the SVG so screen readers don't read the markup. Wiring: new `getInlineSvg(it)` helper at the bottom of PlagiaAiApp returns the SVG string or null; the tool-card render slots `<InlineSvgPreview svg={inlineSvg} toolName={it.name} />` between the running/progress block and the done/failed expandable preview. Download mechanism reuses the FE-12 Blob + URL.createObjectURL + synthesized `<a download>` pattern with a `setTimeout(revoke)` on the next tick.
+- NO-ACCESS-FILES audit: clean.
+- verification:
+  - `npx tsc --noEmit` clean.
+  - `npm run lint` clean (pre-existing warnings only).
+  - Behavior verification gap: needs a real PlagiaAI chart dispatch to confirm the SVG renders correctly. The lib/svg-templates.ts output is already self-contained (P0-04 confirmed each `wrap()` adds a white background rect) so the inline render shouldn't pose new layout issues. dangerouslySetInnerHTML risk is acceptable here because the SVG source is OUR template — not user-controlled.
+- lesson:
+  1. **`dangerouslySetInnerHTML` for self-generated SVG is appropriate; for user input it isn't.** This SVG comes from `lib/svg-templates.ts` which we author. The Mistral LLM only emits a JSON SPEC (title, palette, etc.); the actual SVG markup is built deterministically by our code. So the XSS risk is the same as any other server-rendered template. Documenting this distinction in a code comment is worthwhile because future iterations might be tempted to inline user-pasted SVG, which would be unsafe.
+  2. **White background regardless of theme matches the downloaded file.** Earlier P0-04 audit found that `dark:bg-gray-950` on the chart/infographic tool-page containers clashed with the SVG's white bg. The fix was always-white. Same applies here — inline preview ALWAYS uses `bg-white` so what the user sees in the chat is what they'll get when they download.
+  3. **The IIFE `(() => { ... })()` wrapper for inline conditional rendering reads cleaner than nested ternaries** when you need to compute a value and check it before rendering. Here: `getInlineSvg(it)` returns `string | null`, and we want to render only when non-null. `{(() => { const svg = getInlineSvg(it); return svg ? <Preview svg={svg} /> : null })()}` avoids both the double-call of `getInlineSvg(it) && <Preview svg={getInlineSvg(it)!} />` and the type-narrowing pain of a non-null assertion.
+  4. **`PlagiaAiToolName` constrains the helper to known tools.** The InlineSvgPreview props type for `toolName` uses the same union as the rest of the chat code. Partial<Record<...>> for the lookup tables (TOOL_LABELS, FILENAME_BASE) means future tools added to the union without an entry here will get sensible fallbacks ("Output", "plagia-ai") rather than crashing or showing `undefined`.
+  5. **Opacity-only entrance under reduce-motion is still appropriate.** WCAG 2.3.3 covers vestibular-triggering motion (large translations, parallax) — fades are explicitly fine. So the InlineSvgPreview's opacity fade keeps running even when MotionConfig suppresses transforms globally. Pattern: when adding new motion, ask "is this transform-based or opacity-based?" — opacity is safe under reduce-motion; transforms must be gated.
+
 ## 2026-05-24 — FE-20 — shipped
 - pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-20-rename-conversation
 - branch: auto/fe-20-rename-conversation (stacked on auto/fe-19-regenerate)

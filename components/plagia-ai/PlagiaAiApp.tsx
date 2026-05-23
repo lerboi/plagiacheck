@@ -53,6 +53,7 @@ import {
 } from "@/lib/plagia-ai/export"
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
 import { EmptyState } from "@/components/plagia-ai/EmptyState"
+import { InlineSvgPreview } from "@/components/plagia-ai/InlineSvgPreview"
 import { SuggestionChipBar } from "@/components/plagia-ai/SuggestionChipBar"
 import {
   EMPTY_PREFERENCES,
@@ -1491,6 +1492,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           </div>
                         </div>
                       )}
+                      {(() => {
+                        const inlineSvg = getInlineSvg(it)
+                        return inlineSvg ? (
+                          <InlineSvgPreview svg={inlineSvg} toolName={it.name} />
+                        ) : null
+                      })()}
                       {(it.status === "done" || it.status === "failed") && (
                         <div className="flex items-start gap-2 text-xs">
                           <button
@@ -1920,6 +1927,27 @@ function ToolStatusBadge({
       Failed
     </span>
   )
+}
+
+/**
+ * FE-21 — extract the SVG string from a generate_* tool's result, if any.
+ * Returns null for non-SVG tools or unfinished/failed runs so the caller
+ * can skip the inline-render branch with a single truthy check.
+ */
+function getInlineSvg(
+  it: Extract<ChatItem, { kind: "tool" }>,
+): string | null {
+  if (it.status !== "done") return null
+  if (
+    it.name !== "generate_chart" &&
+    it.name !== "generate_infographic" &&
+    it.name !== "generate_thumbnail"
+  ) {
+    return null
+  }
+  const r = it.result as { result?: { svg?: unknown } } | undefined
+  const svg = r?.result?.svg
+  return typeof svg === "string" && svg.length > 0 ? svg : null
 }
 
 function renderToolResult(
