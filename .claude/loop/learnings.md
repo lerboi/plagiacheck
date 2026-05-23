@@ -18,7 +18,7 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
 ---
 
 ## 2026-05-24 — FE-17 — shipped
-- pr: TBD (capture from git push output)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/fe-17-sidebar-filter
 - branch: auto/fe-17-sidebar-filter (stacked on auto/fe-16-result-reveal-rest)
 - summary: Client-side substring filter for the conversation sidebar. ConversationSidebar gains a `filterQuery` state + a `<input type="search">` slot above the conversation list. Visible only when `conversations.length >= FILTER_MIN_CONVERSATIONS` (= 6) — small lists don't need filtering. Filter is case-insensitive substring on `c.title`. Both variants (inline desktop sidebar, mobile drawer) share the input — the state lives at the outer component so they can't drift. ConversationList signature got two new props (`isFiltered`, `onClearFilter`) so its empty-state branch can distinguish "no conversations yet" from "no matches for the current filter". Filtered empty state shows "No matches" + a violet "Clear filter" button that resets the query.
 - NO-ACCESS-FILES audit: clean.

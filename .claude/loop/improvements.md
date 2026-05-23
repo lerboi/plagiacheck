@@ -376,7 +376,7 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 - **pillar:** frictionless-interaction
 - **status:** done (2026-05-24)
 - **branch:** auto/fe-17-sidebar-filter (stacked on auto/fe-16-result-reveal-rest)
-- **pr:** TBD (capture after push)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/fe-17-sidebar-filter (set base to `auto/fe-16-result-reveal-rest`)
 - **files:** `components/plagia-ai/ConversationSidebar.tsx`
 - **why:** Once a user has 10+ saved conversations the sidebar becomes a scroll-fest. ChatGPT solves this with a small filter input above the list. Pure client-side filter (no server round-trip) since `conversations` is already loaded in state.
 - **acceptance:**
