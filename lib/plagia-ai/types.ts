@@ -41,6 +41,8 @@ export interface PlagiaAiToolCallEvent {
   id: string
   name: PlagiaAiToolName
   argsSummary: string
+  /** One-sentence "why this tool" justification, surfaced in the tool card. */
+  reason?: string
 }
 
 export interface PlagiaAiToolResultEvent {

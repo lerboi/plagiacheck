@@ -9,7 +9,7 @@ interface MistralToolDef {
   }
 }
 
-export const MISTRAL_TOOLS: MistralToolDef[] = [
+const BASE_MISTRAL_TOOLS: MistralToolDef[] = [
   {
     type: "function",
     function: {
@@ -282,6 +282,36 @@ export const MISTRAL_TOOLS: MistralToolDef[] = [
     },
   },
 ]
+
+// Every tool also accepts an optional `reason` — a short, user-facing
+// justification for the call that the chat UI shows inside each tool card.
+// Injected here so it stays consistent across all tools without repeating it
+// in each schema. It is never required and is ignored by the dispatcher.
+const REASON_PROPERTY = {
+  type: "string",
+  description:
+    "A brief user-facing explanation (one sentence, max ~15 words) of why this tool fits the user's request. Example: \"You asked to reword this in a formal tone.\"",
+} as const
+
+export const MISTRAL_TOOLS: MistralToolDef[] = BASE_MISTRAL_TOOLS.map((tool) => {
+  const params = tool.function.parameters as {
+    properties?: Record<string, unknown>
+    [key: string]: unknown
+  }
+  return {
+    ...tool,
+    function: {
+      ...tool.function,
+      parameters: {
+        ...params,
+        properties: {
+          ...(params.properties || {}),
+          reason: REASON_PROPERTY,
+        },
+      },
+    },
+  }
+})
 
 export function summarizeArgs(name: PlagiaAiToolName, args: Record<string, unknown>): string {
   switch (name) {

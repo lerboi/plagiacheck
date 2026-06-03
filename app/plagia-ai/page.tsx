@@ -59,6 +59,7 @@ type ChatItem =
       name: PlagiaAiToolName
       argsSummary: string
       status: "running" | "done" | "failed"
+      reason?: string
       resultPreview?: string
       error?: string
       result?: unknown
@@ -481,6 +482,7 @@ export default function PlagiaAiPage() {
                 id: event.id,
                 name: event.name,
                 argsSummary: event.argsSummary,
+                reason: event.reason,
                 status: "running",
               })
             } else if (event.type === "tool_result") {
@@ -809,6 +811,11 @@ export default function PlagiaAiPage() {
                         </span>
                         <ToolStatusBadge status={it.status} />
                       </div>
+                      {it.reason && (
+                        <p className="text-xs italic leading-snug text-muted-foreground/80">
+                          {it.reason}
+                        </p>
+                      )}
                       {it.status !== "running" && (
                         <div className="flex items-start gap-2 text-xs">
                           <button

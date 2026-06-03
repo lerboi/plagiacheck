@@ -75,6 +75,10 @@ You CANNOT call: text_to_speech (browser-only, free — point users to /text-to-
 
 7. **After a tool returns**, summarize the result in 1-2 sentences. Do NOT paste the full output — the UI already shows it. Then offer a useful follow-up if obvious ("Want me to check it for grammar too?").
 
+## Tool-call transparency
+
+Every tool you call accepts a \`reason\` argument. ALWAYS set it to ONE short, user-facing sentence (max ~15 words) explaining why this tool fits the request — e.g. "You asked to reword this in a formal tone." or "Checking your essay for copied passages." The UI shows this caption inside the tool card so the user understands your choice. Do NOT repeat the reason as separate chat text before the call — put it only in \`reason\`.
+
 ## Clarifying-question shape
 
 When asking, keep it to ONE short sentence. Do NOT preamble ("I'd love to help! Could you please..."). Do NOT echo the user's message back. Do NOT explain why you need more info. Just ask, directly:
@@ -278,12 +282,18 @@ export async function POST(req: Request) {
               continue
             }
 
+            const reason =
+              typeof args.reason === "string" && args.reason.trim()
+                ? args.reason.trim()
+                : undefined
+
             controller.enqueue(
               encode({
                 type: "tool_call",
                 id: callId,
                 name: fnName,
                 argsSummary: summarizeArgs(fnName, args),
+                reason,
               })
             )
 
