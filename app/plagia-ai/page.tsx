@@ -46,6 +46,7 @@ import {
   type StoredConversationSummary,
 } from "@/lib/plagia-ai/storage"
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
+import { MarkdownMessage } from "@/components/plagia-ai/MarkdownMessage"
 
 const GREETING =
   "Hi — I'm PlagiaAI. Tell me what you'd like to do and I'll use the right tool: paraphrase, summarize, humanize, check grammar, detect AI, find plagiarism, generate charts, infographics, or thumbnails."
@@ -768,12 +769,17 @@ export default function PlagiaAiPage() {
                         transition={{ duration: 0.15 }}
                         className="flex flex-col items-start"
                       >
-                        <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                          {it.content}
-                          {isStreamingThis && (
+                        {isStreamingThis ? (
+                          <div className="max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                            {it.content}
                             <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" />
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <MarkdownMessage
+                            content={it.content}
+                            className="max-w-[85%] text-sm leading-relaxed text-foreground"
+                          />
+                        )}
                       </motion.div>
                     )
                   }
