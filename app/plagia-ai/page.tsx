@@ -24,6 +24,9 @@ import {
   Mic,
   MicOff,
   X,
+  Coins,
+  Settings,
+  Check,
 } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
@@ -37,6 +40,10 @@ import {
   type PlagiaAiToolName,
 } from "@/lib/plagia-ai/types"
 import { toolDisplayName } from "@/lib/plagia-ai/tools"
+import {
+  SKIP_CONFIRMATIONS_STORAGE_KEY,
+  formatCostLabel,
+} from "@/lib/plagia-ai/config"
 import {
   deleteConversation,
   deriveConversationTitle,
@@ -58,11 +65,15 @@ type ChatItem =
       id: string
       name: PlagiaAiToolName
       argsSummary: string
-      status: "running" | "done" | "failed"
+      status: "pending" | "running" | "done" | "failed"
       reason?: string
       resultPreview?: string
       error?: string
       result?: unknown
+      // Cost preview for a tool awaiting confirmation (FE-04).
+      estimatedTextTokens?: number
+      estimatedImageTokens?: number
+      pendingArgs?: Record<string, unknown>
     }
 
 function genId() {
@@ -73,6 +84,37 @@ const messageVariants = {
   initial: { opacity: 0, y: 6 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0 },
+}
+
+/** Read an SSE response body, invoking onEvent for each parsed PlagiaAI event. */
+async function readSseStream(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: PlagiaAiEvent) => void
+) {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let sepIndex
+    while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
+      const rawEvent = buffer.slice(0, sepIndex)
+      buffer = buffer.slice(sepIndex + 2)
+      const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data:"))
+      if (!dataLine) continue
+      const payload = dataLine.slice(5).trim()
+      if (!payload) continue
+      let event: PlagiaAiEvent
+      try {
+        event = JSON.parse(payload) as PlagiaAiEvent
+      } catch {
+        continue
+      }
+      onEvent(event)
+    }
+  }
 }
 
 export default function PlagiaAiPage() {
@@ -88,6 +130,10 @@ export default function PlagiaAiPage() {
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({})
   const [lastFailedInput, setLastFailedInput] = useState<string | null>(null)
   const [confirmingClear, setConfirmingClear] = useState(false)
+
+  // Token-cost confirmation preference (FE-04), persisted in localStorage.
+  const [skipConfirmations, setSkipConfirmations] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   // Persistence
   const [conversationId, setConversationId] = useState<string | null>(null)
@@ -182,6 +228,33 @@ export default function PlagiaAiPage() {
     el.style.height = "auto"
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }, [input])
+
+  // Load the cost-confirmation preference once on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      setSkipConfirmations(
+        window.localStorage.getItem(SKIP_CONFIRMATIONS_STORAGE_KEY) === "true"
+      )
+    } catch {
+      // ignore (private mode, etc.)
+    }
+  }, [])
+
+  const toggleSkipConfirmations = () => {
+    setSkipConfirmations((prev) => {
+      const next = !prev
+      try {
+        window.localStorage.setItem(
+          SKIP_CONFIRMATIONS_STORAGE_KEY,
+          next ? "true" : "false"
+        )
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
 
   // Detect Web Speech API availability for the mic button.
   useEffect(() => {
@@ -320,14 +393,6 @@ export default function PlagiaAiPage() {
     setExpandedTools((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const appendItem = (item: ChatItem) => {
-    setItems((prev) => [...prev, item])
-  }
-
-  const updateItem = (id: string, updater: (prev: ChatItem) => ChatItem) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? updater(it) : it)))
-  }
-
   const conversationHistoryForServer = (current: ChatItem[]): PlagiaAiMessage[] => {
     return current
       .filter(
@@ -356,6 +421,125 @@ export default function PlagiaAiPage() {
     },
     [user, conversationId]
   )
+
+  // Build a per-turn stream handler. Shared by the initial send and the
+  // confirm-resume flow so event handling lives in one place. Keeps its own
+  // assistant-message accumulator in closures.
+  const makeStreamHandler = useCallback(() => {
+    let currentAssistantId: string | null = null
+    let currentAssistantText = ""
+
+    const flush = () => {
+      if (currentAssistantId && currentAssistantText.trim()) {
+        const idToFreeze = currentAssistantId
+        const textToFreeze = currentAssistantText
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === idToFreeze && it.kind === "assistant"
+              ? { ...it, content: textToFreeze }
+              : it
+          )
+        )
+      }
+      currentAssistantId = null
+      currentAssistantText = ""
+    }
+
+    const onEvent = (event: PlagiaAiEvent) => {
+      if (event.type === "delta") {
+        if (!currentAssistantId) {
+          currentAssistantId = genId()
+          currentAssistantText = event.content
+          const newId = currentAssistantId
+          setPendingAssistantId(newId)
+          setItems((prev) => [
+            ...prev,
+            { kind: "assistant", id: newId, content: currentAssistantText },
+          ])
+        } else {
+          currentAssistantText += event.content
+          const idToUpdate = currentAssistantId
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === idToUpdate && it.kind === "assistant"
+                ? { ...it, content: currentAssistantText }
+                : it
+            )
+          )
+        }
+      } else if (event.type === "tool_call") {
+        flush()
+        setPendingAssistantId(null)
+        setItems((prev) => {
+          if (prev.some((it) => it.id === event.id)) {
+            // Resumed pending card → flip to running.
+            return prev.map((it) =>
+              it.id === event.id && it.kind === "tool"
+                ? {
+                    ...it,
+                    status: "running",
+                    argsSummary: event.argsSummary,
+                    reason: it.reason ?? event.reason,
+                  }
+                : it
+            )
+          }
+          return [
+            ...prev,
+            {
+              kind: "tool",
+              id: event.id,
+              name: event.name,
+              argsSummary: event.argsSummary,
+              reason: event.reason,
+              status: "running",
+            },
+          ]
+        })
+      } else if (event.type === "tool_pending") {
+        flush()
+        setPendingAssistantId(null)
+        setItems((prev) => [
+          ...prev,
+          {
+            kind: "tool",
+            id: event.id,
+            name: event.name,
+            argsSummary: event.argsSummary,
+            reason: event.reason,
+            status: "pending",
+            estimatedTextTokens: event.estimatedTextTokens,
+            estimatedImageTokens: event.estimatedImageTokens,
+            pendingArgs: event.args,
+          },
+        ])
+      } else if (event.type === "tool_result") {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === event.id && it.kind === "tool"
+              ? {
+                  ...it,
+                  status: event.ok ? "done" : "failed",
+                  resultPreview: event.resultPreview,
+                  error: event.error,
+                  result: event.result,
+                }
+              : it
+          )
+        )
+        if (event.ok) {
+          if (event.remainingTextTokens !== undefined) void decrementWords()
+          if (event.remainingImageTokens !== undefined) void decrementImageTokens()
+        }
+      } else if (event.type === "error") {
+        throw new Error(event.message)
+      } else if (event.type === "done") {
+        flush()
+      }
+    }
+
+    return { onEvent, flush }
+  }, [decrementWords, decrementImageTokens])
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -387,24 +571,7 @@ export default function PlagiaAiPage() {
       setStreaming(true)
       setPendingAssistantId(null)
 
-      let currentAssistantId: string | null = null
-      let currentAssistantText = ""
-
-      const flushAssistant = () => {
-        if (currentAssistantId && currentAssistantText.trim()) {
-          const idToFreeze = currentAssistantId
-          const textToFreeze = currentAssistantText
-          setItems((prev) =>
-            prev.map((it) =>
-              it.id === idToFreeze && it.kind === "assistant"
-                ? { ...it, content: textToFreeze }
-                : it
-            )
-          )
-        }
-        currentAssistantId = null
-        currentAssistantText = ""
-      }
+      const { onEvent, flush } = makeStreamHandler()
 
       // Capture the attached image so we send it once, then clear from state.
       const sentImage = attachedImage
@@ -416,6 +583,7 @@ export default function PlagiaAiPage() {
           body: JSON.stringify({
             messages: conversationHistoryForServer(nextItems),
             attachedImage: sentImage || undefined,
+            skipConfirmations,
           }),
         })
 
@@ -432,95 +600,20 @@ export default function PlagiaAiPage() {
           throw new Error(errText || `Request failed (${response.status})`)
         }
 
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ""
+        await readSseStream(response.body, onEvent)
+        flush()
 
-        while (true) {
-          const { value, done } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-
-          let sepIndex
-          while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-            const rawEvent = buffer.slice(0, sepIndex)
-            buffer = buffer.slice(sepIndex + 2)
-            const dataLine = rawEvent
-              .split("\n")
-              .find((line) => line.startsWith("data:"))
-            if (!dataLine) continue
-            const payload = dataLine.slice(5).trim()
-            if (!payload) continue
-            let event: PlagiaAiEvent
-            try {
-              event = JSON.parse(payload) as PlagiaAiEvent
-            } catch {
-              continue
-            }
-
-            if (event.type === "delta") {
-              if (!currentAssistantId) {
-                currentAssistantId = genId()
-                currentAssistantText = event.content
-                const newId = currentAssistantId
-                setPendingAssistantId(newId)
-                appendItem({ kind: "assistant", id: newId, content: currentAssistantText })
-              } else {
-                currentAssistantText += event.content
-                const idToUpdate = currentAssistantId
-                updateItem(idToUpdate, (prev) =>
-                  prev.kind === "assistant"
-                    ? { ...prev, content: currentAssistantText }
-                    : prev
-                )
-              }
-            } else if (event.type === "tool_call") {
-              flushAssistant()
-              setPendingAssistantId(null)
-              appendItem({
-                kind: "tool",
-                id: event.id,
-                name: event.name,
-                argsSummary: event.argsSummary,
-                reason: event.reason,
-                status: "running",
-              })
-            } else if (event.type === "tool_result") {
-              updateItem(event.id, (prev) =>
-                prev.kind === "tool"
-                  ? {
-                      ...prev,
-                      status: event.ok ? "done" : "failed",
-                      resultPreview: event.resultPreview,
-                      error: event.error,
-                      result: event.result,
-                    }
-                  : prev
-              )
-              if (event.ok) {
-                if (event.remainingTextTokens !== undefined) {
-                  void decrementWords()
-                }
-                if (event.remainingImageTokens !== undefined) {
-                  void decrementImageTokens()
-                }
-              }
-            } else if (event.type === "error") {
-              throw new Error(event.message)
-            } else if (event.type === "done") {
-              flushAssistant()
-            }
-          }
-        }
-
-        flushAssistant()
-
-        // Clear the attached image now that it's been consumed by the round.
-        setAttachedImage(null)
-
-        // Auto-save after a successful turn. Read latest state via the setter
-        // callback (React state updates here are still batched).
+        // Auto-save after a successful turn, and clear the attached image now
+        // that it's been consumed — unless a tool that needs it (image_to_text)
+        // is still awaiting the user's cost confirmation.
         setItems((current) => {
+          const keepImage = current.some(
+            (it) =>
+              it.kind === "tool" &&
+              it.status === "pending" &&
+              it.name === "image_to_text"
+          )
+          if (!keepImage) setAttachedImage(null)
           void persistAndRefresh(current)
           return current
         })
@@ -544,13 +637,113 @@ export default function PlagiaAiPage() {
       authChecked,
       user,
       items,
-      decrementWords,
-      decrementImageTokens,
+      makeStreamHandler,
+      skipConfirmations,
       toast,
       persistAndRefresh,
       attachedImage,
     ]
   )
+
+  // FE-04: user confirmed a gated tool — resume the turn, dispatching it.
+  const confirmPendingTool = useCallback(
+    async (toolId: string) => {
+      if (streaming) return
+      const item = items.find((it) => it.id === toolId)
+      if (
+        !item ||
+        item.kind !== "tool" ||
+        item.status !== "pending" ||
+        !item.pendingArgs
+      ) {
+        return
+      }
+      const toolName = item.name
+      const pendingArgs = item.pendingArgs
+      const needsImage = toolName === "image_to_text"
+
+      setStreaming(true)
+      setAutoScrollPaused(false)
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === toolId && it.kind === "tool" ? { ...it, status: "running" } : it
+        )
+      )
+
+      const { onEvent, flush } = makeStreamHandler()
+      try {
+        const authHeader = await getAuthHeader()
+        const response = await fetch("/api/plagia-ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            messages: conversationHistoryForServer(items),
+            confirmedTool: { id: toolId, name: toolName, args: pendingArgs },
+            attachedImage: needsImage ? attachedImage || undefined : undefined,
+            skipConfirmations,
+          }),
+        })
+
+        if (response.status === 401) {
+          setNeedsSignIn(true)
+          setItems((prev) =>
+            prev.map((it) =>
+              it.id === toolId && it.kind === "tool"
+                ? { ...it, status: "pending" }
+                : it
+            )
+          )
+          return
+        }
+        if (!response.ok || !response.body) {
+          const errText = await response.text().catch(() => "")
+          throw new Error(errText || `Request failed (${response.status})`)
+        }
+
+        await readSseStream(response.body, onEvent)
+        flush()
+
+        if (needsImage) setAttachedImage(null)
+        setItems((current) => {
+          void persistAndRefresh(current)
+          return current
+        })
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Something went wrong."
+        toast({
+          title: "PlagiaAI couldn't run that tool",
+          description: message,
+          variant: "destructive",
+        })
+        // Revert to pending so the user can retry the confirmation.
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === toolId && it.kind === "tool"
+              ? { ...it, status: "pending" }
+              : it
+          )
+        )
+      } finally {
+        setStreaming(false)
+        setPendingAssistantId(null)
+      }
+    },
+    [
+      streaming,
+      items,
+      makeStreamHandler,
+      attachedImage,
+      skipConfirmations,
+      toast,
+      persistAndRefresh,
+    ]
+  )
+
+  // Cancel a gated tool: drop the card, nothing is spent.
+  const cancelPendingTool = (toolId: string) => {
+    setItems((prev) => prev.filter((it) => it.id !== toolId))
+  }
 
   const handleSend = () => {
     void sendMessage(input.trim())
@@ -670,6 +863,41 @@ export default function PlagiaAiPage() {
                 {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
               </span>
               <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSettings((v) => !v)}
+                    className="h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
+                    aria-label="PlagiaAI settings"
+                    aria-expanded={showSettings}
+                  >
+                    <Settings className="h-3.5 w-3.5" />
+                  </button>
+                  {showSettings && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setShowSettings(false)}
+                      />
+                      <div className="absolute right-0 top-8 z-20 w-64 rounded-lg border border-border bg-popover p-3 shadow-md">
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!skipConfirmations}
+                            onChange={toggleSkipConfirmations}
+                            className="mt-0.5 h-4 w-4 accent-violet-600"
+                          />
+                          <span className="text-xs leading-snug text-foreground">
+                            Confirm before spending tokens
+                            <span className="block text-[11px] text-muted-foreground">
+                              Preview the cost of image-token tools and large text
+                              jobs before they run.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                    </>
+                  )}
+                </div>
                 {confirmingClear ? (
                   <>
                     <span className="text-xs text-muted-foreground hidden sm:inline">
@@ -793,9 +1021,11 @@ export default function PlagiaAiPage() {
                       className={`rounded-xl border px-4 py-3 text-sm space-y-2 transition-colors duration-300 ${
                         it.status === "failed"
                           ? "border-red-500/30 bg-red-500/5"
-                          : it.status === "running"
-                            ? "border-violet-500/30 bg-violet-500/5"
-                            : "border-border bg-card/60"
+                          : it.status === "pending"
+                            ? "border-amber-500/40 bg-amber-500/5"
+                            : it.status === "running"
+                              ? "border-violet-500/30 bg-violet-500/5"
+                              : "border-border bg-card/60"
                       }`}
                     >
                       <div className="flex items-center gap-2.5 flex-wrap">
@@ -816,7 +1046,39 @@ export default function PlagiaAiPage() {
                           {it.reason}
                         </p>
                       )}
-                      {it.status !== "running" && (
+                      {it.status === "pending" && (
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                            <Coins className="h-3.5 w-3.5" />
+                            About to use{" "}
+                            {formatCostLabel(
+                              it.estimatedTextTokens ?? 0,
+                              it.estimatedImageTokens ?? 0
+                            )}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => cancelPendingTool(it.id)}
+                              disabled={streaming}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-7 gap-1 bg-violet-600 px-3 text-xs text-white hover:bg-violet-700"
+                              onClick={() => confirmPendingTool(it.id)}
+                              disabled={streaming}
+                            >
+                              <Check className="h-3 w-3" />
+                              Confirm
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {(it.status === "done" || it.status === "failed") && (
                         <div className="flex items-start gap-2 text-xs">
                           <button
                             onClick={() => toggleToolExpand(it.id)}
@@ -997,7 +1259,19 @@ export default function PlagiaAiPage() {
   )
 }
 
-function ToolStatusBadge({ status }: { status: "running" | "done" | "failed" }) {
+function ToolStatusBadge({
+  status,
+}: {
+  status: "pending" | "running" | "done" | "failed"
+}) {
+  if (status === "pending") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+        <Coins className="h-3 w-3" />
+        Needs confirmation
+      </span>
+    )
+  }
   if (status === "running") {
     return (
       <span className="flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400">

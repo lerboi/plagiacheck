@@ -2,6 +2,7 @@ import { Mistral } from "@mistralai/mistralai"
 import { getUserFromRequest } from "@/lib/server-auth"
 import { MISTRAL_TOOLS, summarizeArgs } from "@/lib/plagia-ai/tools"
 import { dispatchTool } from "@/lib/plagia-ai/dispatcher"
+import { estimateToolCost } from "@/lib/plagia-ai/config"
 import {
   PLAGIA_AI_TOOL_NAMES,
   type PlagiaAiMessage,
@@ -202,6 +203,28 @@ export async function POST(req: Request) {
     }
   }
 
+  // Cost-confirmation preference + resume payload (FE-04).
+  const skipConfirmations =
+    (body as { skipConfirmations?: unknown }).skipConfirmations === true
+
+  let confirmedTool:
+    | { id: string; name: PlagiaAiToolName; args: Record<string, unknown> }
+    | null = null
+  const rawConfirmed: unknown = (body as { confirmedTool?: unknown }).confirmedTool
+  if (rawConfirmed && typeof rawConfirmed === "object") {
+    const c = rawConfirmed as { id?: unknown; name?: unknown; args?: unknown }
+    if (typeof c.name === "string" && isKnownToolName(c.name)) {
+      confirmedTool = {
+        id:
+          typeof c.id === "string" && c.id
+            ? c.id
+            : `call_${Math.random().toString(36).slice(2)}`,
+        name: c.name,
+        args: safeParseArgs(c.args),
+      }
+    }
+  }
+
   const origin = new URL(req.url).origin
   const encode = sseEncoder()
 
@@ -224,6 +247,85 @@ export async function POST(req: Request) {
       }
 
       try {
+        // Resume path (FE-04): the user confirmed a previously-gated tool.
+        // Run it, inject the assistant tool-call + tool result into the
+        // conversation, then fall through to the loop for the wrap-up.
+        if (confirmedTool) {
+          const callId = confirmedTool.id
+          const reason =
+            typeof confirmedTool.args.reason === "string" &&
+            confirmedTool.args.reason.trim()
+              ? confirmedTool.args.reason.trim()
+              : undefined
+          controller.enqueue(
+            encode({
+              type: "tool_call",
+              id: callId,
+              name: confirmedTool.name,
+              argsSummary: summarizeArgs(confirmedTool.name, confirmedTool.args),
+              reason,
+            })
+          )
+          const outcome = await dispatchTool(confirmedTool.name, confirmedTool.args, {
+            bearerToken,
+            origin,
+            attachedImage,
+          })
+          conversation.push({
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: callId,
+                type: "function",
+                function: {
+                  name: confirmedTool.name,
+                  arguments: JSON.stringify(confirmedTool.args),
+                },
+              },
+            ],
+          })
+          if (outcome.ok) {
+            controller.enqueue(
+              encode({
+                type: "tool_result",
+                id: callId,
+                ok: true,
+                resultPreview: outcome.resultPreview,
+                result: outcome.result,
+                remainingTextTokens: outcome.remainingTextTokens,
+                remainingImageTokens: outcome.remainingImageTokens,
+              })
+            )
+            conversation.push({
+              role: "tool",
+              toolCallId: callId,
+              name: confirmedTool.name,
+              content: JSON.stringify({
+                ok: true,
+                preview: outcome.resultPreview,
+                data: outcome.result,
+              }),
+            })
+          } else {
+            controller.enqueue(
+              encode({
+                type: "tool_result",
+                id: callId,
+                ok: false,
+                resultPreview: "",
+                error: outcome.error,
+              })
+            )
+            conversation.push({
+              role: "tool",
+              toolCallId: callId,
+              name: confirmedTool.name,
+              content: JSON.stringify({ ok: false, error: outcome.error }),
+            })
+          }
+        }
+
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
           const completion = await mistralClient.chat.complete({
             model: MISTRAL_MODEL,
@@ -286,6 +388,28 @@ export async function POST(req: Request) {
               typeof args.reason === "string" && args.reason.trim()
                 ? args.reason.trim()
                 : undefined
+
+            // Cost gate (FE-04): pause expensive calls for user confirmation.
+            // Emit a pending event and end the turn; the client resumes via a
+            // request carrying `confirmedTool`.
+            const estimate = estimateToolCost(fnName, args)
+            if (estimate.needsConfirmation && !skipConfirmations) {
+              controller.enqueue(
+                encode({
+                  type: "tool_pending",
+                  id: callId,
+                  name: fnName,
+                  argsSummary: summarizeArgs(fnName, args),
+                  reason,
+                  estimatedTextTokens: estimate.textTokens,
+                  estimatedImageTokens: estimate.imageTokens,
+                  args,
+                })
+              )
+              controller.enqueue(encode({ type: "done" }))
+              close()
+              return
+            }
 
             controller.enqueue(
               encode({

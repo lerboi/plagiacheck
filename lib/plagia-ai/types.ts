@@ -14,9 +14,20 @@ export interface AttachedImage {
   name?: string
 }
 
+/** A tool call the user has confirmed after a token-cost preview (FE-04). */
+export interface ConfirmedToolCall {
+  id: string
+  name: PlagiaAiToolName
+  args: Record<string, unknown>
+}
+
 export interface PlagiaAiRequestBody {
   messages: PlagiaAiMessage[]
   attachedImage?: AttachedImage
+  /** Set on the resume request after the user confirms a gated tool call. */
+  confirmedTool?: ConfirmedToolCall
+  /** When true, skip the cost-confirmation gate (user preference). */
+  skipConfirmations?: boolean
 }
 
 export const PLAGIA_AI_TOOL_NAMES = [
@@ -56,9 +67,27 @@ export interface PlagiaAiToolResultEvent {
   error?: string
 }
 
+/**
+ * Emitted instead of `tool_call` when a tool's estimated cost crosses the
+ * confirmation threshold (FE-04). The client shows a Confirm/Cancel card; on
+ * confirm it resends the turn with `confirmedTool` set.
+ */
+export interface PlagiaAiToolPendingEvent {
+  type: "tool_pending"
+  id: string
+  name: PlagiaAiToolName
+  argsSummary: string
+  reason?: string
+  estimatedTextTokens: number
+  estimatedImageTokens: number
+  /** The exact args the model produced, echoed back on confirmation. */
+  args: Record<string, unknown>
+}
+
 export type PlagiaAiEvent =
   | { type: "delta"; content: string }
   | PlagiaAiToolCallEvent
+  | PlagiaAiToolPendingEvent
   | PlagiaAiToolResultEvent
   | { type: "error"; message: string }
   | { type: "done" }
