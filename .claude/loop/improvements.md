@@ -935,6 +935,51 @@ PlagiaAI exists for one reason: **let the user accomplish Plagiacheck tool work 
 
 ---
 
+## CONTINUOUS UI/UX — PlagiaAI (ongoing, governed by `.claude/loop/UIUX-LOOP.md`)
+
+This section drives the continuous UI/UX improvement loop. The prior FE-01..FE-24
+run is complete; this is the next phase: open-ended PlagiaAI UI/UX, design, and
+functionality polish. Pick the top `todo` item or self-generate one (number it
+`UX-NN`). Every item must serve a pillar in `UIUX-LOOP.md` and pass its
+out-of-scope filter. Seeded ideas below — refine, reorder, or replace freely; the
+loop is encouraged to append better ideas as it learns the surface.
+
+### UX-01 — Audit pass: PlagiaAI empty state + first-run clarity
+- **pillar:** design-quality / user-experience
+- **status:** todo
+- **acceptance:** Review the homepage PlagiaAI empty state for newcomers — is it
+  obvious what PlagiaAI does, what to type, and that it runs real tools? Tighten
+  headline/subcopy, suggestion chips, and visual hierarchy. One focused PR.
+
+### UX-02 — Tool-card visual + information hierarchy polish
+- **pillar:** design-quality
+- **status:** todo
+- **acceptance:** Review the running/done/failed/pending tool cards for spacing,
+  iconography, scannability, and dark/light parity; refine without changing
+  behaviour. Ensure status transitions read clearly.
+
+### UX-03 — Input bar ergonomics (attach / mic / send / shortcuts)
+- **pillar:** user-experience
+- **status:** todo
+- **acceptance:** Review the chat input: affordance clarity, disabled-state
+  feedback, keyboard-shortcut discoverability, attach/mic states, mobile reach.
+  Improve the highest-friction part.
+
+### UX-04 — Loading / streaming / skeleton states pass
+- **pillar:** perceived-performance
+- **status:** todo
+- **acceptance:** Make waiting feel fast and intentional everywhere in PlagiaAI
+  (initial load, streaming, tool running, sidebar fetch). Reduce layout shift and
+  add tasteful skeletons/indicators where missing.
+
+### UX-05 — Accessibility sweep on the chat surface
+- **pillar:** accessibility
+- **status:** todo
+- **acceptance:** Verify roles/labels/focus order/contrast/reduced-motion across
+  the chat thread, tool cards, sidebar, and input. Fix the most impactful gaps.
+
+---
+
 ## Notes on items the loop must NOT do
 
 - Never change `app/pricing/page.tsx` dollar amounts or `priceId` strings.
