@@ -717,3 +717,165 @@ Keep entries terse but specific. "Worked fine" is useless. "Used the deduct/refu
   3. **Mistral SDK content-chunk typing:** `chunk.data?.choices?.[0]?.delta?.content` can be `string | ContentChunk[]` where `ContentChunk = TextChunk | ImageURLChunk | ...`. Don't narrow with an inline cast like `(c: { text?: string } | string)` — TypeScript rejects it. Use a runtime type-guard loop: check `typeof piece === "string"` first, then `piece && typeof piece === "object" && "text" in piece` and extract `piece.text` if it's a string. Reuse this pattern in FS-02.
   4. **Mistral streaming API:** `mistralClient.chat.stream({...})` returns an async iterable. Each iteration yields a `chunk` where the delta lives at `chunk.data.choices[0].delta.content` (NOT directly at `chunk.choices...`). This differs from the `chat.complete` shape.
   5. **State file workflow:** updating `.claude/loop/improvements.md` and `.claude/loop/learnings.md` happens on `main` (not the feature branch). Leave those changes uncommitted on main so the next iteration sees the latest state in the working dir. This keeps PR diffs clean (feature code only).
+
+---
+
+# CONTINUOUS UI/UX LOOP — log (governed by `.claude/loop/UIUX-LOOP.md`)
+
+## 2026-06-04 — loop-started — baseline confirmed
+- summary: User adopted the advanced PlagiaAI line (FS-07..09 + FE-03..24) — merged to `main` (tip `fc5e017`, includes the UI/UX-loop charter + seeded UX-01..05 backlog). Started the continuous UI/UX loop. Baseline check passed: `components/plagia-ai/PlagiaAiApp.tsx` is on `main`, so PlagiaAI is the homepage `/` and the loop builds on the advanced line.
+- lesson: The earlier session's fresh FE-03/04/11 PRs (`auto/fe-03-tool-reasoning-2`, `auto/fe-04-token-cost-preview`, `auto/fe-11-markdown-rendering`) are SUPERSEDED by the adopted advanced line and should be closed. ~20 `auto/fe-*` orphan intermediates can be deleted.
+
+## 2026-06-04 — UX-01 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-01-empty-state-clarity  (base `main`)
+- branch: auto/ux-01-empty-state-clarity  (off `main`)
+- summary: Clarified the PlagiaAI homepage empty state for first-time visitors. Now that `/` IS the chat, the empty state is the first impression; it previously read like a generic chatbot ("What can I help with today?" / "One chat. 15 tools.") without saying what to type or that it runs real tools. Added an eyebrow badge ("One chat · 15 tools" + violet sparkle) for visual hierarchy and at-a-glance value, and replaced the tagline with action+outcome subcopy: "Describe a task or paste your text — PlagiaAI picks the right writing tool, runs it, and shows the result." Single file: `components/plagia-ai/EmptyState.tsx` (+13/-3). Suggestion chips (children) untouched.
+- verification: `tsc --noEmit` clean; `next lint` (file) clean; dev smoke on PORT=3200 — `GET /` 200, unauth `POST /api/plagia-ai` 401, new copy renders server-side.
+- lesson:
+  1. **The empty state is now top-of-funnel.** Since FS-09 made PlagiaAI the homepage, empty-state copy is a marketing surface, not just a chat placeholder — it must answer "what is this / what do I type / what happens" for someone who arrived cold. Bias future PlagiaAI copy toward concrete outcomes over clever taglines.
+  2. **Empty-state composition:** `EmptyState` (headline/subcopy) wraps `SuggestionChipBar` (passed as children) in `PlagiaAiApp.tsx` (~line 1299). To change chips, edit `SuggestionChipBar.tsx`; to change the framing copy, edit `EmptyState.tsx`. The homepage marketing section below the fold is `OneChatAllTools.tsx`.
+  3. **Verify rendered copy server-side** with `curl / | grep` — confirms the empty state isn't gated behind client-only hydration (it isn't; it renders in SSR HTML).
+
+## 2026-06-04 — UX-02 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-02-tool-card-status-pills  (base `main`)
+- branch: auto/ux-02-tool-card-status-pills  (off `main`)
+- summary: Made tool-card status badges scannable. `ToolStatusBadge` in `PlagiaAiApp.tsx` was bare colored text+icon; redesigned as tinted rounded-full pills (amber Confirm / violet Running / emerald Done / red Failed) at /10 backgrounds with explicit dark-mode foregrounds and `shrink-0`. Swapped the Confirm icon from CheckCircle2 (identical to Done's checkmark) to Coins so "this will cost tokens" reads distinctly. Behaviour, card tint, layout, handlers all unchanged. 1 file, +14/-8.
+- verification: `tsc --noEmit` clean; `next lint` (file) clean; dev smoke on PORT=3201 — `GET /` 200, unauth `POST /api/plagia-ai` 401.
+- lesson:
+  1. **The whole PlagiaAI chat UI lives in one big component:** `components/plagia-ai/PlagiaAiApp.tsx` (~2100 lines). Tool-card render ~line 1462; `ToolStatusBadge` ~line 1974; `renderToolResult`/`getInlineSvg` helpers below it. Status enum here is `"pending_confirm" | "running" | "done" | "failed"` (note `pending_confirm`, not `pending`). The card already has FE-06 progress bar, FE-21 inline SVG, FE-23 cost footnote — read the full card before adding to it.
+  2. **Pill pattern for statuses:** `inline-flex items-center gap-1 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium` + `bg-{color}-500/10 text-{color}-700 dark:text-{color}-400`. Reuse for any future status chip; the /10 tint + 700/400 fg pair reads well in both themes.
+  3. **Distinct icons per state matter:** two states sharing CheckCircle2 (Confirm + Done) hurt scannability more than the missing background did. When polishing status systems, check for icon collisions, not just color.
+
+## 2026-06-04 — UX-03 — shipped (+ appended UX-06)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-03-composer-focus-ring  (base `main`)
+- branch: auto/ux-03-composer-focus-ring  (off `main`)
+- summary: Added a visible focus state to the PlagiaAI chat composer. The `Textarea` sets `focus-visible:ring-0` (suppresses its own ring) and the wrapping `div` had no focus styling, so clicking into the primary input gave zero visual feedback. Added `focus-within:border-violet-500/50 focus-within:ring-2 focus-within:ring-violet-500/30 transition-colors` to the wrapper. 1 file, +4/-1. Appended follow-up UX-06 (same fix for the inline edit-message textarea).
+- verification: `tsc --noEmit` clean; `next lint` (file) clean; dev smoke on PORT=3202 — `GET /` 200, unauth `POST /api/plagia-ai` 401.
+- lesson:
+  1. **When a component zeroes its own focus ring, the focus state must move to the wrapper.** `focus-within:` on the container is the clean fix — pattern: `focus-within:border-<accent>/50 focus-within:ring-2 focus-within:ring-<accent>/30`. Grep the codebase for other `focus-visible:ring-0` / `focus:outline-none` to find more invisible-focus spots (the edit-message textarea is one → UX-06).
+  2. **Small but high-value beats large but risky.** A 4-line focus-affordance fix is a legitimate iteration — it closes a genuine a11y/ergonomics gap users hit every message. Don't pad iterations; ship the real fix and move on.
+  3. **FE-07 already did mobile reach** (10x10 tap targets on attach/mic, h-10 Send on mobile). Check prior FE work before "improving" something that's already handled — the input bar's mobile ergonomics were done; focus visibility was the actual open gap.
+
+## 2026-06-04 — UX-04 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-04-typing-indicator  (base `main`)
+- branch: auto/ux-04-typing-indicator  (off `main`)
+- summary: Added an in-thread typing indicator (3 staggered bouncing dots) for the latency gap between sending a message and the first streamed delta/tool card — previously the thread showed only the user bubble with no feedback. Renders inside the existing AnimatePresence when `streaming && items[last].kind === "user"`, so it vanishes the moment any assistant content or tool card is appended (no overlap with the streaming caret or running tool card). Reduced-motion safe + `role="status"`/sr-only label. 1 file, +24.
+- verification: `tsc --noEmit` clean; `next lint` (file) clean; dev smoke on PORT=3203 — `GET /` 200, unauth `POST /api/plagia-ai` 401.
+- lesson:
+  1. **Audit ALL wait states before picking one** — most were already covered (sidebar skeletons FS-05/FE-13, tool progress FE-06, streaming caret). The single uncovered gap was send→first-token. Map the existing coverage first so the iteration targets the real hole, not a solved one.
+  2. **"Last item is the user turn" is a clean derived trigger** for the pre-response wait — no new state needed. The event handlers append an assistant or tool item on the first event, which flips the condition off automatically.
+  3. **Staggered dots via negative animation-delay** (`[animation-delay:-0.3s]` / `-0.15s` + `motion-safe:animate-bounce`) gives an out-of-phase typing animation with zero JS and respects reduced motion.
+
+## 2026-06-04 — UX-05 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-05-keyboard-scrollable-transcript  (base `main`)
+- branch: auto/ux-05-keyboard-scrollable-transcript  (off `main`)
+- summary: Accessibility — FE-08 already did roles/labels/live-region, so audited for the remaining gap: the `role="log"` transcript was scrollable but had no `tabIndex`, so keyboard-only users couldn't focus/scroll it (WCAG 2.1.1). Added `tabIndex={0}` + a `focus-visible` violet ring (2.4.7). 1 file, +5/-1.
+- verification: `tsc --noEmit` clean; `next lint` (file) clean; dev smoke on PORT=3204 — `GET /` 200 (no SWC compile error), unauth `POST /api/plagia-ai` 401.
+- lesson:
+  1. **TSX permits `//` and `/* */` comments BETWEEN JSX attributes** — both tsc and Next/SWC compile them fine (verified: `/` returned 200). Useful for annotating a single attribute's intent inline without a separate block.
+  2. **When a prior pass (FE-08) already did the obvious a11y work, audit for the specific WCAG criteria it likely missed** — keyboard operability of custom scroll regions (2.1.1) is a common miss even when roles/labels are perfect. Scrollable `overflow-y-auto` containers need `tabIndex={0}` + a visible focus ring.
+  3. **Seeded UX-01..UX-05 are now all done.** Next: UX-06 (edit-message focus parity, appended during UX-03), then self-generate. The loop should keep auditing the PlagiaAiApp surface (contrast of /70 muted text, focus management on async completion, sidebar keyboard nav) for the next items.
+
+## 2026-06-04 — UX-06 — shipped (+ appended UX-07, UX-08)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-06-edit-message-focus  (base `main`)
+- branch: auto/ux-06-edit-message-focus  (off `main`)
+- summary: Parity follow-up to UX-03 — added a `focus-within:` ring (primary palette, matching the edit box's existing border-primary/30 theming) to the inline edit-message wrapper, which had the same invisible-focus gap (Textarea sets focus-visible:ring-0). Edit box's keyboard handling + aria + Save/Cancel were already done. 1 file, +5/-1. Seeded backlog now fully cleared; appended UX-07 (contrast audit of /70 muted text) and UX-08 (focus return to composer after a turn) from audit notes.
+- verification: `tsc --noEmit` clean; `next lint` (file) clean; dev smoke on PORT=3205 — `GET /` 200, unauth `POST /api/plagia-ai` 401.
+- lesson:
+  1. **The `focus-visible:ring-0` + focus-within-on-wrapper pattern recurs** anywhere a shadcn Textarea/Input is wrapped in a styled container (main composer UX-03, edit box UX-06). When adding the wrapper ring, match the wrapper's existing palette (violet for the composer, `primary` for the edit box) rather than forcing one accent — keeps each surface cohesive.
+  2. **Loop is self-sustaining now:** seeded items done; appended UX-07/UX-08 to keep direction. Cap is 2 new items per shipped iteration — respected. Keep generating from concrete audit findings (measured contrast, observed focus loss), not speculative churn.
+
+## 2026-06-04 — UX-07 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-07-footnote-contrast  (base `main`)
+- branch: auto/ux-07-footnote-contrast  (off `main`)
+- summary: Measured-contrast fix. The FE-23 cost footnote used `text-muted-foreground/70` (11px) — computed 2.68:1 (light) / 4.23:1 (dark) against the done-card bg; both fail WCAG AA (4.5). Changed to full `text-muted-foreground` → 4.63 / 7.76, passes, same quiet look. Only sub-AA case found on the chat surface. 1 char-class change.
+- verification: contrast computed via a node script from the globals.css HSL tokens; `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3206 — `/` 200, unauth POST 401.
+- lesson:
+  1. **`muted-foreground` IS the AA floor in this theme** — light 4.63:1, dark 7.76:1 on card. Therefore ANY `text-muted-foreground/NN` with NN<100 drops below AA. Rule of thumb for this codebase: never put an opacity modifier on `text-muted-foreground` for real content text; use full opacity (or `text-foreground/XX` which has huge headroom).
+  2. **Contrast math recipe** (reusable): HSL→sRGB, blend fg over bg at the class alpha, then WCAG ratio `(L1+.05)/(L2+.05)`. Dark theme here has `card == background == 240 10% 3.9%`, so `bg-card/NN` resolves to the background — simplifies the bg for any dark-mode contrast check. Light: card/60 over bg(95%) ≈ 98%.
+  3. **globals.css token locations:** light tokens ~lines 7-23, dark ~45-61. `--muted-foreground` light `240 3.8% 46.1%`, dark `240 5% 64.9%`.
+
+## 2026-06-04 — UX-08 — shipped (+ appended UX-09, UX-10)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-08-focus-return-composer  (base `main`)
+- branch: auto/ux-08-focus-return-composer  (off `main`)
+- summary: Return focus to the composer textarea when a turn completes (in the shared sendMessage `finally`, covering normal + confirm/directDispatch). Desktop-only (`pointer: fine`), and only if focus is on the composer (textarea or Send button via new `sendButtonRef`) or nowhere — so it never steals focus from a tool card/sidebar and never re-opens the mobile keyboard. 1 file, +23. Appended UX-09 (Stop-generating/abort) and UX-10 (sidebar keyboard nav).
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3207 — `/` 200, unauth POST 401.
+- lesson:
+  1. **!! IMPORTANT — the UX-* PRs are stacking UNMERGED on `main`.** Every UX branch is cut from `fc5e017` and the user hasn't merged any yet. They auto-merge ONLY where their PlagiaAiApp.tsx regions don't overlap (so far: ToolStatusBadge / composer-wrapper / typing-indicator / transcript / edit-box / footnote / finally+SendButton are all distinct → clean). **Before each iteration, if your change would touch a region another open UX branch already changed (esp. the composer wrapper = UX-03, the tool-card body, ToolStatusBadge), branch off that branch and set the PR base to it — or pick a non-overlapping implementation.** UX-08 deliberately used `sendButtonRef` instead of a `data-` attr on the composer wrapper to dodge the UX-03 overlap.
+  2. **Focus-return pattern:** gate on `window.matchMedia("(pointer: fine)")` to keep it desktop-only, and only refocus when `document.activeElement` is the textarea, the Send button (keep a ref), or `body` — this captures Ctrl+Enter (textarea) and click-Send (button) while never stealing an intentional focus elsewhere.
+  3. **shadcn `Button` forwards refs** to the underlying `<button>` (it's `React.forwardRef` + Slot). `ref={someButtonRef}` typed as `HTMLButtonElement` type-checks with no extra work.
+
+## 2026-06-04 — UX-09 — shipped (chained off UX-08)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-09-stop-generating  (**PR base = auto/ux-08-focus-return-composer**)
+- branch: auto/ux-09-stop-generating  (off auto/ux-08, NOT main — shares Send button + sendMessage)
+- summary: Stop-generating. Per-turn AbortController in `abortRef`, fetch gets its `signal`; the Send button becomes an enabled "Stop" (filled `Square` icon, aria-label) while `streaming`, wired to `handleStop` → abort(). The catch checks `abortController.signal.aborted` and finalizes cleanly (flush partial assistant text, no error toast / no retry). `finally` nulls abortRef. Works for normal + confirm/directDispatch turns (one sendMessage). 1 file, +35/-13.
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3208 — `/` 200, unauth POST 401. (Actual mid-stream abort behaviour needs a signed-in chat to fully exercise — flagged.)
+- lesson:
+  1. **First chained UX branch.** Because UX-09 edits the same regions as the unmerged UX-08 (Send button, sendMessage), it was cut FROM auto/ux-08 (confirmed `grep sendButtonRef` = present before starting) and its PR base is auto/ux-08. Merge order for the user: UX-08 → UX-09. This is the documented "branch off the latest unmerged branch you overlap" rule in action.
+  2. **Abort detection:** check `controller.signal.aborted` in the catch rather than `err.name === "AbortError"` — more robust across fetch/reader rejection shapes. Put `abortRef.current = null` in `finally` so a stale controller never lingers.
+  3. **One button, two modes** beats two buttons: keep `ref={sendButtonRef}` stable and swap `onClick`/`disabled`/label on `streaming` — keeps UX-08's focus-return ref valid and avoids layout shift.
+  4. **Token caveat to remember:** aborting only stops client consumption; any tool already dispatched server-side this turn has already deducted. Don't imply Stop refunds.
+
+## 2026-06-04 — UX-10 — shipped (+ appended UX-11, UX-12)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-10-sidebar-a11y  (base `main`)
+- branch: auto/ux-10-sidebar-a11y  (off `main` — ConversationSidebar.tsx, untouched by other open branches)
+- summary: Sidebar a11y. Rows were already buttons with focus-visible action reveal; the gaps were no programmatic active state and no visible focus on the row select button. Added `aria-current="true"` on the active row, a `focus-visible:ring` (violet/40, rounded), and `type="button"`. 1 file, +6/-1. Appended UX-11 (suggestion-chip focus/mobile, clean file) and UX-12 (role=list semantics, off UX-10).
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3209 — `/` 200, unauth POST 401.
+- lesson:
+  1. **Decorative active indicators need a programmatic twin.** The active row had a violet bar + bg but both are visual (`aria-hidden`); `aria-current` is what AT reads. Whenever you style a "current/selected" state, add `aria-current` (or `aria-selected`/`aria-pressed` as fits) alongside the visual.
+  2. **To slow the unmerged-stack growth, prefer next items on files no open branch touches** — clean components here: `SuggestionChipBar.tsx`, `OneChatAllTools.tsx`, `MarketingReveal.tsx`, `ResultReveal.tsx`, `InlineSvgPreview.tsx`, `EmptyState.tsx`(UX-01), and `ConversationSidebar.tsx`(UX-10). `PlagiaAiApp.tsx` now has ~8 unmerged branches touching distinct regions — keep new PlagiaAiApp edits to clearly-separate regions or chain off the relevant branch.
+  3. **10 UX iterations shipped (UX-01..10).** Stack is large and unmerged; flagged to the user to merge. Loop remains productive — keep generating from measured/observed gaps, prefer clean files.
+
+## 2026-06-04 — UX-11 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-11-suggestion-chip-focus  (base `main`)
+- branch: auto/ux-11-suggestion-chip-focus  (off `main` — SuggestionChipBar.tsx, clean)
+- summary: Added on-brand `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40` to the empty-state suggestion chips and the "See all tools" link (they previously fell back to the UA outline). Tap targets/wrap already fine. 1 file, +2/-2.
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3210 — `/` 200, unauth POST 401.
+- lesson:
+  1. **Standard PlagiaAI focus ring = `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40`** (use `/30` on larger surfaces like the transcript/composer). Now applied consistently across composer (UX-03), transcript (UX-05), edit box (UX-06, primary palette), sidebar rows (UX-10), and chips (UX-11). Reuse this token for any new interactive element.
+  2. **Clean-file iterations keep the stack conflict-free** — UX-11 on SuggestionChipBar.tsx (untouched elsewhere) merges independently. Continue mining the clean components (OneChatAllTools, MarketingReveal, ResultReveal, InlineSvgPreview) before returning to the heavily-stacked PlagiaAiApp.tsx.
+
+## 2026-06-04 — UX-12 — shipped (chained off UX-10; appended UX-13, UX-14)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-12-sidebar-list-semantics  (**PR base = auto/ux-10-sidebar-a11y**)
+- branch: auto/ux-12-sidebar-list-semantics  (off auto/ux-10 — UX-10 not merged; verified via `git show origin/main:...ConversationSidebar.tsx | grep aria-current` = 0)
+- summary: Sidebar list semantics — role="list" + aria-label on the row container, role="listitem" per row, loading skeletons wrapped in an aria-hidden div (kept out of the list + decorative). Empty-state hint only renders with zero rows, so the list holds only listitems when populated. Both inline + drawer modes (shared ConversationList). 1 file, +11/-3.
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3211 — `/` 200, unauth POST 401.
+- lesson:
+  1. **Verify merge status of the base before chaining** — `git show origin/main:<file> | grep <marker>` is a quick way to tell if a prior branch's change reached main. UX-10 hadn't → UX-12 chained off it (base auto/ux-10). Merge order for user: UX-10 → UX-12.
+  2. **role="list" needs only listitem children** — wrap transient/decorative siblings (loading skeletons) in `aria-hidden`, and ensure the empty-state is mutually exclusive with rows (it is here). Then the list is clean exactly when it matters.
+  3. Appended UX-13 (homepage tool grid → links, clean OneChatAllTools.tsx) + UX-14 (InlineSvgPreview a11y, clean file). Keep favoring clean files; ~12 UX PRs now open/unmerged.
+
+## 2026-06-04 — UX-13 — shipped
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-13-tool-grid-links  (base `main`)
+- branch: auto/ux-13-tool-grid-links  (off `main` — OneChatAllTools.tsx, clean)
+- summary: Homepage "Every tool" grid items were inert `<li>` text; made each a next/link `<Link>` to its standalone page. Added a verified `href` to all 15 tools (checked each `app/<route>/page.tsx` exists before linking — none guessed), keyboard-focusable with the standard focus ring + hover bg. 1 file, +28/-21.
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3212 — `/` 200, `/paraphraser` (a link target) 200, unauth POST 401, hrefs present in homepage HTML.
+- lesson:
+  1. **Verify route targets before linking** — `for r in ...; do test -f app/$r/page.tsx; done` confirmed all 15 routes exist (incl. the relocated `/plagiarism-checker`). Never hand-write hrefs from memory; the charter's "leave inert if uncertain" rule means a quick existence check first.
+  2. **Functionality (not just polish) is in scope** — turning a static list into navigable links is a real UX win that fits the loop. Mix functionality items in with the a11y/visual ones.
+  3. 13 UX PRs shipped; next UX-14 (InlineSvgPreview a11y, clean file). Stack still unmerged — keep mining clean files.
+
+## 2026-06-04 — UX-14 — shipped (+ appended UX-15, UX-16)
+- pr: https://github.com/lerboi/plagiacheck/pull/new/auto/ux-14-svg-preview-a11y  (base `main`)
+- branch: auto/ux-14-svg-preview-a11y  (off `main` — InlineSvgPreview.tsx, clean)
+- summary: Gave the inline-rendered SVG (dangerouslySetInnerHTML) `role="img"` + `aria-label="<label> output"`, replacing a loose sr-only span. AT now names it once and ignores the raw inner `<text>` nodes. Download button already a11y-complete. 1 file, +7/-4.
+- verification: `tsc --noEmit` clean; `next lint` clean; dev smoke PORT=3213 — `/` 200, unauth POST 401.
+- lesson:
+  1. **Rendered-SVG-blob a11y pattern:** for `dangerouslySetInnerHTML` SVG, put `role="img"` + `aria-label` on the WRAPPER — that names it once and stops AT from traversing the inner chart text. Better than a sibling sr-only span (which doesn't suppress the inner traversal).
+  2. 14 UX PRs shipped. Remaining clean files: `MarketingReveal.tsx` (UX-15), `ResultReveal.tsx` (UX-16). After those, the clean-file pool is mostly exhausted — future iterations will need to chain off the relevant unmerged PlagiaAiApp.tsx branch per the overlap rule, OR (better) wait for the user to merge the stack. If clean high-value work runs out and the stack is unmerged, consider pausing with a note rather than forcing low-value churn (per UIUX-LOOP stop conditions).
+
+## 2026-06-04 — UX-15 — verified, no change (no PR)
+- pr: n/a — closed as verified
+- summary: Audited MarketingReveal.tsx. It's a generic opacity+y scroll-reveal wrapper; the global `MotionConfig reducedMotion="user"` (MotionProvider, app/layout.tsx:41-45, FE-15) already suppresses its `y`-translate for reduced-motion users (opacity-only remains). It renders no icons/headings itself, so aria-hidden/heading concerns belong to the children in app/page.tsx, not here. Nothing to fix.
+- lesson:
+  1. **Closing as verified is a valid loop outcome** — don't manufacture a diff when the audit finds the code already correct (mirrors the prior run's P1-22). Document WHY (here: global MotionConfig covers it) so a future audit doesn't re-open it. No branch/PR.
+  2. **The whole app is under `MotionConfig reducedMotion="user"`** — any framer-motion transform (x/y/scale/rotate) is auto-disabled for reduced-motion users app-wide; only opacity runs. So new motion components don't each need manual reduced-motion gating for transforms (but `motion-safe:` is still needed for CSS-class animations like `animate-bounce`, which MotionConfig doesn't touch — see UX-04).
+  3. **Runway: clean-file pool nearly dry.** After UX-16 (ResultReveal), if no clean high-value PlagiaAI UI/UX work remains and the 14-PR stack is still unmerged, PAUSE per UIUX-LOOP stop conditions with a summary rather than chaining deep stacks or doing low-value churn.
+
+## 2026-06-04 — UX-16 — verified, no change (no PR) — LOOP PAUSED
+- pr: n/a — closed as verified
+- summary: ResultReveal.tsx (FE-14) already handles reduced motion explicitly (useReducedMotion → empty motionProps) plus the global MotionConfig; plain wrapper, no roles, no focus trap. Nothing to change.
+- **LOOP PAUSED (self-decided, per UIUX-LOOP stop conditions).** Reason: the clean-file pool (files no open UX branch touches) is exhausted — UX-15 and UX-16 both verified-no-change, and SuggestionChipBar/OneChatAllTools/InlineSvgPreview/EmptyState are already done. Remaining surfaces (PlagiaAiApp.tsx, ConversationSidebar.tsx) have multiple UNMERGED open branches; further work there would require deep branch chains, and the ~14-PR stack is still unmerged. Per the charter, pausing beats forcing low-value churn.
+- **State of the run:** Shipped UX-01..UX-14 (14 PRs, all off main / chained where noted) + UX-15, UX-16 verified-no-change. All `tsc`/`lint`/dev-smoke clean. Categories covered: copy/clarity, visual polish, focus/keyboard a11y, list semantics, perceived-perf (typing indicator), functionality (focus-return, stop-generating, tool-grid links), contrast, SVG a11y.
+- **To resume productively:** merge the open UX PRs (UX-09→base UX-08; UX-12→base UX-10; rest→main) so `main` carries them, then re-run `/loop`. With a fresh consolidated main, future iterations branch cleanly off main again and can tackle deeper PlagiaAiApp.tsx work (e.g. role=list semantics already wanted, command palette / "/" shortcut, error-state polish, message virtualization) without conflicts.
+- lesson: **Know when to pause.** A continuous loop's value drops sharply once it must either churn low-value diffs or build fragile deep branch stacks on unmerged work. Pausing with a clear "how to resume" note is the correct, honest outcome — not a failure. The loop resumes the moment the user merges + re-runs /loop.

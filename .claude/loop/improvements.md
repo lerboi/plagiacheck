@@ -946,37 +946,222 @@ loop is encouraged to append better ideas as it learns the surface.
 
 ### UX-01 — Audit pass: PlagiaAI empty state + first-run clarity
 - **pillar:** design-quality / user-experience
-- **status:** todo
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-01-empty-state-clarity (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-01-empty-state-clarity
 - **acceptance:** Review the homepage PlagiaAI empty state for newcomers — is it
   obvious what PlagiaAI does, what to type, and that it runs real tools? Tighten
   headline/subcopy, suggestion chips, and visual hierarchy. One focused PR.
+- **shipped:** Added an eyebrow badge ("One chat · 15 tools" + sparkle) for visual
+  hierarchy + action/outcome subcopy ("Describe a task or paste your text —
+  PlagiaAI picks the right writing tool, runs it, and shows the result"). Only
+  `components/plagia-ai/EmptyState.tsx`; chips untouched.
 
 ### UX-02 — Tool-card visual + information hierarchy polish
 - **pillar:** design-quality
-- **status:** todo
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-02-tool-card-status-pills (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-02-tool-card-status-pills
 - **acceptance:** Review the running/done/failed/pending tool cards for spacing,
   iconography, scannability, and dark/light parity; refine without changing
   behaviour. Ensure status transitions read clearly.
+- **shipped:** Redesigned `ToolStatusBadge` as tinted rounded-full pills
+  (amber/violet/emerald/red) with dark-mode parity + `shrink-0`; swapped the
+  Confirm icon from CheckCircle2 (dup of Done) to Coins. Behaviour unchanged.
+  Follow-ups still open for this card: header icon container consistency, expand
+  affordance affordance size — left for a later UX item if worthwhile.
 
 ### UX-03 — Input bar ergonomics (attach / mic / send / shortcuts)
 - **pillar:** user-experience
-- **status:** todo
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-03-composer-focus-ring (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-03-composer-focus-ring
 - **acceptance:** Review the chat input: affordance clarity, disabled-state
   feedback, keyboard-shortcut discoverability, attach/mic states, mobile reach.
   Improve the highest-friction part.
+- **shipped:** Added a visible focus state to the composer — the Textarea
+  suppressed its own ring and the wrapper had none, so focus was invisible. Now
+  `focus-within:` violet border + 2px ring. (Mobile reach/tap targets were
+  already handled by FE-07.) Highest-friction gap was focus visibility.
+
+### UX-06 — Edit-message composer: focus + affordance parity
+- **pillar:** user-experience / accessibility
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-06-edit-message-focus (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-06-edit-message-focus
+- **acceptance:** The inline edit-message Textarea (FE-18, `editingTextareaRef`
+  ~line 1336 in `PlagiaAiApp.tsx`) likely lacks the visible focus treatment added
+  to the main composer in UX-03. Bring it to parity (focus ring) and check its
+  save/cancel affordances + keyboard handling read clearly.
+- **shipped:** Added `focus-within:` ring (primary palette) to the edit-box
+  wrapper — parity with UX-03. Keyboard handling (Esc/Ctrl+Enter), aria-label, and
+  Save/Cancel were already in place.
+
+### UX-07 — Contrast audit: muted footnotes & low-opacity text
+- **pillar:** accessibility / design-quality
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-07-footnote-contrast (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-07-footnote-contrast
+- **acceptance:** Audit low-opacity muted text in PlagiaAI for WCAG AA contrast —
+  e.g. the FE-23 cost footnote (`text-muted-foreground/70`), and any other
+  `/70`/`/60` foreground text on the chat surface. Bump to a token that meets AA
+  (≥4.5:1 for body, 3:1 for ≥18px) in both themes without changing the visual
+  intent. Measure, don't guess.
+- **shipped:** Measured the cost footnote `/70` at 2.68 (light) / 4.23 (dark) —
+  both fail AA. Changed to full `text-muted-foreground` (4.63 / 7.76, passes). It
+  was the only sub-AA case on the chat surface (sidebar `foreground/85` is fine).
+
+### UX-08 — Focus management after a chat turn completes
+- **pillar:** accessibility / user-experience
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-08-focus-return-composer (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-08-focus-return-composer
+- **acceptance:** After a turn finishes streaming (or errors), focus should return
+  to the composer so a keyboard user can immediately type the next message without
+  hunting. Verify it doesn't fight auto-scroll or steal focus mid-stream; only
+  refocus on completion, and not if the user has focused something else.
+- **shipped:** In the sendMessage `finally` (covers normal + confirm/directDispatch
+  turns), refocus the textarea — desktop-only (`pointer: fine`, avoids mobile
+  keyboard re-open) and only when focus is still on the composer (textarea/Send
+  button, via a new `sendButtonRef`) or nowhere. Avoided the composer-wrapper
+  element (UX-03's region) to stay conflict-free.
+
+### UX-09 — "Stop generating" control during a streaming turn
+- **pillar:** functionality / user-experience
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-09-stop-generating (branched off `auto/ux-08-focus-return-composer` — shares Send button + sendMessage regions; **set PR base to auto/ux-08**)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-09-stop-generating
+- **acceptance:** While a turn is streaming, the user can't cancel it (a long
+  generation must be waited out). Add a Stop control (e.g. the Send button becomes
+  Stop while `streaming`) that aborts the in-flight fetch via an AbortController
+  and finalizes the partial turn cleanly (no dangling streaming state, partial
+  assistant text preserved). Verify token deduction already happened server-side
+  is unaffected.
+- **shipped:** Per-turn AbortController (abortRef); Send button becomes an enabled
+  "Stop" (square icon) while streaming → handleStop aborts; catch detects
+  `signal.aborted`, keeps partial output, no error toast. Prior in-turn
+  server-side token deductions are not refunded (documented).
+
+### UX-10 — Sidebar conversation list: keyboard navigation & active affordance
+- **pillar:** accessibility / user-experience
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-10-sidebar-a11y (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-10-sidebar-a11y
+- **acceptance:** Audit `ConversationSidebar.tsx` keyboard support — list items
+  reachable/activatable by keyboard, visible focus, the delete/confirm controls
+  operable without a mouse, and the active conversation clearly indicated to AT.
+  Fix the most impactful gaps.
+- **shipped:** Rows were already real buttons + focus-visible action reveal; added
+  `aria-current` on the active row's select button (AT active affordance), a
+  focus-visible ring, and `type="button"`. Follow-up: role="list"/listitem (UX-12).
+
+### UX-11 — Suggestion chip bar: focus rings & mobile ergonomics
+- **pillar:** accessibility / design-quality
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-11-suggestion-chip-focus (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-11-suggestion-chip-focus
+- **file:** `components/plagia-ai/SuggestionChipBar.tsx` (clean off `main`)
+- **acceptance:** Audit the empty-state suggestion chips — visible keyboard focus
+  ring on each chip + the "See all tools" link, adequate tap targets / wrap on
+  narrow screens, and consistent hover/focus treatment. Fix the gaps.
+- **shipped:** Added on-brand `focus-visible` violet rings to the chip buttons +
+  "See all tools" link. Tap targets (h-10) and flex-wrap layout already fine.
+
+### UX-12 — Sidebar list semantics (role="list")
+- **pillar:** accessibility
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-12-sidebar-list-semantics (off `auto/ux-10-sidebar-a11y` — UX-10 unmerged; **set PR base to auto/ux-10**)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-12-sidebar-list-semantics
+- **acceptance:** Give the conversation row container `role="list"` and each row
+  `role="listitem"` (skeletons/empty-state excluded) so AT announces "list, N
+  items" and supports list navigation.
+- **shipped:** role="list" + aria-label on the container, role="listitem" on rows,
+  loading skeletons wrapped aria-hidden. Both inline + drawer modes.
+
+### UX-13 — Homepage tool grid: make tools clickable links
+- **pillar:** functionality / user-experience
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-13-tool-grid-links (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-13-tool-grid-links
+- **file:** `components/plagia-ai/OneChatAllTools.tsx` (clean off `main`)
+- **acceptance:** The "One chat. Every tool." grid lists 15 tools as inert
+  `<li>` text. Make each tool a link to its standalone page (e.g. Paraphraser →
+  `/paraphraser`) so users can jump straight to a tool. Keyboard-focusable, focus
+  ring, hover affordance. Map names→routes carefully; if a route is uncertain,
+  leave that one inert rather than guess.
+
+### UX-14 — Inline SVG preview: a11y label + download affordance check
+- **pillar:** accessibility / user-experience
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-14-svg-preview-a11y (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-14-svg-preview-a11y
+- **shipped:** Added `role="img"` + `aria-label` to the SVG container (replacing the
+  loose sr-only span) so AT names it once and skips the inner `<text>` nodes.
+  Download button already keyboard-operable with focus ring.
+
+### UX-15 — Homepage marketing reveal: audit motion + a11y
+- **pillar:** accessibility / design-quality
+- **status:** done (2026-06-04) — verified, no code change
+- **branch:** n/a
+- **pr:** n/a
+- **file:** `components/plagia-ai/MarketingReveal.tsx` (clean off `main`)
+- **acceptance:** Audit the homepage scroll-reveal marketing block — reduced-motion
+  compliance, any decorative icon/element has aria-hidden, headings use real
+  heading levels, and the section is keyboard/AT sensible. Fix the gaps.
+- **verified:** MarketingReveal is a 28-line generic wrapper (opacity + y reveal on
+  scroll-in). Its `y`-translate is already auto-suppressed for reduced-motion users
+  by the global `MotionConfig reducedMotion="user"` (MotionProvider in
+  `app/layout.tsx:41-45`, FE-15); only the non-vestibular opacity fade runs. It
+  renders no icons/headings itself (those are children from `app/page.tsx`), so
+  aria-hidden/heading-level concerns don't apply here. No change needed.
+
+### UX-16 — Tool-page ResultReveal: reduced-motion + semantics audit
+- **pillar:** accessibility
+- **status:** done (2026-06-04) — verified, no code change
+- **branch:** n/a
+- **pr:** n/a
+- **verified:** `ResultReveal.tsx` (FE-14) already gates motion explicitly via
+  `useReducedMotion()` (renders children with no motion props under reduced
+  motion) and is also covered by the global MotionConfig. It's a plain
+  AnimatePresence + motion.div wrapper — no roles, no focus trap, opacity + tiny
+  y only. Correct as-is; nothing to change.
+- **file:** `components/plagia-ai/ResultReveal.tsx` (clean off `main`)
+- **acceptance:** Audit the result-reveal wrapper used across tool pages — confirm
+  it honors reduced motion (opacity-only or gated), doesn't trap focus, and adds
+  no misleading roles. Fix anything off; if already correct, close as verified
+  with a note.
+- **file:** `components/plagia-ai/InlineSvgPreview.tsx` (clean off `main`)
+- **acceptance:** Audit the inline chart/infographic/thumbnail preview — the
+  rendered SVG should have an accessible name (e.g. `role="img"` + aria-label with
+  the tool/title), and any download/expand control should be keyboard-operable
+  with a visible focus ring. Fix the gaps.
 
 ### UX-04 — Loading / streaming / skeleton states pass
 - **pillar:** perceived-performance
-- **status:** todo
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-04-typing-indicator (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-04-typing-indicator
 - **acceptance:** Make waiting feel fast and intentional everywhere in PlagiaAI
   (initial load, streaming, tool running, sidebar fetch). Reduce layout shift and
   add tasteful skeletons/indicators where missing.
+- **shipped:** Added an animated typing indicator (3 dots, reduced-motion safe,
+  a11y status) for the gap between send and first token/tool card — the one place
+  with no in-thread feedback. (Sidebar fetch already has skeletons (FS-05/FE-13);
+  tool-running has the FE-06 progress bar; streaming has the caret.) Remaining
+  candidate: initial auth-resolve flash — left for a later UX item if noticeable.
 
 ### UX-05 — Accessibility sweep on the chat surface
 - **pillar:** accessibility
-- **status:** todo
+- **status:** done (2026-06-04)
+- **branch:** auto/ux-05-keyboard-scrollable-transcript (off `main`)
+- **pr:** https://github.com/lerboi/plagiacheck/pull/new/auto/ux-05-keyboard-scrollable-transcript
 - **acceptance:** Verify roles/labels/focus order/contrast/reduced-motion across
   the chat thread, tool cards, sidebar, and input. Fix the most impactful gaps.
+- **shipped:** FE-08 had already covered roles/labels/live-region. The open gap
+  was keyboard-scrollability: added `tabIndex={0}` + focus-visible ring to the
+  role="log" transcript (WCAG 2.1.1 + 2.4.7). Other a11y (labels, reduced-motion
+  via FE-15) already in place. Possible later items: contrast audit of
+  `text-muted-foreground/70` footnotes; focus management on tool completion.
 
 ---
 
