@@ -95,9 +95,16 @@ function ConversationList({
   const [renameDraft, setRenameDraft] = useState("")
 
   return (
-    <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5 min-h-0">
+    // role="list" + per-row role="listitem" so AT announces the conversation
+    // count and supports list navigation. Loading skeletons are decorative
+    // (aria-hidden); the empty-state hint renders only when there are no rows.
+    <div
+      role="list"
+      aria-label="Saved conversations"
+      className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5 min-h-0"
+    >
       {loading && (
-        <>
+        <div aria-hidden="true" className="space-y-0.5">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -105,7 +112,7 @@ function ConversationList({
               style={{ animationDelay: `${i * 80}ms` }}
             />
           ))}
-        </>
+        </div>
       )}
 
       {!loading && conversations.length === 0 && !isFiltered && (
@@ -175,6 +182,7 @@ function ConversationList({
             return (
               <motion.div
                 key={c.id}
+                role="listitem"
                 layout="position"
                 variants={rowMotion}
                 initial="initial"
