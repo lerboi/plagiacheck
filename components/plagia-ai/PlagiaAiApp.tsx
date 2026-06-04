@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Send,
+  Square,
   Loader2,
   ChevronDown,
   ChevronRight,
@@ -229,6 +230,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   // UX-08: lets the post-turn focus-return tell whether focus is still on the
   // Send button (i.e. the user clicked Send) before refocusing the composer.
   const sendButtonRef = useRef<HTMLButtonElement>(null)
+  // UX-09: AbortController for the in-flight turn so the user can Stop it.
+  const abortRef = useRef<AbortController | null>(null)
 
   // FE-09 — persistent personalization (Supabase-backed).
   // The panel is a small inline section that slides open under the chat
@@ -609,11 +612,15 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
 
       // Capture the attached image so we send it once, then clear from state.
       const sentImage = attachedImage
+      // UX-09: per-turn AbortController so a Stop press cancels the stream.
+      const abortController = new AbortController()
+      abortRef.current = abortController
       try {
         const authHeader = await getAuthHeader()
         const response = await fetch("/api/plagia-ai", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...authHeader },
+          signal: abortController.signal,
           body: JSON.stringify({
             messages: conversationHistoryForServer(nextItems),
             attachedImage: sentImage || undefined,
@@ -783,16 +790,23 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           return current
         })
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Something went wrong."
-        toast({
-          title: "PlagiaAI couldn't reach the server",
-          description: message,
-          variant: "destructive",
-        })
-        setLastFailedInput(text)
-        setInput(text)
+        // UX-09: a Stop press aborts the fetch — keep whatever streamed so far,
+        // don't surface it as an error or queue a retry.
+        if (abortController.signal.aborted) {
+          flushAssistant()
+        } else {
+          const message =
+            err instanceof Error ? err.message : "Something went wrong."
+          toast({
+            title: "PlagiaAI couldn't reach the server",
+            description: message,
+            variant: "destructive",
+          })
+          setLastFailedInput(text)
+          setInput(text)
+        }
       } finally {
+        abortRef.current = null
         setStreaming(false)
         setPendingAssistantId(null)
         // UX-08: return focus to the composer when a turn completes so keyboard
@@ -832,6 +846,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
 
   const handleSend = () => {
     void sendMessage(input.trim())
+  }
+
+  // UX-09: abort the in-flight turn; the sendMessage catch keeps partial output.
+  const handleStop = () => {
+    abortRef.current?.abort()
   }
 
   const handleRetry = () => {
@@ -1789,14 +1808,17 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 </div>
                 <Button
                   ref={sendButtonRef}
-                  onClick={handleSend}
-                  disabled={streaming || !input.trim()}
+                  onClick={streaming ? handleStop : handleSend}
+                  disabled={streaming ? false : !input.trim()}
+                  aria-label={streaming ? "Stop generating" : "Send message"}
                   className="h-10 sm:h-9 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none ml-auto"
                 >
                   {streaming ? (
+                    // UX-09: while streaming the action becomes Stop (aborts the
+                    // turn) instead of a disabled "Thinking" button.
                     <>
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      Thinking
+                      <Square className="mr-1.5 h-3 w-3 fill-current" />
+                      Stop
                     </>
                   ) : (
                     <>
