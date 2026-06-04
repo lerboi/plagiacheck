@@ -1605,7 +1605,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               typeof it.tokensUsed === "number" &&
                               it.tokensUsed > 0 &&
                               it.tokensCurrency && (
-                                <div className="mt-1 text-[11px] text-muted-foreground/70 tabular-nums">
+                                <div className="mt-1 text-[11px] text-muted-foreground tabular-nums">
                                   Used {it.tokensUsed.toLocaleString()}{" "}
                                   {it.tokensCurrency} token
                                   {it.tokensUsed === 1 ? "" : "s"}
