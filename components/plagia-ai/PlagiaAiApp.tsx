@@ -1613,6 +1613,30 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     </motion.div>
                   )
                 })}
+                {/* Typing indicator: bridges the gap between sending and the
+                    first streamed token / tool card so the wait feels intentional.
+                    Shows only while streaming and nothing has been appended after
+                    the user's message yet (last item is still the user turn). */}
+                {streaming &&
+                  items.length > 0 &&
+                  items[items.length - 1].kind === "user" && (
+                    <motion.div
+                      key="typing-indicator"
+                      layout="position"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="flex items-center gap-1.5"
+                      role="status"
+                      aria-label="PlagiaAI is thinking"
+                    >
+                      <span className="sr-only">PlagiaAI is thinking…</span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 motion-safe:animate-bounce [animation-delay:-0.3s]" aria-hidden="true" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 motion-safe:animate-bounce [animation-delay:-0.15s]" aria-hidden="true" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 motion-safe:animate-bounce" aria-hidden="true" />
+                    </motion.div>
+                  )}
               </AnimatePresence>
             </div>
             )}
