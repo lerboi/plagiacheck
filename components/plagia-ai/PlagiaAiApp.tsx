@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   XCircle,
   Wrench,
+  Coins,
   RotateCcw,
   Trash2,
   ArrowDown,
@@ -1976,33 +1977,38 @@ function ToolStatusBadge({
 }: {
   status: "pending_confirm" | "running" | "done" | "failed"
 }) {
+  // Tinted pills (not bare colored text) so a card's state is scannable at a
+  // glance and running -> done / failed transitions read clearly. Each variant
+  // carries an explicit dark-mode foreground for parity.
+  const base =
+    "inline-flex items-center gap-1 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
   if (status === "pending_confirm") {
     return (
-      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-        <CheckCircle2 className="h-3 w-3" />
+      <span className={`${base} bg-amber-500/10 text-amber-700 dark:text-amber-400`}>
+        <Coins className="h-3 w-3" aria-hidden="true" />
         Confirm
       </span>
     )
   }
   if (status === "running") {
     return (
-      <span className="flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400">
-        <Loader2 className="h-3 w-3 animate-spin" />
+      <span className={`${base} bg-violet-500/10 text-violet-700 dark:text-violet-400`}>
+        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
         Running
       </span>
     )
   }
   if (status === "done") {
     return (
-      <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-        <CheckCircle2 className="h-3 w-3" />
+      <span className={`${base} bg-emerald-500/10 text-emerald-700 dark:text-emerald-400`}>
+        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
         Done
       </span>
     )
   }
   return (
-    <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
-      <XCircle className="h-3 w-3" />
+    <span className={`${base} bg-red-500/10 text-red-700 dark:text-red-400`}>
+      <XCircle className="h-3 w-3" aria-hidden="true" />
       Failed
     </span>
   )
