@@ -59,12 +59,15 @@ export function InlineSvgPreview({ svg, toolName }: InlineSvgPreviewProps) {
 
   return (
     <motion.div {...motionProps} className="space-y-2 pt-1">
-      <span className="sr-only">{label} output</span>
       <div
+        // role="img" + aria-label give the rendered SVG a single accessible
+        // name and stop AT from reading the chart's raw inner <text> nodes as
+        // loose content. The lib/svg-templates.ts output is already a
+        // self-contained <svg> with its own viewBox + bg fill; we just drop it
+        // in and let the browser size it naturally.
+        role="img"
+        aria-label={`${label} output`}
         className="rounded-lg bg-white shadow-sm border border-border overflow-hidden p-3"
-        // Inline-rendered SVG. The lib/svg-templates.ts output is
-        // already a self-contained <svg> with its own viewBox + bg fill;
-        // we just drop it in and let the browser size it naturally.
         dangerouslySetInnerHTML={{ __html: svg }}
       />
       <div className="flex items-center justify-end">
