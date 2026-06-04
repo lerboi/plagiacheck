@@ -1717,7 +1717,10 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               </div>
             )}
 
-            <div className="rounded-xl border border-border bg-background shadow-sm">
+            {/* focus-within ring: the Textarea suppresses its own focus ring
+                (focus-visible:ring-0), so the wrapper carries the focus state —
+                otherwise clicking into the composer gives no visual feedback. */}
+            <div className="rounded-xl border border-border bg-background shadow-sm transition-colors focus-within:border-violet-500/50 focus-within:ring-2 focus-within:ring-violet-500/30">
               <Textarea
                 ref={textareaRef}
                 placeholder="Ask PlagiaAI anything…"
