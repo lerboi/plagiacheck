@@ -1337,7 +1337,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         className="flex justify-end"
                       >
                         {isEditing ? (
-                          <div className="w-full max-w-[85%] sm:max-w-[75%] rounded-2xl border border-primary/30 bg-primary/5 p-3 space-y-2">
+                          // focus-within mirrors the main composer (UX-03): the
+                          // inner Textarea suppresses its own ring, so the wrapper
+                          // carries the visible focus state. Uses the primary
+                          // palette this edit box is already themed in.
+                          <div className="w-full max-w-[85%] sm:max-w-[75%] rounded-2xl border border-primary/30 bg-primary/5 p-3 space-y-2 transition-colors focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/25">
                             <Textarea
                               ref={editingTextareaRef}
                               value={editingDraft}
