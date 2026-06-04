@@ -220,8 +220,13 @@ function ConversationList({
                 ) : (
                   <>
                     <button
+                      type="button"
                       onClick={() => onSelect(c.id)}
-                      className={`flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 text-left ${
+                      // aria-current tells AT which conversation is open (the
+                      // violet bar + bg are visual-only); focus-visible ring
+                      // gives keyboard users a clear focus indicator.
+                      aria-current={isActive ? "true" : undefined}
+                      className={`flex-1 min-w-0 flex items-center gap-2 px-2.5 py-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 ${
                         isActive ? "text-foreground" : "text-foreground/85"
                       }`}
                     >
