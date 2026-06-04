@@ -1307,7 +1307,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               aria-live="polite"
               aria-atomic="false"
               aria-label="PlagiaAI conversation"
-              className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 p-5 space-y-5 min-h-[480px]"
+              // tabIndex makes the scrollable transcript keyboard-focusable so
+              // keyboard-only users can scroll back through it (WCAG 2.1.1);
+              // the focus-visible ring satisfies 2.4.7.
+              tabIndex={0}
+              className="flex-1 overflow-y-auto rounded-xl border border-border bg-card/30 p-5 space-y-5 min-h-[480px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30"
             >
               <div className="flex flex-col items-start">
                 <div className="max-w-[85%] text-sm leading-relaxed text-foreground">
