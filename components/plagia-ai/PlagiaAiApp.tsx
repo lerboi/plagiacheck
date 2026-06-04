@@ -226,6 +226,9 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // UX-08: lets the post-turn focus-return tell whether focus is still on the
+  // Send button (i.e. the user clicked Send) before refocusing the composer.
+  const sendButtonRef = useRef<HTMLButtonElement>(null)
 
   // FE-09 — persistent personalization (Supabase-backed).
   // The panel is a small inline section that slides open under the chat
@@ -792,6 +795,25 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       } finally {
         setStreaming(false)
         setPendingAssistantId(null)
+        // UX-08: return focus to the composer when a turn completes so keyboard
+        // users can type the next message without hunting. Desktop only (a fine
+        // pointer) — on touch this would re-open the keyboard over the reply.
+        // Only when focus is on the composer (textarea / Send button) or nowhere
+        // — never steal an intentional focus on a tool card or the sidebar.
+        if (
+          typeof window !== "undefined" &&
+          window.matchMedia("(pointer: fine)").matches
+        ) {
+          const active = document.activeElement
+          if (
+            !active ||
+            active === document.body ||
+            active === textareaRef.current ||
+            active === sendButtonRef.current
+          ) {
+            textareaRef.current?.focus()
+          }
+        }
       }
     },
     [
@@ -1766,6 +1788,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   </span>
                 </div>
                 <Button
+                  ref={sendButtonRef}
                   onClick={handleSend}
                   disabled={streaming || !input.trim()}
                   className="h-10 sm:h-9 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none ml-auto"
