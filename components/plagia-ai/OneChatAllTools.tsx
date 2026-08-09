@@ -84,7 +84,7 @@ const CATEGORIES: CategoryBlock[] = [
 export function OneChatAllTools() {
   return (
     <section className="py-16 md:py-20 border-t border-border">
-      <div className="container max-w-5xl mx-auto px-4">
+      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}

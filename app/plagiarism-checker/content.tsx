@@ -288,7 +288,8 @@ export default function PlagiarismCheckerContent() {
         categoryColor="text-blue-600 dark:text-blue-400"
       />
 
-      <section className="container max-w-5xl mx-auto px-4 py-8 md:py-10">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+        <div className="grid xl:grid-cols-2 gap-4 items-start">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -424,13 +425,23 @@ export default function PlagiarismCheckerContent() {
                   />
                 </label>
               </div>
-
-              <ResultReveal show={isChecking || !!result}>
-                <PlagiarismResults isChecking={isChecking} progress={progress} result={result} originalText={result?.analyzedText} />
-              </ResultReveal>
             </div>
           </Card>
         </motion.div>
+
+        {/* RIGHT — results panel */}
+        <div>
+          {!isChecking && !result && (
+            <div className="min-h-[280px] rounded-xl border border-border bg-muted/30 flex flex-col items-center justify-center gap-2">
+              <Shield className="h-6 w-6 text-blue-500/40" />
+              <p className="text-xs text-muted-foreground/40">Results appear here</p>
+            </div>
+          )}
+          <ResultReveal show={isChecking || !!result}>
+            <PlagiarismResults isChecking={isChecking} progress={progress} result={result} originalText={result?.analyzedText} />
+          </ResultReveal>
+        </div>
+        </div>
       </section>
 
       <FAQ />

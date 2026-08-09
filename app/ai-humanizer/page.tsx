@@ -241,7 +241,7 @@ export default function AIHumanizer() {
         iconBg="bg-pink-500/10 border-pink-500/20"
         categoryColor="text-pink-600 dark:text-pink-400"
       />
-      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/ai-humanizer" />}
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (

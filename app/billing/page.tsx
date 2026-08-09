@@ -188,7 +188,7 @@ export default function Billing() {
   return (
     <div className="min-h-screen bg-background">
       <Nav />
-      <div className="container py-12 max-w-6xl mx-auto px-4">
+      <div className="w-full max-w-screen-2xl py-12 mx-auto px-4 sm:px-6 lg:px-8">
         <div className="space-y-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

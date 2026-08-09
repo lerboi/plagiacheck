@@ -333,7 +333,7 @@ export default function SpeechToText() {
         categoryColor="text-indigo-600 dark:text-indigo-400"
       />
 
-      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {!isSupported && (
           <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
             <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">

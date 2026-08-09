@@ -27,7 +27,7 @@ function HowItWorks() {
   ]
   return (
     <section className="py-14 md:py-16 border-t border-border bg-muted/20">
-      <div className="container max-w-5xl mx-auto px-4">
+      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-10">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">How it works</h2>
         </div>
@@ -62,7 +62,7 @@ function TrustSignals() {
   ]
   return (
     <section className="py-10 md:py-12 border-t border-border">
-      <div className="container max-w-5xl mx-auto px-4 flex flex-wrap justify-center gap-3 md:gap-4">
+      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-center gap-3 md:gap-4">
         {pills.map((pill, i) => (
           <MarketingReveal
             key={pill.label}

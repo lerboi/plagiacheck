@@ -184,7 +184,7 @@ export default function InfographicGenerator() {
         categoryColor="text-amber-600 dark:text-amber-400"
       />
 
-      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         <div className="grid lg:grid-cols-2 gap-4">
           {/* Left: Input */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">

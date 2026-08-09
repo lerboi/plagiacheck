@@ -41,7 +41,7 @@ export function ToolPageHeader({
 
   return (
     <motion.div {...motionProps} className="border-b border-border">
-      <div className="container max-w-5xl mx-auto px-4 py-10 md:py-14 flex items-center justify-between gap-8">
+      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14 flex items-center justify-between gap-8">
         {/* Left — text */}
         <div className="space-y-3 flex-1 min-w-0">
           <p className={`text-xs font-semibold uppercase tracking-widest ${categoryColor}`}>

@@ -233,7 +233,7 @@ export default function HistoryPage() {
 
       <section className="container mx-auto px-4 py-12">
         <motion.div
-          className="max-w-5xl mx-auto"
+          className="w-full"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}

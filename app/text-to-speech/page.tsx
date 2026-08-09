@@ -221,7 +221,7 @@ export default function TextToSpeech() {
       />
 
       {!isSupported && (
-        <div className="container max-w-5xl mx-auto px-4 pt-4">
+        <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
           <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
             <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">Your browser does not support the Web Speech Synthesis API.</p>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Please use Chrome, Edge, or Safari.</p>
@@ -229,7 +229,7 @@ export default function TextToSpeech() {
         </div>
       )}
 
-      <section className="container max-w-5xl mx-auto px-4 py-6">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid lg:grid-cols-[2fr,1fr] gap-4 items-start">
           {/* Main text + controls */}
           <div className="space-y-4">
@@ -372,7 +372,7 @@ export default function TextToSpeech() {
         </div>
       </section>
 
-      <section className="container max-w-5xl mx-auto px-4 pb-6">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
         {/* ── Informational content ── */}
         <div className="mt-10 pt-8 border-t border-border space-y-8">
 

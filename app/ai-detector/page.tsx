@@ -301,8 +301,9 @@ export default function AIDetector() {
         iconBg="bg-purple-500/10 border-purple-500/20"
         categoryColor="text-purple-600 dark:text-purple-400"
       />
-      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
-        {/* Input area */}
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+        <div className="grid lg:grid-cols-2 gap-4 items-start">
+        {/* LEFT — input area */}
         <div className="space-y-3">
           <Textarea
             aria-label="Text to analyze"
@@ -342,6 +343,14 @@ export default function AIDetector() {
           {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
         </div>
 
+        {/* RIGHT — output panel */}
+        <div className="space-y-3">
+        {!result && (
+          <div className="min-h-[280px] rounded-xl border border-border bg-muted/30 flex flex-col items-center justify-center gap-2">
+            <Brain className="h-6 w-6 text-purple-500/40" />
+            <p className="text-xs text-muted-foreground/40">Analysis appears here</p>
+          </div>
+        )}
         {/* Score card — shown when result exists */}
         <ResultReveal show={!!result}>
           {result && (
@@ -419,7 +428,7 @@ export default function AIDetector() {
                     ))}
                   </div>
                 </div>
-                <div className="px-5 pb-5 space-y-1.5 max-h-72 overflow-y-auto">
+                <div className="px-5 pb-5 space-y-1.5 max-h-[420px] overflow-y-auto">
                   {result.sentences.map((s, i) => (
                     <div
                       key={i}
@@ -448,6 +457,8 @@ export default function AIDetector() {
           </div>
           )}
         </ResultReveal>
+        </div>
+        </div>
         {/* ── Informational content ── */}
         <div className="mt-10 pt-8 border-t border-border space-y-8">
 

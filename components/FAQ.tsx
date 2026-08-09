@@ -75,7 +75,7 @@ export const FAQ: React.FC<{ items?: FAQItem[] }> = ({ items = faqs }) => {
         >
           Frequently Asked Questions
         </motion.h2>
-        <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
+        <Accordion type="single" collapsible className="w-full max-w-4xl mx-auto">
           {items.map((faq, index) => (
             <motion.div
               key={index}

@@ -236,7 +236,7 @@ export default function Pricing() {
                 </p>
               </div>
 
-              <div className="max-w-5xl mx-auto space-y-10">
+              <div className="max-w-7xl mx-auto space-y-10">
                 {/* Writing Tools */}
                 <div>
                   <div className="flex items-center gap-2.5 mb-4">

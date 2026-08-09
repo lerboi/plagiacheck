@@ -137,7 +137,7 @@ export default function WordCounter() {
         iconBg="bg-orange-500/10 border-orange-500/20"
         categoryColor="text-orange-600 dark:text-orange-400"
       />
-      <section className="container max-w-5xl mx-auto px-4 py-6">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid lg:grid-cols-[1fr,auto] gap-4 items-start">
           {/* LEFT — textarea */}
           <div className="space-y-3">
@@ -212,7 +212,7 @@ export default function WordCounter() {
           </div>
 
           {/* RIGHT — stats panel */}
-          <div className="w-full lg:w-64 space-y-3">
+          <div className="w-full lg:w-80 space-y-3">
             {/* Primary stats — 2x2 grid with large numbers */}
             <div className="grid grid-cols-2 gap-3">
               {[

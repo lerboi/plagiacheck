@@ -106,7 +106,7 @@ export default function AllToolsPage() {
       <Nav />
 
       <header className="border-b border-border">
-        <div className="container max-w-5xl mx-auto px-4 py-10 md:py-14">
+        <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-14">
           <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 dark:text-violet-400">
             Plagiacheck
           </p>
@@ -121,7 +121,7 @@ export default function AllToolsPage() {
         </div>
       </header>
 
-      <div className="container max-w-5xl mx-auto px-4 py-8 space-y-10">
+      <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
         {/* PlagiaAI featured hero */}
         <Link
           href="/"

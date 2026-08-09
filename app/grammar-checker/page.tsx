@@ -259,7 +259,7 @@ export default function GrammarChecker() {
         iconBg="bg-emerald-500/10 border-emerald-500/20"
         categoryColor="text-emerald-600 dark:text-emerald-400"
       />
-      <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
+      <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/grammar-checker" />}
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
