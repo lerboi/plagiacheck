@@ -24,6 +24,34 @@ interface SummaryResult {
   bulletPoints: string[]
 }
 
+const FAQ_ITEMS = [
+  {
+    question: "How does the length slider work?",
+    answer:
+      "It sets the target summary length as a percentage of your original text. A lower percentage gives a tighter summary; a higher one keeps more detail.",
+  },
+  {
+    question: "Should I choose paragraph or bullet points?",
+    answer:
+      "Paragraph format reads as flowing prose, good for abstracts and overviews. Bullets break the content into discrete key points, better for notes and quick scanning.",
+  },
+  {
+    question: "What information does the summary keep?",
+    answer:
+      "It prioritizes main ideas, key facts, and conclusions. Repetition, examples, and side details are dropped first as the target length shrinks — verify that nothing critical to you was cut.",
+  },
+  {
+    question: "How long can the input text be?",
+    answer:
+      "There is no hard limit, but very long documents cost more tokens and can take longer. For book-length material, summarize chapter by chapter for better results.",
+  },
+  {
+    question: "How much does a summary cost?",
+    answer:
+      "Token cost scales with the length of the input at roughly 1 text token per 6 characters. Failed runs are refunded automatically.",
+  },
+]
+
 export default function Summarizer() {
   const [text, setText] = useState("")
   const [result, setResult] = useState<SummaryResult | null>(null)
@@ -416,7 +444,7 @@ export default function Summarizer() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

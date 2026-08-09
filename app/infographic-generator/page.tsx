@@ -28,6 +28,34 @@ function sanitizeFilename(name: string | null | undefined, fallback: string): st
   return cleaned || fallback
 }
 
+const FAQ_ITEMS = [
+  {
+    question: "How is the infographic generated?",
+    answer:
+      "The AI structures your text into a spec — title, intro, statistics, sections, and conclusion — and the infographic is then rendered deterministically from that spec as an SVG. Text stays sharp and readable, with none of the garbled lettering typical of AI image generators.",
+  },
+  {
+    question: "What input works best?",
+    answer:
+      "Factual text with clear points and a few numbers or statistics. A paragraph or two about a topic with concrete facts produces a much better layout than a one-line prompt.",
+  },
+  {
+    question: "Can I edit the result?",
+    answer:
+      "The output is SVG, so you can open it in any vector editor (Figma, Inkscape, Illustrator) to tweak colors, text, or layout after downloading.",
+  },
+  {
+    question: "How much does an infographic cost?",
+    answer:
+      "2 image tokens per generation. Failed generations are refunded automatically.",
+  },
+  {
+    question: "Why does it not look like a photo or illustration?",
+    answer:
+      "By design. This tool produces clean, data-focused layouts rather than pictorial art, because spec-based rendering guarantees legible text and consistent structure.",
+  },
+]
+
 export default function InfographicGenerator() {
   const [text, setText] = useState("")
   const [svgOutput, setSvgOutput] = useState("")
@@ -309,7 +337,7 @@ export default function InfographicGenerator() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

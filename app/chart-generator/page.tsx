@@ -19,10 +19,12 @@ import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 const CHART_TYPES = [
   { value: "auto-detect", label: "Auto-Detect" },
   { value: "bar", label: "Bar Chart" },
+  { value: "line", label: "Line Chart" },
   { value: "pie", label: "Pie Chart" },
   { value: "flowchart", label: "Flowchart" },
   { value: "mindmap", label: "Mind Map" },
   { value: "timeline", label: "Timeline" },
+  { value: "comparison", label: "Comparison" },
 ]
 
 const MAX_INPUT_CHARS = 2000
@@ -36,6 +38,34 @@ function sanitizeFilename(name: string | null | undefined, fallback: string): st
     .slice(0, 60)
   return cleaned || fallback
 }
+
+const FAQ_ITEMS = [
+  {
+    question: "What chart types can it create?",
+    answer:
+      "Bar charts, pie charts, line charts, flowcharts, mind maps, timelines, and comparisons. Pick a type explicitly or use Auto-Detect and the AI will choose the best fit for your data.",
+  },
+  {
+    question: "How does the AI turn my text into a chart?",
+    answer:
+      "The AI reads your description, extracts the labels, values, and structure into a JSON spec, and then the chart is drawn deterministically from that spec — so text and numbers render crisply, not as AI-generated imagery.",
+  },
+  {
+    question: "What input works best?",
+    answer:
+      "Concrete data in plain text, e.g. \"Sales: Q1 120, Q2 150, Q3 90\" or a list of steps for a flowchart. Vague descriptions force the AI to invent numbers.",
+  },
+  {
+    question: "How do I download the result?",
+    answer:
+      "Charts are generated as SVG, which you can download directly. SVG scales to any size without losing quality and can be opened in browsers and design tools.",
+  },
+  {
+    question: "How much does a chart cost?",
+    answer:
+      "2 image tokens per generation. If generation fails, the tokens are refunded automatically.",
+  },
+]
 
 export default function ChartGenerator() {
   const [text, setText] = useState("")
@@ -348,7 +378,7 @@ export default function ChartGenerator() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

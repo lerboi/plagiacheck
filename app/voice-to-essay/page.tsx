@@ -17,6 +17,34 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
+const FAQ_ITEMS = [
+  {
+    question: "How does my speech become an essay?",
+    answer:
+      "Your browser transcribes your voice live as you speak. When you stop, the AI restructures the raw transcript into an organized essay with a title, coherent paragraphs, and cleaned-up phrasing.",
+  },
+  {
+    question: "Which browsers work?",
+    answer:
+      "Chrome, Edge, and Safari — the tool relies on the browser's Web Speech API for dictation, which Firefox does not support. You will also need to grant microphone permission.",
+  },
+  {
+    question: "Can I edit the transcript before generating the essay?",
+    answer:
+      "Yes, and you should. Fix any mis-heard words or add missing points in the transcript box first — a cleaner transcript produces a much better essay.",
+  },
+  {
+    question: "Do I have to dictate everything in one go?",
+    answer:
+      "No. You can stop and resume recording, and new speech is appended to the existing transcript. Speak in whatever order ideas come — the AI handles the structure.",
+  },
+  {
+    question: "What does it cost?",
+    answer:
+      "The dictation itself is free since it runs in your browser. Generating the essay costs text tokens based on transcript length, roughly 1 token per 6 characters.",
+  },
+]
+
 export default function VoiceToEssay() {
   const [isRecording, setIsRecording] = useState(false)
   const [rawTranscript, setRawTranscript] = useState("")
@@ -496,7 +524,7 @@ export default function VoiceToEssay() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

@@ -17,6 +17,34 @@ const VOICES = [
   { value: "female", label: "Female" },
 ]
 
+const FAQ_ITEMS = [
+  {
+    question: "Is text to speech free?",
+    answer:
+      "Yes, completely free. It uses your browser's built-in SpeechSynthesis engine, so no tokens are consumed and no account is required.",
+  },
+  {
+    question: "Why do the voices sound different on my phone versus my laptop?",
+    answer:
+      "Voices come from your device and operating system, not from our servers. Windows, macOS, Android, and iOS each ship different voices, so quality and selection vary by device.",
+  },
+  {
+    question: "What do the rate and pitch controls do?",
+    answer:
+      "Rate controls how fast the text is read and pitch shifts the voice higher or lower. Both apply the next time you press play.",
+  },
+  {
+    question: "Can it read long documents?",
+    answer:
+      "Yes. Long text is split into chunks behind the scenes, because some browsers cut off speech after a certain length. Playback continues seamlessly across chunks.",
+  },
+  {
+    question: "Which browsers are supported?",
+    answer:
+      "Chrome, Edge, and Safari all support speech synthesis well. If you hear nothing, check your system volume and try a different voice from the list.",
+  },
+]
+
 export default function TextToSpeech() {
   const [text, setText] = useState("")
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -426,7 +454,7 @@ export default function TextToSpeech() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

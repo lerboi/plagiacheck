@@ -17,6 +17,34 @@ import { useToast } from "@/hooks/use-toast"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
+const FAQ_ITEMS = [
+  {
+    question: "Which browsers are supported?",
+    answer:
+      "Transcription uses the browser's Web Speech API, which works in Chrome, Edge, and Safari. Firefox does not support it, so the tool will not work there.",
+  },
+  {
+    question: "Why is the microphone not working?",
+    answer:
+      "Your browser needs permission to use the mic — look for the permission prompt or the mic icon in the address bar. Also check that no other app is holding the microphone.",
+  },
+  {
+    question: "Is transcription free?",
+    answer:
+      "Yes, the raw transcription itself is free because it happens entirely in your browser. Only the optional AI cleanup step costs tokens.",
+  },
+  {
+    question: "What does the AI cleanup do and what does it cost?",
+    answer:
+      "It fixes punctuation, capitalization, and obvious mis-hearings in the raw transcript. Cost scales with transcript length at roughly 1 text token per 6 characters.",
+  },
+  {
+    question: "Can I upload an audio file instead of speaking live?",
+    answer:
+      "Not currently — the tool transcribes live microphone input only. For recorded audio, play it near your mic as a workaround, though accuracy will be lower.",
+  },
+]
+
 export default function SpeechToText() {
   const [isRecording, setIsRecording] = useState(false)
   const [rawTranscript, setRawTranscript] = useState("")
@@ -563,7 +591,7 @@ export default function SpeechToText() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

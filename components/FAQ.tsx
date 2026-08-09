@@ -57,7 +57,12 @@ const faqs = [
   },
 ]
 
-export const FAQ: React.FC = () => {
+export interface FAQItem {
+  question: string
+  answer: string
+}
+
+export const FAQ: React.FC<{ items?: FAQItem[] }> = ({ items = faqs }) => {
   return (
     <section className="text-foreground py-16 backdrop-blur-sm">
       <div className="container mx-auto px-4">
@@ -71,7 +76,7 @@ export const FAQ: React.FC = () => {
           Frequently Asked Questions
         </motion.h2>
         <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
-          {faqs.map((faq, index) => (
+          {items.map((faq, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 20 }}

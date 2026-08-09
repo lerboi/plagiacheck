@@ -17,6 +17,34 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
+const FAQ_ITEMS = [
+  {
+    question: "What is the audio summarizer for?",
+    answer:
+      "Recording lectures, meetings, or spoken notes and getting a structured summary instead of a wall of transcript. It is useful whenever listening back to a recording would take too long.",
+  },
+  {
+    question: "What does the summary include?",
+    answer:
+      "An overview, the key points, and any action items detected in the conversation, plus a guess at the content type (lecture, meeting, and so on).",
+  },
+  {
+    question: "Which browsers are supported?",
+    answer:
+      "Chrome, Edge, and Safari. Transcription uses the browser's Web Speech API, which Firefox does not support, and you must grant microphone permission.",
+  },
+  {
+    question: "Can I summarize an existing audio file?",
+    answer:
+      "Not directly — the tool transcribes live microphone audio. Playing a recording out loud near your mic can work, but expect lower transcription accuracy.",
+  },
+  {
+    question: "What does it cost?",
+    answer:
+      "Recording and transcription are free since they happen in your browser. The AI summary costs text tokens based on transcript length, roughly 1 token per 6 characters.",
+  },
+]
+
 export default function AudioSummarizer() {
   const [isRecording, setIsRecording] = useState(false)
   const [rawTranscript, setRawTranscript] = useState("")
@@ -537,7 +565,7 @@ export default function AudioSummarizer() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

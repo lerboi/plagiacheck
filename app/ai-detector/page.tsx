@@ -23,6 +23,39 @@ interface SentenceAnalysis {
   type: "human" | "mixed" | "ai"
 }
 
+const FAQ_ITEMS = [
+  {
+    question: "How accurate is the AI detector?",
+    answer:
+      "No AI detector is 100% accurate, including this one. Treat the score as a signal worth investigating rather than proof — very formal or formulaic human writing can be flagged, and edited AI text can slip through.",
+  },
+  {
+    question: "What does the sentence-by-sentence breakdown show?",
+    answer:
+      "Every sentence is scored individually and labeled human, mixed, or AI. This lets you see exactly which passages drive the overall score instead of judging the whole document at once.",
+  },
+  {
+    question: "How should I interpret the overall score?",
+    answer:
+      "It is a likelihood estimate, not a verdict. A low score means the writing shows mostly human-like patterns, a high score means it strongly resembles AI output, and mid-range scores usually indicate mixed or edited text.",
+  },
+  {
+    question: "Can I export the results?",
+    answer:
+      "Yes. You can download a PDF report that includes the overall verdict and the per-sentence analysis, which is useful for sharing or record-keeping.",
+  },
+  {
+    question: "How much does a check cost?",
+    answer:
+      "Token cost scales with text length at roughly 1 text token per 6 characters. Your remaining balance is shown in the navbar after each run.",
+  },
+  {
+    question: "Can human writing be falsely flagged as AI?",
+    answer:
+      "Yes. Uniform, highly polished, or template-like writing sometimes triggers false positives. Never rely on a detector score alone as evidence that someone used AI.",
+  },
+]
+
 export default function AIDetector() {
   const [text, setText] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -496,7 +529,7 @@ export default function AIDetector() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

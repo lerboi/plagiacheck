@@ -24,6 +24,34 @@ interface GrammarIssue {
   position: { start: number; end: number }
 }
 
+const FAQ_ITEMS = [
+  {
+    question: "What kinds of issues does it find?",
+    answer:
+      "Three types: errors (grammar and spelling mistakes), warnings (likely problems such as awkward agreement or punctuation), and suggestions (optional style and clarity improvements).",
+  },
+  {
+    question: "How do I apply the fixes?",
+    answer:
+      "Each issue comes with a suggested replacement. You can review issues one by one or copy the fully corrected text — you stay in control of which changes to accept.",
+  },
+  {
+    question: "How do I know where each issue is in my text?",
+    answer:
+      "Every issue includes its exact character position, so it can be located and highlighted in your original text rather than just listed abstractly.",
+  },
+  {
+    question: "Does it rewrite my style?",
+    answer:
+      "No. It focuses on correctness — grammar, spelling, and punctuation — plus optional clarity suggestions. If you want a full rewrite, use the Paraphraser instead.",
+  },
+  {
+    question: "How much does a check cost?",
+    answer:
+      "Token cost scales with text length at roughly 1 text token per 6 characters. If the check fails, the tokens are refunded automatically.",
+  },
+]
+
 export default function GrammarChecker() {
   const [text, setText] = useState("")
   const [correctedText, setCorrectedText] = useState("")
@@ -462,7 +490,7 @@ export default function GrammarChecker() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

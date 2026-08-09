@@ -14,6 +14,34 @@ const STOPWORDS = new Set(["the","a","an","and","or","but","in","on","at","to","
 const READING_WPM = 200
 const SPEAKING_WPM = 130
 
+const FAQ_ITEMS = [
+  {
+    question: "Is the word counter free?",
+    answer:
+      "Yes, completely free. It uses no tokens and does not require an account or sign-in.",
+  },
+  {
+    question: "Is my text sent anywhere?",
+    answer:
+      "No. All counting happens locally in your browser — your text never leaves your device and is not stored on our servers.",
+  },
+  {
+    question: "What does it count?",
+    answer:
+      "Words, characters (with and without spaces), sentences, and paragraphs, plus estimated reading and speaking time and your most frequent keywords.",
+  },
+  {
+    question: "How are reading and speaking time calculated?",
+    answer:
+      "Reading time assumes about 200 words per minute and speaking time about 130 words per minute, which are common average paces. Your actual pace may differ.",
+  },
+  {
+    question: "Why do common words not appear in the keyword list?",
+    answer:
+      "Frequent function words like \"the\", \"and\", and \"of\" are filtered out so the keyword list reflects the words that actually characterize your text.",
+  },
+]
+
 export default function WordCounter() {
   const [text, setText] = useState("")
   const [previousText, setPreviousText] = useState<string | null>(null)
@@ -120,7 +148,7 @@ export default function WordCounter() {
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant="ghost"
                 size="sm"
@@ -184,7 +212,7 @@ export default function WordCounter() {
           </div>
 
           {/* RIGHT — stats panel */}
-          <div className="w-64 space-y-3">
+          <div className="w-full lg:w-64 space-y-3">
             {/* Primary stats — 2x2 grid with large numbers */}
             <div className="grid grid-cols-2 gap-3">
               {[
@@ -321,7 +349,7 @@ export default function WordCounter() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

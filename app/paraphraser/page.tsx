@@ -16,6 +16,34 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
+const FAQ_ITEMS = [
+  {
+    question: "What do the six modes do?",
+    answer:
+      "Standard rewrites naturally, Fluency smooths awkward phrasing, Formal raises the register, Simple uses plainer words and shorter sentences, Creative takes more stylistic liberties, and Academic targets scholarly tone and precision.",
+  },
+  {
+    question: "Will the paraphrase keep my original meaning?",
+    answer:
+      "That is the goal in every mode, though Creative mode takes the most liberties with expression. Always read the result — you are responsible for the final text.",
+  },
+  {
+    question: "Which languages are supported?",
+    answer:
+      "English is the best-supported language. Major European languages generally work too, but quality can vary — review non-English output carefully.",
+  },
+  {
+    question: "Can I paraphrase the same text more than once?",
+    answer:
+      "Yes. Re-running the same input produces a different variant each time, and you can also switch modes to get a different style. Each run costs tokens.",
+  },
+  {
+    question: "How much does it cost?",
+    answer:
+      "Token cost scales with text length at roughly 1 text token per 6 characters. If a run fails, the tokens are refunded automatically.",
+  },
+]
+
 export default function Paraphraser() {
   const [text, setText] = useState("")
   const [paraphrasedText, setParaphrasedText] = useState("")
@@ -343,7 +371,7 @@ export default function Paraphraser() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

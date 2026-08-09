@@ -34,6 +34,34 @@ function sanitizeFilename(name: string | null | undefined, fallback: string): st
   return cleaned || fallback
 }
 
+const FAQ_ITEMS = [
+  {
+    question: "What size are the thumbnails?",
+    answer:
+      "1200 x 630 pixels, the standard Open Graph size for link previews on social platforms. Because the output is SVG, it also scales cleanly to other sizes.",
+  },
+  {
+    question: "How are the colors chosen?",
+    answer:
+      "The AI picks a palette to match the vibe of your topic and the style you select (modern, minimal, bold, or gradient). Regenerate to get a different palette and layout.",
+  },
+  {
+    question: "What can I use the thumbnails for?",
+    answer:
+      "Blog covers, Open Graph and social share images, and YouTube thumbnails. For YouTube, note its preferred size is 1280 x 720 — the SVG scales, but you may want to crop to 16:9.",
+  },
+  {
+    question: "How does generation work under the hood?",
+    answer:
+      "The AI produces a spec (title, subtitle, palette, vibe) and the cover is rendered deterministically from a template, so the text is always crisp and correctly spelled.",
+  },
+  {
+    question: "How much does a thumbnail cost?",
+    answer:
+      "2 image tokens per generation. Failed generations are refunded automatically.",
+  },
+]
+
 export default function ThumbnailGenerator() {
   const [text, setText] = useState("")
   const [style, setStyle] = useState("modern")
@@ -322,7 +350,7 @@ export default function ThumbnailGenerator() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

@@ -16,6 +16,34 @@ import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 import { ScanText } from "lucide-react"
 
+const FAQ_ITEMS = [
+  {
+    question: "Which image formats are supported?",
+    answer:
+      "PNG, JPEG, WebP, and GIF, up to 8MB per image. If your file is larger, resize or compress it before uploading.",
+  },
+  {
+    question: "Can it read handwriting?",
+    answer:
+      "It can, but accuracy depends heavily on legibility. Clear, printed handwriting works reasonably well; messy cursive often produces errors, so proofread the result.",
+  },
+  {
+    question: "How does the OCR work?",
+    answer:
+      "Your image is sent to a vision AI model (Mistral's pixtral-12b) that reads the text in it, which handles photos, screenshots, and scans better than traditional pattern-matching OCR.",
+  },
+  {
+    question: "How much does an extraction cost?",
+    answer:
+      "1 image token per image, regardless of how much text it contains. Failed extractions are refunded automatically.",
+  },
+  {
+    question: "Is my image stored?",
+    answer:
+      "The image is sent over HTTPS for processing and is not published or shared. Only a short text preview of the run is kept in your private history, which you can delete anytime.",
+  },
+]
+
 export default function ImageToText() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
@@ -448,7 +476,7 @@ export default function ImageToText() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }

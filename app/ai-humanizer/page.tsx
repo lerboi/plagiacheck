@@ -19,6 +19,39 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 
+const FAQ_ITEMS = [
+  {
+    question: "What tones can I choose?",
+    answer:
+      "Five presets: casual, professional, academic, creative, and friendly. The tone shapes vocabulary and sentence style while keeping your original meaning.",
+  },
+  {
+    question: "What does the humanization level slider do?",
+    answer:
+      "It controls how aggressively the text is rewritten. A low level makes light touch-ups to phrasing; a high level restructures sentences and varies rhythm much more heavily.",
+  },
+  {
+    question: "Will the output pass AI detectors?",
+    answer:
+      "There is no guarantee. Humanizing varies word choice and sentence rhythm, which often lowers detection scores, but detectors differ and evolve — no tool can honestly promise a pass.",
+  },
+  {
+    question: "Should I check the result with an AI detector?",
+    answer:
+      "Yes, that is the recommended workflow. Run the humanized text through our AI Detector to see the sentence-level scores, then re-humanize or hand-edit the passages that still read as AI.",
+  },
+  {
+    question: "Does humanizing change the meaning of my text?",
+    answer:
+      "It aims to preserve meaning while changing expression, but heavier rewrite levels take more liberties. Always proofread the output before using it.",
+  },
+  {
+    question: "How much does it cost?",
+    answer:
+      "Token cost scales with text length at roughly 1 text token per 6 characters. Failed runs are refunded automatically.",
+  },
+]
+
 export default function AIHumanizer() {
   const [text, setText] = useState("")
   const [humanizedText, setHumanizedText] = useState("")
@@ -442,7 +475,7 @@ export default function AIHumanizer() {
         </div>
       </section>
 
-      <FAQ />
+      <FAQ items={FAQ_ITEMS} />
     </div>
   )
 }
