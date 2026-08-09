@@ -18,7 +18,7 @@ const faqs = [
   {
     question: "Is my content safe and confidential?",
     answer:
-      "Yes. Your content is sent over HTTPS and is not stored after the check completes. We do not share or publish your work.",
+      "Yes. Your content is sent over HTTPS. A short preview of each run is saved to your private history so you can revisit results — your documents are never shared, published, or used to train models, and you can delete history entries at any time.",
   },
   {
     question: "How accurate is the detection?",

@@ -32,7 +32,7 @@ Each topic has its own `plagiacheck-*` skill. Read the skill instead of re-deriv
 ### Per-tool skills (one per tool, 15 total)
 
 **Writing tools (consume text tokens):**
-- `plagiacheck-tool-plagiarism-checker` — home page (`/`), Mistral + algorithmic fallback, SSE streaming
+- `plagiacheck-tool-plagiarism-checker` — `/plagiarism-checker` (the home page `/` now hosts PlagiaAI chat), Mistral + algorithmic fallback, SSE streaming
 - `plagiacheck-tool-ai-detector` — `/ai-detector`, Mistral sentence-by-sentence scoring
 - `plagiacheck-tool-ai-humanizer` — `/ai-humanizer`, Mistral with tone + level controls
 - `plagiacheck-tool-paraphraser` — `/paraphraser`, Mistral with 6 modes

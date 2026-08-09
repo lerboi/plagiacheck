@@ -14,13 +14,16 @@ export async function POST(req: Request) {
   try {
     const { imageBase64, mimeType } = await req.json();
 
-    if (!imageBase64) {
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
       return Response.json({ error: 'No image provided' }, { status: 400 });
     }
 
     if (imageBase64.length > 8 * 1024 * 1024 * 1.4) {
       return Response.json({ error: 'Image too large (max ~8MB)' }, { status: 413 });
     }
+
+    const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+    const safeMimeType = ALLOWED_MIME_TYPES.has(mimeType) ? mimeType : 'image/png';
 
     if (!mistralClient) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
@@ -33,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      const dataUrl = `data:${mimeType || 'image/png'};base64,${imageBase64}`;
+      const dataUrl = `data:${safeMimeType};base64,${imageBase64}`;
 
       const completion = await mistralClient.chat.complete({
         model: 'pixtral-12b-2409',
@@ -109,10 +112,10 @@ Return ONLY a valid JSON object:
         }
       }
 
-      await recordToolUse({
+      void recordToolUse({
         userId: user.id,
         tool: 'image-to-text',
-        input: `[image, ${mimeType || 'image/png'}, ${Math.round(imageBase64.length / 1024)} KB]`,
+        input: `[image, ${safeMimeType}, ${Math.round(imageBase64.length / 1024)} KB]`,
         output: result.extractedText,
         metadata: { confidence: result.confidence, textType: result.textType },
         tokensUsed: cost,
@@ -123,15 +126,12 @@ Return ONLY a valid JSON object:
       await refundImageTokens(user.id, cost);
       console.error('Image-to-text API error:', error);
       return Response.json(
-        { error: error.message || 'Failed to process image' },
-        { status: 500 }
+        { error: 'Failed to process image. Please try again.' },
+        { status: 502 }
       );
     }
   } catch (error: any) {
     console.error('Image-to-text API error:', error);
-    return Response.json(
-      { error: error.message || 'Failed to process image' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Failed to process image' }, { status: 500 });
   }
 }

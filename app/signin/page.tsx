@@ -1,5 +1,6 @@
 'use client';
 import { Suspense, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Button } from "@/components/ui/button";
@@ -31,11 +32,25 @@ function AuthForm({
   router: ReturnType<typeof useRouter>;
 }) {
   const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<string>(
+    searchParams.get('tab') === 'register' ? 'register' : 'signin'
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [isNetworkError, setIsNetworkError] = useState(false);
+
+  const rawNext = searchParams.get('next');
+  const nextPath =
+    rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setError(null);
+    setSuccess(null);
+    setIsNetworkError(false);
+  };
 
   const validatePassword = (password: string) => {
     const minLength = 8;
@@ -89,7 +104,8 @@ function AuthForm({
 
       if (error) throw error;
 
-      router.push('/');
+      router.push(nextPath);
+      router.refresh();
     } catch (err) {
       const mapped = mapAuthError(err);
       if (mapped === "__network__") {
@@ -118,12 +134,20 @@ function AuthForm({
     }
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       });
 
       if (error) throw error;
+
+      // Supabase returns a user with an empty identities array when the
+      // email is already registered (to avoid leaking account existence via
+      // an error). Surface it as the "already registered" case.
+      if (data.user?.identities?.length === 0) {
+        setError('An account with this email already exists. Try signing in instead.');
+        return;
+      }
 
       setSuccess('Registration successful! Please check your email to confirm your account.');
     } catch (err) {
@@ -142,12 +166,12 @@ function AuthForm({
     <div className="fixed inset-0 flex z-40">
       {/* Left dark branding panel */}
       <div className="hidden lg:flex lg:w-2/5 xl:w-[42%] flex-col justify-between p-10 xl:p-14 bg-slate-900 text-white">
-        <div className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5 w-fit">
           <div className="h-8 w-8 rounded-full text-blue-400 scale-[170%] flex items-center justify-center">
             <PiLetterCircleP />
           </div>
           <span className="font-bold text-lg ml-1">plagiacheck</span>
-        </div>
+        </Link>
 
         <div className="space-y-6">
           <div className="space-y-3">
@@ -180,21 +204,27 @@ function AuthForm({
         <div className="min-h-full flex flex-col items-center justify-center py-10 px-6 sm:px-10">
         <div className="w-full max-w-[420px] space-y-8">
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2">
+          <Link href="/" className="flex lg:hidden items-center gap-2 w-fit">
             <div className="h-7 w-7 rounded-full text-blue-400 scale-[170%] flex items-center justify-center">
               <PiLetterCircleP />
             </div>
             <span className="font-bold ml-1">plagiacheck</span>
-          </div>
+          </Link>
 
           {/* Header */}
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-            <p className="text-sm text-muted-foreground">Sign in to your account to continue</p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {activeTab === 'register' ? 'Create your account' : 'Welcome back'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {activeTab === 'register'
+                ? 'Start with 1,000 free tokens'
+                : 'Sign in to your account to continue'}
+            </p>
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue={searchParams.get('tab') || 'signin'} className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="w-full grid grid-cols-2 h-10 p-1 bg-muted rounded-lg mb-6">
               <TabsTrigger value="signin" className="rounded-md text-sm">Sign In</TabsTrigger>
               <TabsTrigger value="register" className="rounded-md text-sm">Create Account</TabsTrigger>
@@ -219,12 +249,12 @@ function AuthForm({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="signin-password" className="text-sm font-medium">Password</Label>
-                    <a
+                    <Link
                       href="/forgot-password"
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
                       Forgot password?
-                    </a>
+                    </Link>
                   </div>
                   <div className="relative">
                     <Input

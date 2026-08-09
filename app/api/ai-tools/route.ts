@@ -23,6 +23,7 @@ Tone definitions (apply distinctly):
 - "academic": precise, hedged, third person; cite ideas with phrases like "this suggests"; no contractions; varied subordinate clauses.
 - "creative": evocative imagery, varied rhythm, occasional figurative language, distinctive voice.
 - "friendly": warm, inviting, encouraging; occasional rhetorical questions; light humor allowed.
+- "persuasive": confident, benefit-led argumentation; strong verbs; address the reader directly; end sections with a clear takeaway; no hedging.
 
 Humanization level (interpolate behavior linearly):
 - 0-20: Light edit. Keep original sentence boundaries; only fix obvious AI tells (repeated transitions, parallel-structure overuse, "Furthermore"/"Moreover"). Vocabulary mostly unchanged.
@@ -137,6 +138,14 @@ Return ONLY a valid JSON object:
 
 const MAX_INPUT_LENGTH = 50_000;
 
+const HUMANIZE_TONES = new Set(['casual', 'professional', 'academic', 'creative', 'friendly', 'persuasive']);
+const PARAPHRASE_MODES = new Set(['standard', 'fluency', 'formal', 'creative', 'academic', 'simple']);
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 function extractJSON(content: string): any {
   try {
     return JSON.parse(content);
@@ -154,6 +163,10 @@ function extractJSON(content: string): any {
 }
 
 export async function POST(req: Request) {
+  // Set after a successful deduction so the outer catch can refund if
+  // anything throws before the success response is returned.
+  let refundOnFailure: (() => Promise<void>) | null = null;
+
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
@@ -177,7 +190,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!SYSTEM_PROMPTS[tool]) {
+    if (typeof tool !== 'string' || !Object.prototype.hasOwnProperty.call(SYSTEM_PROMPTS, tool)) {
       return Response.json({ error: 'Invalid tool' }, { status: 400 });
     }
 
@@ -193,18 +206,27 @@ export async function POST(req: Request) {
         { status: 402 }
       );
     }
+    refundOnFailure = () => refundTextTokens(user.id, cost);
 
     let userPrompt = '';
     switch (tool) {
-      case 'humanize':
-        userPrompt = `Tone: ${options?.tone || 'casual'}\nHumanization Level: ${options?.level || 50}%\n\nText to humanize:\n${text}`;
+      case 'humanize': {
+        const tone = HUMANIZE_TONES.has(options?.tone) ? options.tone : 'casual';
+        const level = clampNumber(options?.level, 0, 100, 50);
+        userPrompt = `Tone: ${tone}\nHumanization Level: ${level}%\n\nText to humanize:\n${text}`;
         break;
-      case 'paraphrase':
-        userPrompt = `Mode: ${options?.mode || 'standard'}\n\nText to paraphrase:\n${text}`;
+      }
+      case 'paraphrase': {
+        const mode = PARAPHRASE_MODES.has(options?.mode) ? options.mode : 'standard';
+        userPrompt = `Mode: ${mode}\n\nText to paraphrase:\n${text}`;
         break;
-      case 'summarize':
-        userPrompt = `Target length: ${options?.length || 50}% of original\nOutput format: ${options?.format || 'paragraph'}\n\nText to summarize:\n${text}`;
+      }
+      case 'summarize': {
+        const length = clampNumber(options?.length, 5, 100, 50);
+        const format = options?.format === 'bullets' ? 'bullets' : 'paragraph';
+        userPrompt = `Target length: ${length}% of original\nOutput format: ${format}\n\nText to summarize:\n${text}`;
         break;
+      }
       case 'grammar':
         userPrompt = `Check the following text for grammar, spelling, and punctuation errors:\n\n${text}`;
         break;
@@ -270,21 +292,29 @@ export async function POST(req: Request) {
         break;
     }
 
-    await recordToolUse({
+    // Success is locked in — the outer catch must no longer refund.
+    refundOnFailure = null;
+
+    // Best-effort history write; never blocks or fails the response.
+    void recordToolUse({
       userId: user.id,
       tool: tool as ToolHistoryTool,
       input: text,
       output: outputPreview,
-      metadata: options ?? {},
+      metadata: options && typeof options === 'object' ? options : {},
       tokensUsed: cost,
     });
 
     return Response.json({ result, remainingTokens: newBalance, tokensUsed: cost });
   } catch (error: any) {
     console.error('AI tools API error:', error);
-    return Response.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    if (refundOnFailure) {
+      try {
+        await refundOnFailure();
+      } catch (refundError) {
+        console.error('Refund after failure also failed:', refundError);
+      }
+    }
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

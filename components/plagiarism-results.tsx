@@ -79,8 +79,11 @@ export function PlagiarismResults({
     let lastIndex = 0;
 
     sorted.forEach((match, index) => {
-      const startIndex = match.startIndex as number;
-      const endIndex = match.endIndex as number;
+      // Clamp model-provided offsets to the bounds of the analyzed text so
+      // out-of-range values can't produce broken highlights.
+      const startIndex = Math.min(Math.max(match.startIndex as number, 0), text.length);
+      const endIndex = Math.min(Math.max(match.endIndex as number, startIndex), text.length);
+      if (endIndex <= startIndex) return;
 
       if (startIndex > lastIndex) {
         elements.push(

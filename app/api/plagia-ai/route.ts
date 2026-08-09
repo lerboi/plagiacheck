@@ -266,7 +266,9 @@ export async function POST(req: Request) {
     typeof (rawAttached as { mimeType?: unknown }).mimeType === "string"
   ) {
     const r = rawAttached as { base64: string; mimeType: string; name?: unknown }
-    if (r.base64.length > 0 && r.base64.length < 12 * 1024 * 1024) {
+    // Match the OCR route's limit (8 MB source ≈ 11.2M base64 chars) so an
+    // image accepted here can't be rejected downstream with a 413.
+    if (r.base64.length > 0 && r.base64.length <= 8 * 1024 * 1024 * 1.4) {
       attachedImage = {
         base64: r.base64,
         mimeType: r.mimeType,
@@ -281,11 +283,19 @@ export async function POST(req: Request) {
   // FE-04 controls — cost-confirm bypass + direct-dispatch resume path.
   const skipCostConfirm = body?.skipCostConfirm === true
   const directDispatch = body?.directDispatch
-  if (directDispatch && !isKnownToolName(directDispatch.toolName)) {
-    return Response.json(
-      { error: `Unknown tool in directDispatch: ${directDispatch.toolName}` },
-      { status: 400 },
-    )
+  if (directDispatch) {
+    if (typeof directDispatch !== "object" || !isKnownToolName(directDispatch.toolName)) {
+      return Response.json(
+        { error: `Unknown tool in directDispatch: ${String(directDispatch?.toolName)}` },
+        { status: 400 },
+      )
+    }
+    if (directDispatch.args !== undefined && (typeof directDispatch.args !== "object" || directDispatch.args === null || Array.isArray(directDispatch.args))) {
+      return Response.json({ error: "Invalid directDispatch args" }, { status: 400 })
+    }
+    if (directDispatch.callId !== undefined && typeof directDispatch.callId !== "string") {
+      return Response.json({ error: "Invalid directDispatch callId" }, { status: 400 })
+    }
   }
 
   // FE-09 — load the user's saved preferences and (if any are set) inject a
@@ -330,7 +340,11 @@ export async function POST(req: Request) {
         // normal round loop so the model can generate the follow-up
         // summary based on the tool result.
         if (directDispatch) {
-          const { toolName, args, callId, reason } = directDispatch
+          const { toolName, reason } = directDispatch
+          const args = directDispatch.args ?? {}
+          const callId = typeof directDispatch.callId === "string" && directDispatch.callId
+            ? directDispatch.callId
+            : `direct-${Date.now()}`
           if (isKnownToolName(toolName)) {
             controller.enqueue(
               encode({
@@ -577,7 +591,12 @@ export async function POST(req: Request) {
             // so the client can render the confirm UI. The client will
             // resume via a directDispatch POST.
             const cost = estimateToolCost(fnName, args)
-            if (!skipCostConfirm && cost.requiresConfirm) {
+            // The alwaysConfirmImageSpend preference overrides the client's
+            // "Don't ask again" bypass for image-token tools.
+            const mustConfirm =
+              cost.requiresConfirm &&
+              (!skipCostConfirm || (cost.currency === "image" && userPrefs.alwaysConfirmImageSpend === true))
+            if (mustConfirm) {
               controller.enqueue(
                 encode({
                   type: "tool_call",

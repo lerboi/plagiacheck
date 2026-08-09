@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,6 @@ import {
   CreditCard,
   Calendar,
   DollarSign,
-  Download,
   Crown,
   CheckCircle,
   ArrowUpRight,
@@ -59,30 +58,7 @@ export default function Billing() {
   const { remainingWords } = useTokenStore()
   const displayedTokens = tokenBalance ?? remainingWords
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user || null)
-
-      if (session?.user) {
-        await fetchBillingData(session.user.id)
-      }
-      setLoading(false)
-    }
-
-    checkSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null)
-      if (session?.user) {
-        fetchBillingData(session.user.id)
-      }
-    })
-
-    return () => { authListener.subscription.unsubscribe() }
-  }, [supabase.auth])
-
-  const fetchBillingData = async (_userId: string) => {
+  const fetchBillingData = useCallback(async (_userId: string) => {
     setBillingError(null)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -110,12 +86,42 @@ export default function Billing() {
     } catch {
       setBillingError("Could not load billing data. Try refreshing.")
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user || null)
+
+      if (session?.user) {
+        await fetchBillingData(session.user.id)
+      }
+      setLoading(false)
+    }
+
+    checkSession()
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+      if (session?.user) {
+        fetchBillingData(session.user.id)
+      }
+    })
+
+    return () => { authListener.subscription.unsubscribe() }
+  }, [supabase, fetchBillingData])
 
   const getPlanName = () => {
     if (!activePackage) return 'Free Plan'
     return PLAN_DETAILS[activePackage.packageName]?.label || activePackage.packageName
   }
+
+  // 200Image / 1000Image are one-time purchases, not subscriptions.
+  const isOneTimePackage =
+    activePackage?.packageName === "200Image" || activePackage?.packageName === "1000Image"
+
+  const formatStatus = (status: string) =>
+    status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : status
 
   const getPlanPrice = () => {
     if (!activePackage) return '$0.00'
@@ -156,9 +162,9 @@ export default function Billing() {
     return (
       <div className="min-h-screen bg-background">
         <Nav />
-        <main className="container py-12 flex items-center justify-center">
+        <div className="container mx-auto px-4 py-12 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </main>
+        </div>
       </div>
     )
   }
@@ -167,14 +173,14 @@ export default function Billing() {
     return (
       <div className="min-h-screen bg-background">
         <Nav />
-        <main className="container py-12">
+        <div className="container mx-auto px-4 py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Please sign in to view billing</h1>
             <Button asChild>
-              <Link href="/signin">Sign In</Link>
+              <Link href="/signin?next=/billing">Sign In</Link>
             </Button>
           </div>
-        </main>
+        </div>
       </div>
     )
   }
@@ -182,14 +188,14 @@ export default function Billing() {
   return (
     <div className="min-h-screen bg-background">
       <Nav />
-      <main className="container py-12 max-w-6xl mx-auto px-4">
+      <div className="container py-12 max-w-6xl mx-auto px-4">
         <div className="space-y-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Billing & Usage</h1>
               <p className="text-muted-foreground">
-                Manage your subscription, view usage, and download invoices
+                Manage your subscription and view your usage and payment history
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -231,7 +237,7 @@ export default function Billing() {
                   Current Plan
                 </CardTitle>
                 <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                  {activePackage ? activePackage.status : 'Free'}
+                  {activePackage ? formatStatus(activePackage.status) : 'Free'}
                 </Badge>
               </div>
             </CardHeader>
@@ -241,7 +247,11 @@ export default function Billing() {
                   <div>
                     <h3 className="text-2xl font-bold text-foreground">{getPlanName()}</h3>
                     <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{getPlanPrice()}</p>
-                    {activePackage && <p className="text-sm text-muted-foreground">per month</p>}
+                    {activePackage && (
+                      <p className="text-sm text-muted-foreground">
+                        {isOneTimePackage ? "One-time purchase" : "per month"}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -274,7 +284,9 @@ export default function Billing() {
                   {activePackage?.expiryDate && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      Renews on {new Date(activePackage.expiryDate).toLocaleDateString()}
+                      {isOneTimePackage
+                        ? "One-time purchase"
+                        : `Renews on ${new Date(activePackage.expiryDate).toLocaleDateString()}`}
                     </div>
                   )}
                 </div>
@@ -397,7 +409,7 @@ export default function Billing() {
             </Card>
           )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

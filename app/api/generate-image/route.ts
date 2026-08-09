@@ -234,9 +234,14 @@ function validateThumbnailSpec(raw: any): ThumbnailSpec | null {
 
 // ---------- handler ----------
 
+const MAX_INPUT_LENGTH = 10_000;
+
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Set after a successful deduction so the outer catch can refund too.
+  let refundOnFailure: (() => Promise<void>) | null = null;
 
   try {
     const { text, tool, options } = await req.json();
@@ -245,7 +250,18 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Missing text or tool parameter' }, { status: 400 });
     }
 
-    if (!TOOL_COST[tool]) {
+    if (typeof text !== 'string') {
+      return Response.json({ error: 'Invalid text parameter' }, { status: 400 });
+    }
+
+    if (text.length > MAX_INPUT_LENGTH) {
+      return Response.json(
+        { error: `Input exceeds maximum length of ${MAX_INPUT_LENGTH} characters` },
+        { status: 400 }
+      );
+    }
+
+    if (typeof tool !== 'string' || !Object.prototype.hasOwnProperty.call(TOOL_COST, tool)) {
       return Response.json({ error: 'Invalid tool' }, { status: 400 });
     }
 
@@ -261,8 +277,10 @@ export async function POST(req: Request) {
         { status: 402 }
       );
     }
+    refundOnFailure = () => refundImageTokens(user.id, cost);
 
     const refundAndFail = async (status: number, error: string) => {
+      refundOnFailure = null;
       await refundImageTokens(user.id, cost);
       return Response.json({ error }, { status });
     };
@@ -330,6 +348,18 @@ export async function POST(req: Request) {
         const requestedType = options?.chartType && options.chartType !== 'auto-detect' ? options.chartType : '';
         const spec = validateChartSpec(rawSpec, requestedType);
         if (!spec) return refundAndFail(500, 'Invalid chart spec from AI');
+        const isEmpty =
+          ('data' in spec && spec.data.length === 0) ||
+          ('nodes' in spec && spec.nodes.length === 0) ||
+          ('branches' in spec && spec.branches.length === 0) ||
+          ('events' in spec && spec.events.length === 0) ||
+          ('items' in spec && (spec.items.length === 0 || spec.rows.length === 0));
+        if (isEmpty) {
+          return refundAndFail(
+            422,
+            'Could not extract chart data from your description. Add concrete values or steps and try again — no tokens were charged.'
+          );
+        }
         svg = buildChartSvg(spec);
         result = {
           svg,
@@ -342,6 +372,14 @@ export async function POST(req: Request) {
       case 'infographic': {
         const spec = validateInfographicSpec(rawSpec);
         if (!spec) return refundAndFail(500, 'Invalid infographic spec from AI');
+        const hasContent =
+          !!spec.intro || (spec.stats?.length ?? 0) > 0 || (spec.sections?.length ?? 0) > 0 || !!spec.conclusion;
+        if (!hasContent) {
+          return refundAndFail(
+            422,
+            'Could not extract enough content for an infographic. Provide more detail and try again — no tokens were charged.'
+          );
+        }
         svg = renderInfographic(spec);
         result = {
           svg,
@@ -363,17 +401,32 @@ export async function POST(req: Request) {
       }
     }
 
-    await recordToolUse({
+    // Success is locked in — the outer catch must no longer refund.
+    refundOnFailure = null;
+
+    void recordToolUse({
       userId: user.id,
       tool: tool as ToolHistoryTool,
       input: text,
       output: result.title || svg.slice(0, 100),
+      metadata: tool === 'chart'
+        ? { chartType: result.chartType }
+        : tool === 'thumbnail'
+          ? { style: result.style }
+          : {},
       tokensUsed: cost,
     });
 
     return Response.json({ result, remainingImageTokens: newBalance, tokensUsed: cost });
   } catch (error: any) {
     console.error('Generate image API error:', error);
-    return Response.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    if (refundOnFailure) {
+      try {
+        await refundOnFailure();
+      } catch (refundError) {
+        console.error('Refund after failure also failed:', refundError);
+      }
+    }
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

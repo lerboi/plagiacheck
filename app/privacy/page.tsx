@@ -1,15 +1,24 @@
+import type { Metadata } from "next"
 import { Nav } from "@/components/nav"
+
+export const metadata: Metadata = {
+  title: "Privacy Policy — Plagiacheck",
+  description:
+    "How Plagiacheck collects, uses, and protects your personal data when you use our writing tools.",
+}
 
 export default function Privacy() {
   return (
     <div className="min-h-screen flex flex-col">
       <Nav />
-      <header className="bg-background py-8">
-        <h1 className="text-3xl font-bold text-foreground">Privacy Policy</h1>
-      </header>
+      <div className="container mx-auto px-4 max-w-4xl">
+        <header className="bg-background py-8">
+          <h1 className="text-3xl font-bold text-foreground">Privacy Policy</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Last updated: August 2026</p>
+        </header>
 
-      <main className="py-8 text-muted-foreground">
-        <section className="space-y-8 max-w-3xl">
+        <section className="py-8 text-muted-foreground">
+          <div className="space-y-8 max-w-3xl">
           <p>
             At Plagiacheck, we respect your privacy and are committed to safeguarding the personal information you share with us. This Privacy Policy explains how we collect, use, and protect your personal data when you use our services.
           </p>
@@ -70,12 +79,13 @@ export default function Privacy() {
           <h2 className="text-xl font-semibold">10. Contact Us</h2>
           <p>If you have any questions or concerns about this Privacy Policy, or if you wish to exercise your rights, please contact us at:</p>
           <p>
-            MakeItAI
+            Plagiacheck
             <br />
             plagiacheck@gmail.com
           </p>
+          </div>
         </section>
-      </main>
+      </div>
     </div>
   )
 }

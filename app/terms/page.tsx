@@ -1,11 +1,20 @@
+import type { Metadata } from "next"
 import { Nav } from "@/components/nav"
+
+export const metadata: Metadata = {
+  title: "Terms of Service — Plagiacheck",
+  description:
+    "The terms that govern your use of Plagiacheck's writing, image, and voice tools.",
+}
 
 export default function Terms() {
   return (
     <div className="min-h-screen flex flex-col">
       <Nav />
-      <main className="py-12 max-w-3xl">
-        <h1 className="text-3xl font-bold mb-8">Terms of Service</h1>
+      <section className="container mx-auto px-4 max-w-4xl py-12">
+        <div className="max-w-3xl">
+        <h1 className="text-3xl font-bold mb-2">Terms of Service</h1>
+        <p className="text-sm text-muted-foreground mb-8">Last updated: August 2026</p>
         <p className="text-lg mb-4">
           Welcome to Plagiacheck (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). By using our website and services (the &ldquo;Service&rdquo;), you agree to these Terms of Service (&ldquo;Terms&rdquo;). Please read them carefully before accessing or using our Service.
         </p>
@@ -117,10 +126,11 @@ export default function Terms() {
           If you have any questions or concerns regarding these Terms, please contact us at:
         </p>
         <p className="text-lg mb-4">
-          MakeItAI<br />
+          Plagiacheck<br />
           plagiacheck@gmail.com
         </p>
-      </main>
+        </div>
+      </section>
     </div>
   )
 }

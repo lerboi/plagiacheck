@@ -29,6 +29,7 @@ export default function TextToSpeech() {
   const [progress, setProgress] = useState(0)
   const { toast } = useToast()
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const speakSessionRef = useRef(0)
 
   useEffect(() => {
     if (!window.speechSynthesis) {
@@ -42,7 +43,10 @@ export default function TextToSpeech() {
     }
 
     loadVoices()
-    window.speechSynthesis.onvoiceschanged = loadVoices
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices)
+    return () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices)
+    }
   }, [])
 
   const getVoice = useCallback(() => {
@@ -56,45 +60,88 @@ export default function TextToSpeech() {
     return availableVoices[0]
   }, [availableVoices, selectedVoice])
 
+  // Chrome silently stops long single utterances after ~15 seconds, so long
+  // text is split into sentence-boundary chunks and queued sequentially.
+  const splitIntoChunks = (input: string, maxLength = 200): string[] => {
+    const sentences = input.match(/[^.!?\n]+[.!?]*\s*/g) || [input]
+    const chunks: string[] = []
+    let current = ""
+
+    for (const sentence of sentences) {
+      if (current && (current + sentence).length > maxLength) {
+        chunks.push(current)
+        current = sentence
+      } else {
+        current += sentence
+      }
+      // A single sentence longer than maxLength gets hard-split on word boundaries.
+      while (current.length > maxLength) {
+        let cut = current.lastIndexOf(" ", maxLength)
+        if (cut <= 0) cut = maxLength
+        chunks.push(current.slice(0, cut))
+        current = current.slice(cut)
+      }
+    }
+    if (current.trim()) chunks.push(current)
+
+    return chunks.map((c) => c.trim()).filter(Boolean)
+  }
+
   const handleSpeak = () => {
     if (!text.trim()) return
     if (!window.speechSynthesis) return
 
+    const session = ++speakSessionRef.current
     window.speechSynthesis.cancel()
 
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = rate
-    utterance.pitch = pitch
-
+    const chunks = splitIntoChunks(text)
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
     const voice = getVoice()
-    if (voice) utterance.voice = voice
+    let spokenLength = 0
 
-    utterance.onstart = () => {
-      setIsSpeaking(true)
-      setIsPaused(false)
-      setProgress(0)
-    }
-
-    utterance.onend = () => {
-      setIsSpeaking(false)
-      setIsPaused(false)
-      setProgress(100)
-    }
-
-    utterance.onboundary = (event) => {
-      if (text.length > 0) {
-        setProgress(Math.min(100, Math.round((event.charIndex / text.length) * 100)))
+    const speakChunk = (index: number) => {
+      if (session !== speakSessionRef.current) return
+      if (index >= chunks.length) {
+        utteranceRef.current = null
+        setIsSpeaking(false)
+        setIsPaused(false)
+        setProgress(100)
+        return
       }
+
+      const chunk = chunks[index]
+      const utterance = new SpeechSynthesisUtterance(chunk)
+      utterance.rate = rate
+      utterance.pitch = pitch
+      if (voice) utterance.voice = voice
+
+      utterance.onboundary = (event) => {
+        if (session !== speakSessionRef.current || totalLength === 0) return
+        setProgress(Math.min(100, Math.round(((spokenLength + event.charIndex) / totalLength) * 100)))
+      }
+
+      utterance.onend = () => {
+        if (session !== speakSessionRef.current) return
+        spokenLength += chunk.length
+        speakChunk(index + 1)
+      }
+
+      utterance.onerror = () => {
+        if (session !== speakSessionRef.current) return
+        utteranceRef.current = null
+        setIsSpeaking(false)
+        setIsPaused(false)
+        toast({ title: "Error", description: "Speech synthesis failed", variant: "destructive" })
+      }
+
+      utteranceRef.current = utterance
+      window.speechSynthesis.speak(utterance)
     }
 
-    utterance.onerror = () => {
-      setIsSpeaking(false)
-      setIsPaused(false)
-      toast({ title: "Error", description: "Speech synthesis failed", variant: "destructive" })
-    }
-
-    utteranceRef.current = utterance
-    window.speechSynthesis.speak(utterance)
+    setIsSpeaking(true)
+    setIsPaused(false)
+    setProgress(0)
+    speakChunk(0)
   }
 
   const handlePause = () => {
@@ -112,14 +159,20 @@ export default function TextToSpeech() {
   }
 
   const handleStop = () => {
+    speakSessionRef.current++
     window.speechSynthesis.cancel()
+    utteranceRef.current = null
     setIsSpeaking(false)
     setIsPaused(false)
     setProgress(0)
   }
 
   useEffect(() => {
-    return () => { window.speechSynthesis?.cancel() }
+    const sessionRef = speakSessionRef
+    return () => {
+      sessionRef.current++
+      window.speechSynthesis?.cancel()
+    }
   }, [])
 
   const wordCount = text.split(/\s+/).filter(Boolean).length
@@ -164,6 +217,7 @@ export default function TextToSpeech() {
                   className="min-h-[280px] resize-none text-sm leading-relaxed"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
+                  aria-label="Text to read aloud"
                 />
 
                 {/* Progress bar */}

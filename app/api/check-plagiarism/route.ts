@@ -118,6 +118,12 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!mistralClient) {
+    // Never charge for the keyword-frequency fallback alone — it exists to
+    // absorb transient AI failures, not to stand in for a missing API key.
+    return Response.json({ error: 'AI service not configured' }, { status: 500 });
+  }
+
   const cost = calculateTextTokenCost(text);
   const newBalance = await deductTextTokens(user.id, cost);
   if (newBalance === null) {
@@ -144,6 +150,7 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 0 })}\n\n`));
 
         let result: any = null;
+        let usedFallback = false;
 
         if (mistralClient) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 30 })}\n\n`));
@@ -176,6 +183,10 @@ export async function POST(req: Request) {
         }
 
         if (!result) {
+          // AI failed at runtime — fall back to the local heuristic, but do
+          // not charge for a degraded analysis.
+          usedFallback = true;
+          await safeRefund();
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 70 })}\n\n`));
           const basicDetection = detectPotentialPlagiarism(inputText);
           result = {
@@ -184,6 +195,8 @@ export async function POST(req: Request) {
               text: match.text,
               similarity: Math.round(match.similarity),
             })),
+            method: 'algorithmic',
+            note: 'AI analysis was unavailable, so a basic pattern check ran instead. No tokens were charged.',
           };
         }
 
@@ -199,8 +212,12 @@ export async function POST(req: Request) {
 
         result.matches = result.matches
           .map((match: any) => {
-            const startIndex = typeof match.startIndex === 'number' ? match.startIndex : null;
-            const endIndex = typeof match.endIndex === 'number' ? match.endIndex : null;
+            const rawStart = typeof match.startIndex === 'number' ? match.startIndex : null;
+            const rawEnd = typeof match.endIndex === 'number' ? match.endIndex : null;
+            // Clamp model-supplied offsets to the input so the client-side
+            // highlighter can't slice out of range.
+            const startIndex = rawStart === null ? null : Math.max(0, Math.min(inputText.length, Math.floor(rawStart)));
+            const endIndex = rawEnd === null ? null : Math.max(0, Math.min(inputText.length, Math.floor(rawEnd)));
             return {
               text: match.text || 'Unknown match',
               startIndex,
@@ -217,19 +234,24 @@ export async function POST(req: Request) {
             return match.endIndex > match.startIndex;
           });
 
+        const tokensCharged = usedFallback ? 0 : cost;
+        const finalBalance = usedFallback ? newBalance + cost : newBalance;
+
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 100 })}\n\n`));
         controller.enqueue(
           encoder.encode(
             `data: ${JSON.stringify({
               progress: 100,
               result,
-              remainingTokens: newBalance,
-              tokensUsed: cost,
+              remainingTokens: finalBalance,
+              tokensUsed: tokensCharged,
             })}\n\n`
           )
         );
 
-        await recordToolUse({
+        // Best-effort history write — never lets a history failure trigger
+        // the refund path after the result has already been delivered.
+        void recordToolUse({
           userId,
           tool: 'plagiarism',
           input: inputText,
@@ -237,8 +259,9 @@ export async function POST(req: Request) {
           metadata: {
             plagiarismPercentage: result.plagiarismPercentage,
             matchCount: result.matches.length,
+            method: usedFallback ? 'algorithmic' : 'ai',
           },
-          tokensUsed: cost,
+          tokensUsed: tokensCharged,
         });
       } catch (error) {
         console.error('Error in plagiarism detection:', error);
@@ -260,8 +283,9 @@ export async function POST(req: Request) {
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
     },
   });
 }

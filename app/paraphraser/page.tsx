@@ -21,7 +21,7 @@ export default function Paraphraser() {
   const [paraphrasedText, setParaphrasedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [needsSignIn, setNeedsSignIn] = useState(false)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState("standard")
@@ -79,10 +79,11 @@ export default function Paraphraser() {
       })
 
       if (response.status === 401) {
-        router.push("/signin")
+        router.push("/signin?next=/paraphraser")
         return
       }
       if (response.status === 402) {
+        await syncWordBalance()
         router.push("/pricing")
         return
       }
@@ -94,7 +95,7 @@ export default function Paraphraser() {
       }
 
       setParaphrasedText(data.result.paraphrasedText || text)
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Paraphrasing Complete",
@@ -116,17 +117,27 @@ export default function Paraphraser() {
   }
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(paraphrasedText)
-    setCopied(true)
-    toast({
-      title: "Copied!",
-      description: "Text copied to clipboard",
-      variant: "success",
-    })
-    setTimeout(() => setCopied(false), 2000)
+    if (!paraphrasedText) return
+    try {
+      await navigator.clipboard.writeText(paraphrasedText)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: "Text copied to clipboard",
+        variant: "success",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Could not access the clipboard. Please copy manually.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDownload = () => {
+    if (!paraphrasedText) return
     const blob = new Blob([paraphrasedText], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -144,13 +155,12 @@ export default function Paraphraser() {
         title="Paraphraser"
         description="Rewrite any text in a different style while keeping the original meaning. Choose from Standard, Fluency, Formal, Simple, Creative, or Academic modes."
         category="Writing Tools"
-        gradient="from-cyan-500/[0.07]"
         iconColor="text-cyan-500"
         iconBg="bg-cyan-500/10 border-cyan-500/20"
         categoryColor="text-cyan-600 dark:text-cyan-400"
       />
       <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
-        {needsSignIn && !user && <ToolSignInPrompt />}
+        {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/paraphraser" />}
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -159,8 +169,14 @@ export default function Paraphraser() {
           </p>
         )}
 
+        {text.length > 50000 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+          </p>
+        )}
+
         {error && (
-          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
         )}
 
         <div className="grid lg:grid-cols-2 gap-4">
@@ -177,6 +193,8 @@ export default function Paraphraser() {
               ].map((m) => (
                 <button
                   key={m.value}
+                  type="button"
+                  aria-pressed={mode === m.value}
                   onClick={() => setMode(m.value)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                     mode === m.value
@@ -189,6 +207,7 @@ export default function Paraphraser() {
               ))}
             </div>
             <Textarea
+              aria-label="Text to paraphrase"
               placeholder="Enter or paste your text here to paraphrase..."
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-cyan-500/30 focus-visible:ring-offset-0"
               value={text}
@@ -198,13 +217,15 @@ export default function Paraphraser() {
               <span className="text-xs text-muted-foreground">{text.length} chars</span>
               <Button
                 onClick={handleParaphrase}
-                disabled={isProcessing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                disabled={isProcessing || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
                   <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
-                ) : (
+                ) : text.trim() ? (
                   `Paraphrase (${calculateRequiredTokens(text)} tokens)`
+                ) : (
+                  "Paraphrase"
                 )}
               </Button>
             </div>
@@ -223,10 +244,10 @@ export default function Paraphraser() {
                   words
                 </span>
                 <div className="ml-auto flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopy}>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopy} disabled={isProcessing || !paraphrasedText}>
                     {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload} disabled={isProcessing || !paraphrasedText}>
                     <Download className="h-3 w-3" />Save
                   </Button>
                 </div>

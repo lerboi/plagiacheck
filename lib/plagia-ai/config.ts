@@ -73,10 +73,11 @@ export function estimateToolCost(
   args: Record<string, unknown>,
 ): ToolCostEstimate {
   if (IMAGE_TOOLS.has(name)) {
-    // Image tools all cost 1 image token per call. The token system handles
-    // the deduction server-side; here we just signal the currency to the UI
-    // so it can show "~1 image token" in the confirm dialog.
-    return { tokens: 1, currency: "image", requiresConfirm: true }
+    // Mirror IMAGE_TOKEN_COST in lib/server-tokens.ts: OCR is 1 image token,
+    // the three SVG generators are 2. The token system handles the actual
+    // deduction server-side; this number is what the confirm dialog shows.
+    const tokens = name === "image_to_text" ? 1 : 2
+    return { tokens, currency: "image", requiresConfirm: true }
   }
 
   const field = TEXT_ARG_FIELD[name]

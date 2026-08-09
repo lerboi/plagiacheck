@@ -46,7 +46,7 @@ When a user question or task lands, identify which slice of the system it touche
 ### Per-tool skills (one per tool, 15 total)
 
 **Writing tools (text tokens):**
-- `plagiacheck-tool-plagiarism-checker` — home page (`/`), SSE streaming, Mistral + algorithmic fallback
+- `plagiacheck-tool-plagiarism-checker` — `/plagiarism-checker` (the home page `/` now hosts PlagiaAI chat), SSE streaming, Mistral + algorithmic fallback
 - `plagiacheck-tool-ai-detector` — `/ai-detector`, sentence-by-sentence scoring, PDF report
 - `plagiacheck-tool-ai-humanizer` — `/ai-humanizer`, tone × level controls
 - `plagiacheck-tool-paraphraser` — `/paraphraser`, 6 modes

@@ -17,6 +17,13 @@ interface TokenStore {
    */
   decrementWords: (_amount?: number) => Promise<void>
   decrementImageTokens: (_amount?: number) => Promise<void>
+  /**
+   * Reconcile the displayed balance with the authoritative value the API
+   * route already returned (`remainingTokens`). Falls back to a server
+   * refetch when the value is missing.
+   */
+  syncWordBalance: (remaining?: number | null) => Promise<void>
+  syncImageBalance: (remaining?: number | null) => Promise<void>
   setRemainingWords: (value: number) => void
   setRemainingImageTokens: (value: number) => void
   clearTokens: () => void
@@ -24,7 +31,7 @@ interface TokenStore {
 
 export const useTokenStore = create<TokenStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       remainingWords: 0,
       remainingImageTokens: 0,
       guestTokens: 200,
@@ -42,7 +49,7 @@ export const useTokenStore = create<TokenStore>()(
           return
         }
 
-        set({ remainingWords: data.tokens })
+        set({ remainingWords: data.tokens ?? 0 })
       },
 
       fetchImageTokens: async (userId) => {
@@ -103,6 +110,24 @@ export const useTokenStore = create<TokenStore>()(
         notifyTokensChanged()
       },
 
+      syncWordBalance: async (remaining) => {
+        if (typeof remaining === "number" && Number.isFinite(remaining)) {
+          set({ remainingWords: Math.max(0, remaining) })
+          notifyTokensChanged()
+          return
+        }
+        await get().decrementWords()
+      },
+
+      syncImageBalance: async (remaining) => {
+        if (typeof remaining === "number" && Number.isFinite(remaining)) {
+          set({ remainingImageTokens: Math.max(0, remaining) })
+          notifyTokensChanged()
+          return
+        }
+        await get().decrementImageTokens()
+      },
+
       setRemainingWords: (value) => set({ remainingWords: value }),
       setRemainingImageTokens: (value) => set({ remainingImageTokens: value }),
 
@@ -114,6 +139,17 @@ export const useTokenStore = create<TokenStore>()(
     }),
     {
       name: "token-storage",
+      // Only the guest trial balance belongs in localStorage. The real token
+      // balances are refetched from the server on mount — persisting them
+      // causes SSR/client hydration mismatches and stale numbers after a
+      // failed fetch.
+      partialize: (state) => ({ guestTokens: state.guestTokens }),
+      version: 1,
+      migrate: (persisted) => {
+        // v0 persisted the full store; keep only guestTokens.
+        const old = persisted as { guestTokens?: number } | undefined
+        return { guestTokens: old?.guestTokens ?? 200 }
+      },
     }
   )
 )

@@ -11,8 +11,12 @@ import { ToolPageHeader } from "@/components/tool-page-header"
 
 const STOPWORDS = new Set(["the","a","an","and","or","but","in","on","at","to","for","of","with","by","is","are","was","were","it","i","you","he","she","we","they","this","that"])
 
+const READING_WPM = 200
+const SPEAKING_WPM = 130
+
 export default function WordCounter() {
   const [text, setText] = useState("")
+  const [previousText, setPreviousText] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
 
@@ -32,27 +36,14 @@ export default function WordCounter() {
     // Paragraph count
     const paragraphs = trimmedText ? trimmedText.split(/\n\s*\n/).filter(p => p.trim().length > 0).length : 0
 
-    // Reading time (average 200 words per minute)
-    const readingTimeMinutes = Math.ceil(words / 200)
-
-    // Speaking time (average 150 words per minute)
-    const speakingTimeMinutes = Math.ceil(words / 150)
-
-    // Average word length
-    const avgWordLength = words > 0 ? (charactersNoSpaces / words).toFixed(1) : "0"
-
-    // Longest word
+    // Unique words — case-insensitive tokens, keeping digits and
+    // apostrophes so numeric tokens and contractions count properly.
     const wordsArray = trimmedText.split(/\s+/).filter(Boolean)
-    const longestWord = wordsArray.reduce((longest, word) => {
-      const cleanWord = word.replace(/[^a-zA-Z]/g, "")
-      return cleanWord.length > longest.length ? cleanWord : longest
-    }, "")
-
-    // Unique words
-    const uniqueWords = new Set(wordsArray.map(w => w.toLowerCase().replace(/[^a-zA-Z]/g, ""))).size
-
-    // Line count
-    const lines = text.split("\n").length
+    const uniqueWords = new Set(
+      wordsArray
+        .map(w => w.toLowerCase().replace(/[^a-z0-9'’]/g, ""))
+        .filter(Boolean)
+    ).size
 
     return {
       characters,
@@ -60,12 +51,7 @@ export default function WordCounter() {
       words,
       sentences,
       paragraphs,
-      readingTimeMinutes,
-      speakingTimeMinutes,
-      avgWordLength,
-      longestWord,
       uniqueWords,
-      lines,
     }
   }, [text])
 
@@ -76,8 +62,29 @@ export default function WordCounter() {
     return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([word, count]) => ({ word, count }))
   }, [text])
 
-  const readingTime = stats.words === 0 ? "—" : stats.words < 200 ? "< 1 min" : Math.ceil(stats.words / 200) + " min"
-  const speakingTime = stats.words === 0 ? "—" : stats.words < 130 ? "< 1 min" : Math.ceil(stats.words / 130) + " min"
+  const readingTime = stats.words === 0 ? "—" : stats.words < READING_WPM ? "< 1 min" : Math.ceil(stats.words / READING_WPM) + " min"
+  const speakingTime = stats.words === 0 ? "—" : stats.words < SPEAKING_WPM ? "< 1 min" : Math.ceil(stats.words / SPEAKING_WPM) + " min"
+
+  // Case transforms are destructive — keep one level of undo.
+  const applyTransform = (transform: (value: string) => string) => {
+    setPreviousText(text)
+    setText(transform(text))
+  }
+
+  const handleUndo = () => {
+    if (previousText === null) return
+    setText(previousText)
+    setPreviousText(null)
+  }
+
+  const toTitleCase = (value: string) =>
+    value.replace(/\S+/g, (word) => {
+      // Preserve all-caps words (acronyms like NASA or HTML).
+      if (word.length > 1 && word === word.toUpperCase() && /[A-Z]/.test(word)) {
+        return word
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text)
@@ -98,7 +105,6 @@ export default function WordCounter() {
         title="Word Counter"
         description="Instant word, character, sentence, and paragraph counts for any text. See reading time, top keywords, and unique word frequency — all free."
         category="Utility"
-        gradient="from-orange-500/[0.07]"
         iconColor="text-orange-500"
         iconBg="bg-orange-500/10 border-orange-500/20"
         categoryColor="text-orange-600 dark:text-orange-400"
@@ -108,6 +114,7 @@ export default function WordCounter() {
           {/* LEFT — textarea */}
           <div className="space-y-3">
             <Textarea
+              aria-label="Text to count words and characters"
               placeholder="Start typing or paste your text here to see word count and other statistics..."
               className="min-h-[420px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
               value={text}
@@ -139,7 +146,7 @@ export default function WordCounter() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setText(text.toLowerCase())}
+                onClick={() => applyTransform((value) => value.toLowerCase())}
                 disabled={!text}
                 className="h-7 text-xs"
               >
@@ -148,7 +155,7 @@ export default function WordCounter() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setText(text.toUpperCase())}
+                onClick={() => applyTransform((value) => value.toUpperCase())}
                 disabled={!text}
                 className="h-7 text-xs"
               >
@@ -157,18 +164,22 @@ export default function WordCounter() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  setText(
-                    text.replace(/\S+/g, (word) =>
-                      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                    )
-                  )
-                }
+                onClick={() => applyTransform(toTitleCase)}
                 disabled={!text}
                 className="h-7 text-xs"
               >
                 Title Case
               </Button>
+              {previousText !== null && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUndo}
+                  className="h-7 text-xs"
+                >
+                  Undo
+                </Button>
+              )}
             </div>
           </div>
 

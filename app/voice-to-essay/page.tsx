@@ -5,7 +5,7 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Loader2, Mic, Copy, Check, FileEdit, Square, Trash2, RefreshCw } from "lucide-react"
+import { Loader2, Mic, Copy, Check, FileEdit, Square, Trash2, RefreshCw, Download } from "lucide-react"
 import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
@@ -26,7 +26,7 @@ export default function VoiceToEssay() {
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
   const [duration, setDuration] = useState(0)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -36,7 +36,8 @@ export default function VoiceToEssay() {
 
   const recognitionRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const interimRef = useRef("")
+  const finalTranscriptRef = useRef("")
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -64,35 +65,55 @@ export default function VoiceToEssay() {
     recognition.interimResults = true
     recognition.lang = "en-US"
 
+    // Capture whatever is currently in the textarea (including manual edits)
+    // as the finalized base for this recording session.
+    setRawTranscript((cur) => {
+      finalTranscriptRef.current = cur.trim()
+      return cur
+    })
+
+    let fatalError = false
+
     recognition.onresult = (event: any) => {
-      let finalTranscript = ""
       let interimTranscript = ""
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
-          finalTranscript += result[0].transcript + " "
+          const segment = result[0].transcript.trim()
+          if (segment) {
+            finalTranscriptRef.current = (finalTranscriptRef.current ? finalTranscriptRef.current + " " : "") + segment
+          }
         } else {
           interimTranscript += result[0].transcript
         }
       }
-      if (finalTranscript) {
-        setRawTranscript((prev) => {
-          const cleaned = prev.replace(interimRef.current, "").trim()
-          interimRef.current = ""
-          return (cleaned ? cleaned + " " : "") + finalTranscript.trim()
-        })
-      }
-      interimRef.current = interimTranscript
+      const interim = interimTranscript.trim()
+      const finalized = finalTranscriptRef.current
+      setRawTranscript(interim ? (finalized ? finalized + " " + interim : interim) : finalized)
     }
 
     recognition.onerror = (event: any) => {
-      if (event.error !== "no-speech") {
+      if (event.error === "no-speech") return
+
+      if (["not-allowed", "audio-capture", "service-not-allowed"].includes(event.error)) {
+        fatalError = true
+        if (recognitionRef.current === recognition) recognitionRef.current = null
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+        setIsRecording(false)
+        setError(
+          event.error === "not-allowed"
+            ? "Microphone access was denied. Please allow microphone access in your browser and try again."
+            : event.error === "audio-capture"
+              ? "No microphone was found. Please check your audio input device and try again."
+              : "Speech recognition is not available in this browser. Please try Chrome or Edge."
+        )
+      } else {
         setError(`Speech recognition error: ${event.error}`)
       }
     }
 
     recognition.onend = () => {
-      if (recognitionRef.current) {
+      if (!fatalError && recognitionRef.current === recognition) {
         try { recognition.start() } catch {}
       }
     }
@@ -134,8 +155,18 @@ export default function VoiceToEssay() {
     if (!rawTranscript.trim()) return
 
     const requiredTokens = calculateRequiredTokens(rawTranscript)
-    if (requiredTokens > remainingWords) { router.push("/pricing"); return }
+    if (requiredTokens > remainingWords) {
+      toast({
+        title: "Not enough tokens",
+        description: `Converting this needs ${requiredTokens} tokens but you have ${remainingWords}. Redirecting to pricing.`,
+        variant: "destructive",
+      })
+      await syncWordBalance()
+      router.push("/pricing")
+      return
+    }
 
+    const requestId = ++requestIdRef.current
     setIsProcessing(true)
     setEssay("")
     setEssayTitle("")
@@ -149,14 +180,25 @@ export default function VoiceToEssay() {
         body: JSON.stringify({ text: rawTranscript, tool: "voice-to-essay" }),
       })
 
-      if (response.status === 401) { router.push("/signin"); return }
-      if (response.status === 402) { router.push("/pricing"); return }
+      if (requestId !== requestIdRef.current) return
+      if (response.status === 401) { router.push("/signin?next=/voice-to-essay"); return }
+      if (response.status === 402) {
+        toast({
+          title: "Not enough tokens",
+          description: "You have run out of tokens for this conversion. Redirecting to pricing.",
+          variant: "destructive",
+        })
+        await syncWordBalance()
+        router.push("/pricing")
+        return
+      }
       const data = await response.json()
+      if (requestId !== requestIdRef.current) return
       if (!response.ok) throw new Error(data.error || "Failed to convert to essay")
 
       setEssay(data.result.essay || rawTranscript)
       setEssayTitle(data.result.title || "")
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Essay Generated",
@@ -164,29 +206,50 @@ export default function VoiceToEssay() {
         variant: "success",
       })
     } catch (err) {
+      if (requestId !== requestIdRef.current) return
       const msg = err instanceof Error ? err.message : "Failed to convert"
       setError(msg)
       toast({ title: "Error", description: msg, variant: "destructive" })
     } finally {
-      setIsProcessing(false)
+      if (requestId === requestIdRef.current) setIsProcessing(false)
     }
   }
 
   const handleCopy = async () => {
     const fullText = essayTitle ? `${essayTitle}\n\n${essay}` : essay
-    await navigator.clipboard.writeText(fullText)
-    setCopied(true)
-    toast({ title: "Copied!", description: "Essay copied to clipboard", variant: "success" })
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(fullText)
+      setCopied(true)
+      toast({ title: "Copied!", description: "Essay copied to clipboard", variant: "success" })
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({ title: "Copy failed", description: "Could not access the clipboard. Please copy manually.", variant: "destructive" })
+    }
+  }
+
+  const handleDownload = () => {
+    const fullText = essayTitle ? `${essayTitle}\n\n${essay}` : essay
+    const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = "essay.txt"
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   const clearAll = () => {
     stopRecording()
+    requestIdRef.current++
+    finalTranscriptRef.current = ""
     setRawTranscript("")
     setEssay("")
     setEssayTitle("")
     setDuration(0)
     setError(null)
+    setIsProcessing(false)
   }
 
   const formatDuration = (seconds: number) => {
@@ -262,7 +325,7 @@ export default function VoiceToEssay() {
             {rawTranscript && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
-                <Button variant="ghost" size="sm" onClick={clearAll} className="text-red-500 hover:text-red-600 h-7 text-xs">
+                <Button variant="ghost" size="sm" onClick={clearAll} disabled={isProcessing} className="text-red-500 hover:text-red-600 h-7 text-xs">
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
                 </Button>
               </div>
@@ -282,6 +345,7 @@ export default function VoiceToEssay() {
               value={rawTranscript}
               onChange={(e) => setRawTranscript(e.target.value)}
               placeholder="Record above or type your voice notes here..."
+              aria-label="Voice notes transcript"
             />
 
             {needsSignIn && !user && <ToolSignInPrompt />}
@@ -294,7 +358,7 @@ export default function VoiceToEssay() {
             )}
 
             {error && (
-              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+              <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
             )}
 
             <Button
@@ -305,7 +369,7 @@ export default function VoiceToEssay() {
               {isProcessing ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating Essay...</>
               ) : (
-                <><FileEdit className="mr-2 h-4 w-4" />Convert to Essay ({calculateRequiredTokens(rawTranscript)} tokens)</>
+                <><FileEdit className="mr-2 h-4 w-4" />Convert to Essay{rawTranscript.trim() ? ` (${calculateRequiredTokens(rawTranscript)} tokens)` : ""}</>
               )}
             </Button>
           </div>
@@ -324,9 +388,14 @@ export default function VoiceToEssay() {
                   <span>{essay.split("\n").filter(p => p.trim()).length} paragraphs</span>
                 </div>
               </div>
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
-                {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
-              </Button>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload}>
+                  <Download className="h-3 w-3" />Download .txt
+                </Button>
+              </div>
             </div>
             {/* Essay body — proper prose formatting */}
             <div className="px-6 py-5 space-y-4 max-h-[480px] overflow-y-auto">

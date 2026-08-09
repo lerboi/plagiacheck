@@ -24,7 +24,7 @@ export default function AIHumanizer() {
   const [humanizedText, setHumanizedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [needsSignIn, setNeedsSignIn] = useState(false)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [humanizationLevel, setHumanizationLevel] = useState(50)
@@ -84,10 +84,11 @@ export default function AIHumanizer() {
       })
 
       if (response.status === 401) {
-        router.push("/signin")
+        router.push("/signin?next=/ai-humanizer")
         return
       }
       if (response.status === 402) {
+        await syncWordBalance()
         router.push("/pricing")
         return
       }
@@ -99,7 +100,7 @@ export default function AIHumanizer() {
       }
 
       setHumanizedText(data.result.humanizedText || text)
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Humanization Complete",
@@ -121,17 +122,27 @@ export default function AIHumanizer() {
   }
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(humanizedText)
-    setCopied(true)
-    toast({
-      title: "Copied!",
-      description: "Humanized text copied to clipboard",
-      variant: "success",
-    })
-    setTimeout(() => setCopied(false), 2000)
+    if (!humanizedText) return
+    try {
+      await navigator.clipboard.writeText(humanizedText)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: "Humanized text copied to clipboard",
+        variant: "success",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Could not access the clipboard. Please copy manually.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDownload = () => {
+    if (!humanizedText) return
     const blob = new Blob([humanizedText], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -145,6 +156,7 @@ export default function AIHumanizer() {
     { value: "casual", label: "Casual", desc: "Relaxed and conversational" },
     { value: "professional", label: "Professional", desc: "Business appropriate" },
     { value: "academic", label: "Academic", desc: "Scholarly and formal" },
+    { value: "creative", label: "Creative", desc: "Expressive and original" },
     { value: "friendly", label: "Friendly", desc: "Warm and approachable" },
     { value: "persuasive", label: "Persuasive", desc: "Compelling and convincing" },
   ]
@@ -192,13 +204,12 @@ export default function AIHumanizer() {
         title="AI Humanizer"
         description="Transform AI-generated text into natural, human-sounding writing. Adjust the humanization level and choose a tone that fits your voice."
         category="AI Tools"
-        gradient="from-pink-500/[0.07]"
         iconColor="text-pink-500"
         iconBg="bg-pink-500/10 border-pink-500/20"
         categoryColor="text-pink-600 dark:text-pink-400"
       />
       <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
-        {needsSignIn && !user && <ToolSignInPrompt />}
+        {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/ai-humanizer" />}
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -207,8 +218,14 @@ export default function AIHumanizer() {
           </p>
         )}
 
+        {text.length > 50000 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+          </p>
+        )}
+
         {error && (
-          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
         )}
 
         {/* Controls row */}
@@ -252,6 +269,7 @@ export default function AIHumanizer() {
             <Button
               variant={viewMode === "split" ? "default" : "ghost"}
               size="sm"
+              aria-pressed={viewMode === "split"}
               onClick={() => setViewMode("split")}
               className="h-7 text-xs px-2"
             >
@@ -261,6 +279,7 @@ export default function AIHumanizer() {
             <Button
               variant={viewMode === "stacked" ? "default" : "ghost"}
               size="sm"
+              aria-pressed={viewMode === "stacked"}
               onClick={() => setViewMode("stacked")}
               className="h-7 text-xs px-2"
             >
@@ -277,6 +296,7 @@ export default function AIHumanizer() {
               <span className="text-xs font-medium text-muted-foreground">Original (AI Text)</span>
             </div>
             <Textarea
+              aria-label="AI-generated text to humanize"
               placeholder="Paste your AI-generated text here to humanize it..."
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-pink-500/30 focus-visible:ring-offset-0"
               value={text}
@@ -286,13 +306,15 @@ export default function AIHumanizer() {
               <span className="text-xs text-muted-foreground">{text.length} chars</span>
               <Button
                 onClick={handleHumanize}
-                disabled={isProcessing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                disabled={isProcessing || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
                   <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
-                ) : (
+                ) : text.trim() ? (
                   `Humanize (${calculateRequiredTokens(text)} tokens)`
+                ) : (
+                  "Humanize"
                 )}
               </Button>
             </div>
@@ -319,10 +341,10 @@ export default function AIHumanizer() {
                   <span className="font-semibold tabular-nums">{humanizedText.split(/\s+/).filter(Boolean).length} words</span>
                 </div>
                 <div className="ml-auto flex gap-1.5">
-                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy} disabled={isProcessing || !humanizedText}>
                     {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
                   </Button>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload}>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload} disabled={isProcessing || !humanizedText}>
                     <Download className="h-3 w-3" />Download
                   </Button>
                   <Button
@@ -347,9 +369,9 @@ export default function AIHumanizer() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4 text-pink-500" />
-                <h3 className="text-sm font-semibold">Five Tone Options</h3>
+                <h3 className="text-sm font-semibold">Six Tone Options</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Casual, Professional, Friendly, Confident, or Empathetic — match the humanized output to the context you&apos;re writing for.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">Casual, Professional, Academic, Creative, Friendly, or Persuasive — match the humanized output to the context you&apos;re writing for.</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">

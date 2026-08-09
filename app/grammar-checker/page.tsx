@@ -30,7 +30,7 @@ export default function GrammarChecker() {
   const [issues, setIssues] = useState<GrammarIssue[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [needsSignIn, setNeedsSignIn] = useState(false)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -84,10 +84,11 @@ export default function GrammarChecker() {
       })
 
       if (response.status === 401) {
-        router.push("/signin")
+        router.push("/signin?next=/grammar-checker")
         return
       }
       if (response.status === 402) {
+        await syncWordBalance()
         router.push("/pricing")
         return
       }
@@ -112,7 +113,7 @@ export default function GrammarChecker() {
       }))
 
       setIssues(mappedIssues)
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Check Complete",
@@ -136,49 +137,58 @@ export default function GrammarChecker() {
   }
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(correctedText)
-    setCopied(true)
-    toast({
-      title: "Copied!",
-      description: "Corrected text copied to clipboard",
-      variant: "success",
-    })
-    setTimeout(() => setCopied(false), 2000)
+    if (!correctedText) return
+    try {
+      await navigator.clipboard.writeText(correctedText)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: "Corrected text copied to clipboard",
+        variant: "success",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({
+        title: "Copy failed",
+        description: "Could not access the clipboard. Please copy manually.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const applyFix = (issue: GrammarIssue) => {
-    const { start, end } = issue.position
-    let newText: string
-    let appliedAt: number
+  const applyFix = (issueIndex: number) => {
+    const issue = issues[issueIndex]
+    if (!issue || issue.text.length === 0) return
 
-    // Trust the model's offsets only if they actually point at the
-    // issue text. LLMs return wrong character offsets routinely.
-    const slice = text.substring(start, end)
-    if (slice === issue.text && issue.text.length > 0) {
-      newText = text.substring(0, start) + issue.replacement + text.substring(end)
-      appliedAt = start
-    } else {
-      // Fall back to first-occurrence replacement of the original text.
-      const idx = issue.text.length > 0 ? text.indexOf(issue.text) : -1
-      if (idx === -1) {
-        toast({
-          title: "Unable to apply fix",
-          description: "The original text no longer appears in your input. Edit manually or re-check.",
-          variant: "destructive",
-        })
-        return
-      }
-      newText = text.substring(0, idx) + issue.replacement + text.substring(idx + issue.text.length)
-      appliedAt = idx
+    // Model offsets are untrusted — locate the issue text ourselves,
+    // searching near the reported offset first, then anywhere.
+    const reportedStart = issue.position.start
+    let idx = -1
+    if (Number.isFinite(reportedStart) && reportedStart >= 0 && reportedStart <= text.length) {
+      idx = text.indexOf(issue.text, Math.max(0, reportedStart - 40))
+    }
+    if (idx === -1) {
+      idx = text.indexOf(issue.text)
+    }
+    if (idx === -1) {
+      toast({
+        title: "Unable to apply fix",
+        description: "The original text no longer appears in your input. Edit manually or re-check.",
+        variant: "destructive",
+      })
+      return
     }
 
+    const newText = text.substring(0, idx) + issue.replacement + text.substring(idx + issue.text.length)
     setText(newText)
 
+    // Remove only the applied issue (by index), then shift the remaining
+    // issues using the position the fix was actually applied at.
     const lengthDiff = issue.replacement.length - issue.text.length
     const updatedIssues = issues
-      .filter(i => !(i.position.start === issue.position.start && i.text === issue.text))
+      .filter((_, i) => i !== issueIndex)
       .map(i => {
-        if (i.position.start > appliedAt) {
+        if (i.position.start > idx) {
           return {
             ...i,
             position: {
@@ -198,6 +208,17 @@ export default function GrammarChecker() {
     })
   }
 
+  const applyAllFixes = () => {
+    if (!correctedText) return
+    setText(correctedText)
+    setIssues([])
+    toast({
+      title: "All fixes applied",
+      description: "Your text has been replaced with the corrected version.",
+      variant: "success",
+    })
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Nav />
@@ -206,13 +227,12 @@ export default function GrammarChecker() {
         title="Grammar Checker"
         description="Identify and fix grammar errors, spelling mistakes, and style issues. Review each correction individually and apply fixes with one click."
         category="Writing Tools"
-        gradient="from-emerald-500/[0.07]"
         iconColor="text-emerald-500"
         iconBg="bg-emerald-500/10 border-emerald-500/20"
         categoryColor="text-emerald-600 dark:text-emerald-400"
       />
       <section className="container max-w-5xl mx-auto px-4 py-6 space-y-4">
-        {needsSignIn && !user && <ToolSignInPrompt />}
+        {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/grammar-checker" />}
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -221,14 +241,21 @@ export default function GrammarChecker() {
           </p>
         )}
 
+        {text.length > 50000 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+          </p>
+        )}
+
         {error && (
-          <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
         )}
 
         <div className="grid lg:grid-cols-2 gap-4">
           {/* LEFT — input */}
           <div className="space-y-3">
             <Textarea
+              aria-label="Text to check for grammar and spelling errors"
               placeholder="Type or paste your text here to check for grammar and spelling errors..."
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-0"
               value={text}
@@ -238,13 +265,15 @@ export default function GrammarChecker() {
               <span className="text-xs text-muted-foreground">{text.split(/\s+/).filter(Boolean).length} words · {text.length} chars</span>
               <Button
                 onClick={handleCheck}
-                disabled={isProcessing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                disabled={isProcessing || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
                   <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Checking...</>
-                ) : (
+                ) : text.trim() ? (
                   `Check Grammar (${calculateRequiredTokens(text)} tokens)`
+                ) : (
+                  "Check Grammar"
                 )}
               </Button>
             </div>
@@ -302,10 +331,20 @@ export default function GrammarChecker() {
             {/* Issues list */}
             {issues.length > 0 && (
               <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-border">
+                <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     {issues.length} {issues.length === 1 ? "Issue" : "Issues"}
                   </span>
+                  {correctedText && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={applyAllFixes}
+                    >
+                      Apply all fixes
+                    </Button>
+                  )}
                 </div>
                 <div className="divide-y divide-border max-h-72 overflow-y-auto">
                   {issues.map((issue, i) => (
@@ -331,7 +370,7 @@ export default function GrammarChecker() {
                         variant="outline"
                         size="sm"
                         className="h-7 text-xs shrink-0"
-                        onClick={() => applyFix(issue)}
+                        onClick={() => applyFix(i)}
                       >
                         Fix
                       </Button>

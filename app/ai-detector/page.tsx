@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -33,8 +33,10 @@ export default function AIDetector() {
     humanLikelihood: string
     analysis: string
     sentences: SentenceAnalysis[]
+    analyzedText: string
   } | null>(null)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -54,6 +56,13 @@ export default function AIDetector() {
     })
     return () => { authListener.subscription.unsubscribe() }
   }, [supabase.auth])
+
+  // Never leave the fake-progress interval running after unmount.
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current)
+    }
+  }, [])
 
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
@@ -88,32 +97,27 @@ export default function AIDetector() {
     setResult(null)
     setError(null)
 
+    const analyzedText = text
+
     try {
       // Animate progress while waiting for API
-      const timer = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(timer)
-            return 90
-          }
-          return prev + 3
-        })
+      progressTimerRef.current = setInterval(() => {
+        setProgress((prev) => (prev >= 90 ? 90 : prev + 3))
       }, 100)
 
       const authHeader = await getAuthHeader()
       const response = await fetch("/api/ai-tools", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ text, tool: "ai-detect" }),
+        body: JSON.stringify({ text: analyzedText, tool: "ai-detect" }),
       })
 
-      clearInterval(timer)
-
       if (response.status === 401) {
-        router.push("/signin")
+        router.push("/signin?next=/ai-detector")
         return
       }
       if (response.status === 402) {
+        await syncWordBalance()
         router.push("/pricing")
         return
       }
@@ -138,9 +142,10 @@ export default function AIDetector() {
         humanLikelihood: aiResult.verdict || "Unknown",
         analysis: aiResult.analysis || "Analysis complete.",
         sentences,
+        analyzedText,
       })
 
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Analysis Complete",
@@ -157,25 +162,37 @@ export default function AIDetector() {
         variant: "destructive",
       })
     } finally {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+        progressTimerRef.current = null
+      }
       setIsAnalyzing(false)
     }
   }
 
   const handleDownloadReport = () => {
     if (!result) return
-    generateAIDetectorReport({
-      text,
+    const opened = generateAIDetectorReport({
+      text: result.analyzedText,
       aiScore: result.score,
       humanLikelihood: result.humanLikelihood,
       analysis: result.analysis,
       sentences: result.sentences,
       date: new Date(),
     })
-    toast({
-      title: "Report Generated",
-      description: "Your PDF report is ready to download",
-      variant: "success",
-    })
+    if (opened) {
+      toast({
+        title: "Report Generated",
+        description: "Your PDF report is ready to download",
+        variant: "success",
+      })
+    } else {
+      toast({
+        title: "Popup blocked",
+        description: "Allow popups for this site to download the PDF report.",
+        variant: "destructive",
+      })
+    }
   }
 
   const buildResultText = (): string => {
@@ -202,14 +219,18 @@ export default function AIDetector() {
   const handleCopy = async () => {
     const payload = result ? buildResultText() : text
     if (!payload) return
-    await navigator.clipboard.writeText(payload)
-    setCopied(true)
-    toast({
-      title: "Copied!",
-      description: result ? "Analysis copied to clipboard" : "Text copied to clipboard",
-      variant: "success",
-    })
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(payload)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: result ? "Analysis copied to clipboard" : "Text copied to clipboard",
+        variant: "success",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({ title: "Copy failed", description: "Clipboard access was blocked by the browser.", variant: "destructive" })
+    }
   }
 
   const getSentenceColor = (type: string) => {
@@ -251,15 +272,16 @@ export default function AIDetector() {
         {/* Input area */}
         <div className="space-y-3">
           <Textarea
+            aria-label="Text to analyze"
             placeholder="Paste text to analyze..."
             className="min-h-[200px] resize-none rounded-xl border-border text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-purple-500/30 focus-visible:ring-offset-0"
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
+          {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/ai-detector" />}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <span className="text-xs text-muted-foreground">{text.length} chars</span>
             <div className="flex items-center gap-2">
-              {needsSignIn && !user && <ToolSignInPrompt />}
               {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
                   Need {calculateRequiredTokens(text)} tokens.{" "}
@@ -271,12 +293,12 @@ export default function AIDetector() {
                 disabled={isAnalyzing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium"
               >
-                {isAnalyzing ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Analyzing...</> : <>Detect ({calculateRequiredTokens(text)} tokens)</>}
+                {isAnalyzing ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Analyzing...</> : <>Detect{text.trim() ? ` (${calculateRequiredTokens(text)} tokens)` : ""}</>}
               </Button>
             </div>
           </div>
           {isAnalyzing && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5" aria-live="polite">
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Analyzing text...</span>
                 <span>{Math.round(progress)}%</span>
@@ -284,7 +306,7 @@ export default function AIDetector() {
               <Progress value={progress} className="h-1" />
             </div>
           )}
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p role="alert" className="text-xs text-red-500">{error}</p>}
         </div>
 
         {/* Score card — shown when result exists */}
@@ -311,7 +333,9 @@ export default function AIDetector() {
               <div className="flex-1 min-w-0 space-y-2">
                 <div>
                   <p className="text-base font-semibold leading-tight">
-                    {result.score > 70 ? "Likely AI-generated" : result.score > 40 ? "Possibly AI-assisted" : "Likely human-written"}
+                    {result.humanLikelihood !== "Unknown"
+                      ? result.humanLikelihood
+                      : result.score > 70 ? "Likely AI-generated" : result.score > 40 ? "Possibly AI-assisted" : "Likely human-written"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{result.analysis}</p>
                 </div>
@@ -335,10 +359,10 @@ export default function AIDetector() {
               </div>
 
               <div className="flex flex-col gap-1.5 shrink-0">
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleCopy}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleCopy} disabled={isAnalyzing}>
                   {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
                 </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleDownloadReport}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleDownloadReport} disabled={isAnalyzing}>
                   <Download className="h-3 w-3" />PDF
                 </Button>
               </div>
@@ -381,7 +405,7 @@ export default function AIDetector() {
                       />
                       <span className="flex-1">{s.text}</span>
                       <span className="ml-2 text-xs tabular-nums text-muted-foreground shrink-0">
-                        {Math.round((s.score ?? 0) * 100)}%
+                        {Math.round(s.score ?? 0)}%
                       </span>
                     </div>
                   ))}

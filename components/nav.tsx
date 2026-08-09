@@ -17,6 +17,7 @@ import {
   FileText,
   CheckCircle2,
   Hash,
+  History,
   LayoutGrid,
   CreditCard,
   Coins,
@@ -173,6 +174,18 @@ export function Nav() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [isToolsOpen])
 
+  // Lock body scroll while the mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isMobileMenuOpen])
+
   // Close mega menu on Escape
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -208,7 +221,7 @@ export function Nav() {
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
-      <div className="container flex h-14 items-center justify-between px-4">
+      <div className="container mx-auto flex h-14 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2" onClick={closeMobileMenu}>
           <div className="h-8 w-8 rounded-full text-blue-400 scale-[170%] items-center justify-center flex">
@@ -369,7 +382,7 @@ export function Nav() {
                 <Link href="/signin">Log in</Link>
               </Button>
               <Button size="sm" className="h-9 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus-visible:ring-0 focus-visible:ring-offset-0" asChild>
-                <Link href="/pricing">Get Started</Link>
+                <Link href="/signin?tab=register">Get Started</Link>
               </Button>
             </>
           )}
@@ -415,7 +428,7 @@ export function Nav() {
 
               {/* Featured: PlagiaAI (mobile) */}
               <Link
-                href="/plagia-ai"
+                href="/"
                 onClick={closeMobileMenu}
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
                   onPlagiaAi
@@ -484,6 +497,11 @@ export function Nav() {
                                     FREE
                                   </span>
                                 )}
+                                {tool.usesImageTokens && (
+                                  <span className="text-[8px] font-semibold px-1 py-0.5 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300 rounded leading-none flex-shrink-0">
+                                    IMG
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </Link>
@@ -512,6 +530,26 @@ export function Nav() {
                   <CreditCard className="h-5 w-5 text-muted-foreground" />
                   <span className="font-medium text-sm">Pricing</span>
                 </Link>
+                {user && (
+                  <>
+                    <Link
+                      href="/history"
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <History className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium text-sm">History</span>
+                    </Link>
+                    <Link
+                      href="/billing"
+                      className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <Coins className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium text-sm">Billing</span>
+                    </Link>
+                  </>
+                )}
               </div>
 
               {/* Theme Toggle */}
@@ -541,7 +579,7 @@ export function Nav() {
                       <Link href="/signin">Log in</Link>
                     </Button>
                     <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0" asChild onClick={closeMobileMenu}>
-                      <Link href="/pricing">Get Started</Link>
+                      <Link href="/signin?tab=register">Get Started</Link>
                     </Button>
                   </>
                 )}
@@ -564,13 +602,13 @@ interface TokenBadgeProps {
   guestTokens: number
 }
 
-function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
+function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens }: TokenBadgeProps) {
   if (!user) {
     return (
       <Link
         href="/signin?tab=register"
         className="group flex items-center gap-1.5 h-8 px-3 rounded-full bg-gradient-to-r from-blue-500/10 via-violet-500/10 to-blue-500/10 border border-blue-200/60 dark:border-blue-800/60 hover:border-blue-400/60 dark:hover:border-blue-600/60 hover:from-blue-500/15 hover:via-violet-500/15 hover:to-blue-500/15 transition-all duration-200"
-        title={`Sign up free — 1,000 tokens to start (you have ${guestTokens} trial tokens)`}
+        title="Sign up free — 1,000 tokens to start"
       >
         <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0" />
         <span className="text-xs font-semibold text-foreground">Sign up</span>
@@ -635,7 +673,7 @@ function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTok
   )
 }
 
-function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens }: TokenBadgeProps) {
+function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens }: TokenBadgeProps) {
   if (!user) {
     return (
       <Link
@@ -646,7 +684,6 @@ function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestT
           <Sparkles className="h-4 w-4 text-blue-500" />
           <div>
             <p className="text-sm font-semibold">Sign up — 1,000 free tokens</p>
-            <p className="text-xs text-muted-foreground">{guestTokens} trial tokens left</p>
           </div>
         </div>
         <span

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
+import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
@@ -28,6 +29,9 @@ interface PlagiarismMatch {
 interface PlagiarismMatchResult {
   plagiarismPercentage: number
   matches: PlagiarismMatch[]
+  /** Snapshot of the text that was analyzed, so later edits to the
+   *  textarea can't desync the highlight offsets. */
+  analyzedText: string
 }
 
 type PlagiarismResult = PlagiarismMatchResult | null
@@ -39,7 +43,7 @@ export default function PlagiarismCheckerContent() {
   const [progress, setProgress] = useState(0)
   const [targetProgress, setTargetProgress] = useState(0)
   const [result, setResult] = useState<PlagiarismResult>(null)
-  const { remainingWords, decrementWords, fetchRemainingWords } = useTokenStore()
+  const { remainingWords, syncWordBalance, fetchRemainingWords } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -115,26 +119,40 @@ export default function PlagiarismCheckerContent() {
     setResult(null)
     setError(null)
 
+    // Snapshot the submitted text so edits made after the check don't
+    // desync the highlight offsets in the results view.
+    const submittedText = text
+
     try {
       const authHeader = await getAuthHeader()
       const response = await fetch("/api/check-plagiarism", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: submittedText }),
       })
 
       if (response.status === 401) {
-        router.push("/signin")
+        router.push("/signin?next=/plagiarism-checker")
         return
       }
 
       if (response.status === 402) {
+        await syncWordBalance()
         router.push("/pricing")
         return
       }
 
       if (!response.ok) {
-        throw new Error("Failed to check plagiarism")
+        let message = "Failed to check plagiarism"
+        try {
+          const errorData = await response.json()
+          if (typeof errorData?.error === "string" && errorData.error) {
+            message = errorData.error
+          }
+        } catch {
+          // Non-JSON error body; keep the generic message.
+        }
+        throw new Error(message)
       }
 
       const reader = response.body?.getReader()
@@ -184,8 +202,9 @@ export default function PlagiarismCheckerContent() {
               setResult({
                 plagiarismPercentage: data.result.plagiarismPercentage,
                 matches: data.result.matches || [],
+                analyzedText: submittedText,
               })
-              await decrementWords()
+              await syncWordBalance(data.remainingTokens)
               toast({
                 title: "Check Complete",
                 description: `Plagiarism score: ${data.result.plagiarismPercentage}%`,
@@ -197,17 +216,21 @@ export default function PlagiarismCheckerContent() {
           }
         }
       }
-
-      setIsChecking(false)
     } catch (err) {
       console.error("Plagiarism check error:", err)
-      setError("Failed to check plagiarism. Please try again.")
-      setIsChecking(false)
+      const errorMessage = err instanceof Error && err.message
+        ? err.message
+        : "Failed to check plagiarism. Please try again."
+      setError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to check plagiarism. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      // Always stop the loading state so the button and the progress
+      // interval don't keep running after early returns or failures.
+      setIsChecking(false)
     }
   }
 
@@ -278,7 +301,7 @@ export default function PlagiarismCheckerContent() {
                   <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Plagiarism Checker</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Check Your Text</h2>
                   <p className="text-sm text-muted-foreground">Paste text or upload a file to scan</p>
                 </div>
               </div>
@@ -292,6 +315,7 @@ export default function PlagiarismCheckerContent() {
             <div className="px-6 md:px-8 pb-6 md:pb-8 space-y-5">
               <div className="relative group">
                 <Textarea
+                  aria-label="Text to check for plagiarism"
                   placeholder="Paste your text here to check for plagiarism. You can also upload a .txt or .md file using the button below..."
                   className="min-h-[220px] md:min-h-[280px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 text-base leading-relaxed rounded-xl transition-colors duration-200 pr-12"
                   value={text}
@@ -310,23 +334,19 @@ export default function PlagiarismCheckerContent() {
                       {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-gray-400" />}
                     </Button>
                   )}
-                  <div className="relative">
+                  <label
+                    className="h-8 w-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 focus-within:ring-2 focus-within:ring-blue-500 transition-colors"
+                    title="Upload file"
+                  >
+                    <span className="sr-only">Upload a .txt or .md file</span>
+                    <Upload className="h-4 w-4 text-gray-400" />
                     <input
                       type="file"
                       accept=".txt,.md,text/plain"
                       onChange={handleFileUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      title="Upload file"
+                      className="sr-only"
                     />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                      title="Upload file"
-                    >
-                      <Upload className="h-4 w-4 text-gray-400" />
-                    </Button>
-                  </div>
+                  </label>
                 </div>
               </div>
 
@@ -336,11 +356,11 @@ export default function PlagiarismCheckerContent() {
                   animate={{ opacity: 1, y: 0 }}
                   className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl"
                 >
-                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                  <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
                 </motion.div>
               )}
 
-              {text.trim() && calculateRequiredTokens(text) > remainingWords && (
+              {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -355,35 +375,27 @@ export default function PlagiarismCheckerContent() {
                 </motion.div>
               )}
 
-              {needsSignIn && !user && (
+              {text.length > 50000 && (
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center justify-between gap-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl"
+                  className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/60 flex items-center justify-center shrink-0">
-                      <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Sign in to check for plagiarism</p>
-                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">Your text will be here when you get back.</p>
-                    </div>
-                  </div>
-                  <Link
-                    href="/signin?next=/plagiarism-checker"
-                    className="shrink-0 h-9 px-4 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                  >
-                    Sign In
-                  </Link>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+                  </p>
                 </motion.div>
+              )}
+
+              {needsSignIn && !user && (
+                <ToolSignInPrompt href="/signin?next=/plagiarism-checker" />
               )}
 
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button
                   className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-600/20 hover:shadow-xl transition-all duration-200 rounded-xl text-base"
                   onClick={handlePlagiarismCheck}
-                  disabled={isChecking || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
+                  disabled={isChecking || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 >
                   {isChecking ? (
                     <div className="flex items-center gap-2">
@@ -401,25 +413,20 @@ export default function PlagiarismCheckerContent() {
                   )}
                 </Button>
 
-                <div className="relative sm:hidden">
+                <label className="sm:hidden w-full h-12 rounded-xl border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex items-center justify-center text-sm font-medium cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 transition-colors">
+                  <File className="h-5 w-5 mr-2" />
+                  Upload File
                   <input
                     type="file"
                     accept=".txt,.md,text/plain"
                     onChange={handleFileUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="sr-only"
                   />
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 rounded-xl border-2"
-                  >
-                    <File className="h-5 w-5 mr-2" />
-                    Upload File
-                  </Button>
-                </div>
+                </label>
               </div>
 
               <ResultReveal show={isChecking || !!result}>
-                <PlagiarismResults isChecking={isChecking} progress={progress} result={result} originalText={text} />
+                <PlagiarismResults isChecking={isChecking} progress={progress} result={result} originalText={result?.analyzedText} />
               </ResultReveal>
             </div>
           </Card>

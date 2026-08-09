@@ -10,6 +10,7 @@ import { MotionProvider } from "@/components/motion-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.plagiacheck.online"),
   title: "Plagiacheck",
   description: "Write confidently with Plagiacheck's AI-powered writing assistant",
   icons: {
@@ -39,7 +40,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <MotionProvider>
-            <main className="flex-grow container mx-auto px-4">{children}</main>
+            <main className="flex-grow">{children}</main>
             <Footer />
             <Toaster />
           </MotionProvider>

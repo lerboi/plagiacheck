@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main className="container py-16">
+      <div className="container mx-auto px-4 py-16">
         <motion.div
           className="max-w-md mx-auto"
           initial={{ opacity: 0, y: 16 }}
@@ -94,6 +94,7 @@ export default function ForgotPasswordPage() {
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
+                      role="alert"
                       className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
                     >
                       <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -105,6 +106,8 @@ export default function ForgotPasswordPage() {
                       initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
+                      role="status"
+                      aria-live="polite"
                       className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
                     >
                       <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -141,7 +144,7 @@ export default function ForgotPasswordPage() {
             </CardContent>
           </Card>
         </motion.div>
-      </main>
+      </div>
     </div>
   )
 }

@@ -1,7 +1,7 @@
-"use client"
+import { redirect } from "next/navigation"
 
-import { PlagiaAiApp } from "@/components/plagia-ai/PlagiaAiApp"
-
+// PlagiaAI lives on the home page. This route exists only so old links
+// keep working — it redirects server-side to the canonical URL.
 export default function PlagiaAiPage() {
-  return <PlagiaAiApp />
+  redirect("/")
 }

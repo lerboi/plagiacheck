@@ -22,12 +22,23 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 
 function wrapText(text: string, maxChars: number): string[] {
-  const words = String(text || '').split(/\s+/).filter(Boolean)
+  const limit = Math.max(1, Math.floor(maxChars))
+  const rawWords = String(text || '').split(/\s+/).filter(Boolean)
+  // hard-break single words longer than the line width so they can never
+  // overflow the layout
+  const words: string[] = []
+  for (const w of rawWords) {
+    if (w.length <= limit) {
+      words.push(w)
+    } else {
+      for (let i = 0; i < w.length; i += limit) words.push(w.slice(i, i + limit))
+    }
+  }
   const lines: string[] = []
   let current = ''
   for (const w of words) {
     const candidate = current ? `${current} ${w}` : w
-    if (candidate.length > maxChars && current) {
+    if (candidate.length > limit && current) {
       lines.push(current)
       current = w
     } else {
@@ -374,9 +385,18 @@ function renderTimeline(opts: {
     // date label
     const dateY = above ? cy - 18 : cy + 22
     svg += `<text x="${x}" y="${dateY}" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle" fill="${color}">${escapeXml(e.date)}</text>`
-    // event label
-    const labelLines = wrapText(e.label, 22).slice(0, 3)
-    const lineStart = above ? dateY - 16 - (labelLines.length - 1) * 13 : dateY + 16
+    // event label — clamp "above" labels so they never collide with the
+    // title at y=36; drop lines until the block starts at or below minY
+    let labelLines = wrapText(e.label, 22).slice(0, 3)
+    let lineStart = above ? dateY - 16 - (labelLines.length - 1) * 13 : dateY + 16
+    if (above) {
+      const minY = 64
+      while (labelLines.length > 1 && lineStart < minY) {
+        labelLines = labelLines.slice(0, -1)
+        lineStart = dateY - 16 - (labelLines.length - 1) * 13
+      }
+      lineStart = Math.max(lineStart, minY)
+    }
     labelLines.forEach((line, j) => {
       svg += `<text x="${x}" y="${lineStart + j * 13}" font-family="Helvetica, Arial, sans-serif" font-size="11" text-anchor="middle" fill="#334155">${escapeXml(line)}</text>`
     })
@@ -680,12 +700,31 @@ export function buildChartSvg(spec: ChartSpec): string {
   }
 }
 
+function parseNumericValue(v: any): number {
+  if (typeof v === 'number') return v
+  if (typeof v !== 'string') return NaN
+  // strip common formatting: currency symbols, commas, spaces
+  let s = v.trim().replace(/[$€£¥,\s]/g, '')
+  // a trailing percent sign is treated as a plain number
+  s = s.replace(/%$/, '')
+  // magnitude suffixes: k = 1e3, m = 1e6, b = 1e9
+  let mult = 1
+  const m = s.match(/^(-?(?:\d+\.?\d*|\.\d+))([kKmMbB])$/)
+  if (m) {
+    s = m[1]
+    const suffix = m[2].toLowerCase()
+    mult = suffix === 'k' ? 1e3 : suffix === 'm' ? 1e6 : 1e9
+  }
+  if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(s)) return NaN
+  return Number(s) * mult
+}
+
 function clampPoints(data: any): BarPoint[] {
   if (!Array.isArray(data)) return []
   return data
     .map((d: any) => ({
       name: String(d?.name ?? d?.label ?? '').slice(0, 60),
-      value: Number(d?.value ?? d?.y ?? 0),
+      value: parseNumericValue(d?.value ?? d?.y ?? 0),
     }))
     .filter((d) => d.name && isFinite(d.value))
     .slice(0, 24)

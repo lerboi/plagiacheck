@@ -18,12 +18,14 @@ export function calculateTextTokenCost(text: string): number {
 /**
  * Atomically deduct text tokens from a user. Returns the new balance,
  * or null if the user has insufficient tokens (or the row is missing).
+ * Throws on an RPC/transport failure so callers surface a 500 instead of
+ * misreporting a database outage as "insufficient tokens".
  */
 export async function deductTextTokens(
   userId: string,
   amount: number
 ): Promise<number | null> {
-  if (amount <= 0) return null
+  if (!Number.isFinite(amount) || amount <= 0) return null
   const supabase = createClient(supabaseUrl, supabaseKey)
   const { data, error } = await supabase.rpc("decrement_user_tokens", {
     p_user_id: userId,
@@ -31,8 +33,10 @@ export async function deductTextTokens(
   })
   if (error) {
     console.error("deductTextTokens RPC error:", error.message)
-    return null
+    throw new Error("Token deduction failed")
   }
+  // The RPC returns the new int balance, or null when the balance was
+  // insufficient (no row updated).
   return typeof data === "number" ? data : null
 }
 
@@ -59,7 +63,7 @@ export async function deductImageTokens(
   userId: string,
   amount: number
 ): Promise<number | null> {
-  if (amount <= 0) return null
+  if (!Number.isFinite(amount) || amount <= 0) return null
   const supabase = createClient(supabaseUrl, supabaseKey)
   const { data, error } = await supabase.rpc("decrement_image_tokens", {
     p_user_id: userId,
@@ -67,8 +71,10 @@ export async function deductImageTokens(
   })
   if (error) {
     console.error("deductImageTokens RPC error:", error.message)
-    return null
+    throw new Error("Token deduction failed")
   }
+  // The RPC returns the new int balance, or null when the balance was
+  // insufficient (no row updated).
   return typeof data === "number" ? data : null
 }
 

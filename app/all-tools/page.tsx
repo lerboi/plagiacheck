@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Nav } from "@/components/nav"
-import { FAQ } from "@/components/FAQ"
 import {
   Shield,
   Brain,
@@ -122,7 +121,7 @@ export default function AllToolsPage() {
         </div>
       </header>
 
-      <main className="container max-w-5xl mx-auto px-4 py-8 space-y-10">
+      <div className="container max-w-5xl mx-auto px-4 py-8 space-y-10">
         {/* PlagiaAI featured hero */}
         <Link
           href="/"
@@ -202,9 +201,7 @@ export default function AllToolsPage() {
             </div>
           </section>
         ))}
-      </main>
-
-      <FAQ />
+      </div>
     </div>
   )
 }

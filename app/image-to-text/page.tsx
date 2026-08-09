@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { Loader2, ImageIcon, Upload, Copy, Check, Trash2, Shield } from "lucide-react"
 import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
@@ -26,7 +25,7 @@ export default function ImageToText() {
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [confidence, setConfidence] = useState<string | null>(null)
   const [textType, setTextType] = useState<string | null>(null)
-  const { remainingImageTokens, decrementImageTokens, fetchImageTokens } = useTokenStore()
+  const { remainingImageTokens, syncImageBalance, fetchImageTokens } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -35,6 +34,7 @@ export default function ImageToText() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   const [isDragging, setIsDragging] = useState(false)
+  const generationRef = useRef(0)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -63,12 +63,18 @@ export default function ImageToText() {
       return
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError("Image must be under 10MB")
+    // Server rejects base64 payloads over ~8.4MB of source data, so cap at 8MB here.
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Image must be under 8MB")
       return
     }
 
+    // A new selection invalidates any in-flight extraction and previous results.
+    generationRef.current++
     setError(null)
+    setExtractedText("")
+    setConfidence(null)
+    setTextType(null)
     setMimeType(file.type)
 
     const previewReader = new FileReader()
@@ -103,19 +109,26 @@ export default function ImageToText() {
 
   const handleDragLeave = () => setIsDragging(false)
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items
-    if (!items) return
-    for (const item of items) {
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile()
-        if (file) handleImageSelect(file)
-        break
+  // Document-level paste listener so pasting an image works anywhere on the
+  // page (the previous onPaste handler sat on a non-focusable div and never fired).
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile()
+          if (file) handleImageSelect(file)
+          break
+        }
       }
     }
-  }
+    document.addEventListener("paste", onPaste)
+    return () => document.removeEventListener("paste", onPaste)
+  }, [])
 
   const clearImage = () => {
+    generationRef.current++
     setImagePreview(null)
     setImageBase64(null)
     setExtractedText("")
@@ -144,6 +157,7 @@ export default function ImageToText() {
       return
     }
 
+    const generation = ++generationRef.current
     setIsProcessing(true)
     setExtractedText("")
     setError(null)
@@ -156,26 +170,39 @@ export default function ImageToText() {
         body: JSON.stringify({ imageBase64, mimeType }),
       })
 
-      if (response.status === 401) { router.push("/signin"); return }
-      if (response.status === 402) { router.push("/pricing"); return }
+      if (response.status === 401) { router.push("/signin?next=/image-to-text"); return }
+      if (response.status === 402) {
+        toast({
+          title: "Not enough image tokens",
+          description: "Purchase image tokens to use this tool.",
+          variant: "destructive",
+        })
+        await syncImageBalance()
+        router.push("/pricing")
+        return
+      }
       const data = await response.json()
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to extract text")
       }
+      if (generation !== generationRef.current) return
 
       setExtractedText(data.result.extractedText || "No text detected.")
       setConfidence(data.result.confidence || null)
       setTextType(data.result.textType || null)
 
-      await decrementImageTokens(IMAGE_TOKEN_COST)
+      await syncImageBalance(data.remainingImageTokens)
 
       toast({
         title: "Text Extracted",
-        description: `Found ${data.result.wordCount || 0} words (${data.result.confidence} confidence)`,
+        description: data.result.confidence
+          ? `Found ${data.result.wordCount || 0} words (${data.result.confidence} confidence)`
+          : `Found ${data.result.wordCount || 0} words`,
         variant: "success",
       })
     } catch (err) {
+      if (generation !== generationRef.current) return
       console.error("OCR error:", err)
       const msg = err instanceof Error ? err.message : "Failed to extract text"
       setError(msg)
@@ -193,7 +220,7 @@ export default function ImageToText() {
   }
 
   return (
-    <div className="min-h-screen bg-background" onPaste={handlePaste}>
+    <div className="min-h-screen bg-background">
       <Nav />
       <ToolPageHeader
         icon={ScanText}
@@ -213,7 +240,7 @@ export default function ImageToText() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Upload Image</span>
               {imagePreview && (
-                <Button variant="ghost" size="sm" onClick={clearImage} className="h-7 text-xs text-destructive hover:text-destructive">
+                <Button variant="ghost" size="sm" onClick={clearImage} disabled={isProcessing} className="h-7 text-xs text-destructive hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
                   Clear
                 </Button>
@@ -242,11 +269,18 @@ export default function ImageToText() {
                 <Upload className="h-8 w-8 text-muted-foreground/50" />
                 <div className="text-center">
                   <p className="text-sm font-medium">Drop an image, click to upload, or paste</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP up to 10MB</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP up to 8MB</p>
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl overflow-hidden border border-border">
+              <div
+                className={`rounded-xl overflow-hidden border transition-colors ${
+                  isDragging ? "border-rose-400 bg-rose-500/5" : "border-border"
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
                 <img
                   src={imagePreview}
                   alt="Uploaded image"
@@ -256,7 +290,7 @@ export default function ImageToText() {
             )}
 
             {error && (
-              <p className="text-xs text-destructive">{error}</p>
+              <p className="text-xs text-destructive" role="alert">{error}</p>
             )}
 
             {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (

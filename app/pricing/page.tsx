@@ -10,7 +10,6 @@ import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { CustomPlanSlider } from "@/components/PricingPage/CustomPlanSlider"
 import { TrustSection } from "@/components/PricingPage/TrustSection"
-import { useTheme } from "next-themes"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -18,7 +17,6 @@ export default function Pricing() {
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
-  const { theme } = useTheme()
 
   useEffect(() => {
     const checkSession = async () => {
@@ -48,11 +46,11 @@ export default function Pricing() {
       features: [
         "Write without mistakes", 
         "See your writing tone", 
-        "Free 1000 words",
+        "1,000 free tokens",
         "Basic plagiarism detection",
       ],
       button: {
-        text: user ? "Current Plan" : "Get Started Free",
+        text: user ? "Included free" : "Get Started Free",
         variant: "outline" as const,
       },
       priceId: null,
@@ -123,9 +121,9 @@ export default function Pricing() {
   return (
     <div className="min-h-screen bg-background">
       <Nav />
-      <main>
+      <div>
         {/* Hero Section */}
-        <section className="container py-16">
+        <section className="container mx-auto px-4 py-16">
           <div className="grid gap-8">
             <div className="grid gap-6 text-center max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mx-auto">
@@ -207,7 +205,7 @@ export default function Pricing() {
                       </Button>
                       <div className="space-y-4">
                         <div className="text-sm font-semibold text-foreground mb-3">
-                          Whats included:
+                          What&apos;s included:
                         </div>
                         {plan.features.map((feature) => (
                           <div key={feature} className="flex items-start gap-3">
@@ -338,7 +336,7 @@ export default function Pricing() {
         <TrustSection />
 
         {/* FAQ Section */}
-        <section className="container py-16">
+        <section className="container mx-auto px-4 py-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Frequently Asked Questions</h2>
             <p className="text-muted-foreground">Everything you need to know about our pricing</p>
@@ -354,7 +352,7 @@ export default function Pricing() {
               <div>
                 <h3 className="font-semibold mb-2">Is my content secure?</h3>
                 <p className="text-sm text-muted-foreground">
-                  Absolutely. We use enterprise-grade security and never store or share your documents.
+                  Yes. Your content is sent over HTTPS, and only a short preview of each run is saved to your private history so you can revisit results. Your documents are never shared or used to train models.
                 </p>
               </div>
               <div>
@@ -386,7 +384,7 @@ export default function Pricing() {
             </div>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   )
 }

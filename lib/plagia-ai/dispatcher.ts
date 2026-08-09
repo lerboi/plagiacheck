@@ -268,7 +268,7 @@ export async function dispatchTool(
       return {
         ok: true,
         result: r.data,
-        remainingImageTokens: r.data.remainingTokens,
+        remainingImageTokens: r.data.remainingImageTokens,
         tokensUsed: r.data.tokensUsed,
         resultPreview: `Infographic: ${r.data.result?.title || "Untitled"}`,
       }
@@ -283,7 +283,7 @@ export async function dispatchTool(
       return {
         ok: true,
         result: r.data,
-        remainingImageTokens: r.data.remainingTokens,
+        remainingImageTokens: r.data.remainingImageTokens,
         tokensUsed: r.data.tokensUsed,
         resultPreview: `Chart (${r.data.result?.chartType || "auto"}): ${r.data.result?.title || "Untitled"}`,
       }
@@ -305,7 +305,7 @@ export async function dispatchTool(
       return {
         ok: true,
         result: r.data,
-        remainingImageTokens: r.data.remainingTokens,
+        remainingImageTokens: r.data.remainingImageTokens,
         tokensUsed: r.data.tokensUsed,
         resultPreview: extracted
           ? `Extracted ${(extracted as string).length} chars${confidence ? ` (${confidence} confidence)` : ""}`
@@ -354,7 +354,7 @@ export async function dispatchTool(
       return {
         ok: true,
         result: r.data,
-        remainingImageTokens: r.data.remainingTokens,
+        remainingImageTokens: r.data.remainingImageTokens,
         tokensUsed: r.data.tokensUsed,
         resultPreview: `Thumbnail: ${r.data.result?.title || "Untitled"}`,
       }

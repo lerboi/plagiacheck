@@ -5,7 +5,7 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
-import { Loader2, Mic, Copy, Check, FileAudio, Square, Trash2, ListChecks, Layers } from "lucide-react"
+import { Loader2, Mic, Copy, Check, FileAudio, Square, Trash2, ListChecks, Layers, Download } from "lucide-react"
 import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
@@ -32,7 +32,7 @@ export default function AudioSummarizer() {
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
   const [duration, setDuration] = useState(0)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -42,7 +42,8 @@ export default function AudioSummarizer() {
 
   const recognitionRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const interimRef = useRef("")
+  const finalTranscriptRef = useRef("")
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -70,35 +71,55 @@ export default function AudioSummarizer() {
     recognition.interimResults = true
     recognition.lang = "en-US"
 
+    // Capture whatever is currently in the textarea (including manual edits)
+    // as the finalized base for this recording session.
+    setRawTranscript((cur) => {
+      finalTranscriptRef.current = cur.trim()
+      return cur
+    })
+
+    let fatalError = false
+
     recognition.onresult = (event: any) => {
-      let finalTranscript = ""
       let interimTranscript = ""
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
-          finalTranscript += result[0].transcript + " "
+          const segment = result[0].transcript.trim()
+          if (segment) {
+            finalTranscriptRef.current = (finalTranscriptRef.current ? finalTranscriptRef.current + " " : "") + segment
+          }
         } else {
           interimTranscript += result[0].transcript
         }
       }
-      if (finalTranscript) {
-        setRawTranscript((prev) => {
-          const cleaned = prev.replace(interimRef.current, "").trim()
-          interimRef.current = ""
-          return (cleaned ? cleaned + " " : "") + finalTranscript.trim()
-        })
-      }
-      interimRef.current = interimTranscript
+      const interim = interimTranscript.trim()
+      const finalized = finalTranscriptRef.current
+      setRawTranscript(interim ? (finalized ? finalized + " " + interim : interim) : finalized)
     }
 
     recognition.onerror = (event: any) => {
-      if (event.error !== "no-speech") {
+      if (event.error === "no-speech") return
+
+      if (["not-allowed", "audio-capture", "service-not-allowed"].includes(event.error)) {
+        fatalError = true
+        if (recognitionRef.current === recognition) recognitionRef.current = null
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+        setIsRecording(false)
+        setError(
+          event.error === "not-allowed"
+            ? "Microphone access was denied. Please allow microphone access in your browser and try again."
+            : event.error === "audio-capture"
+              ? "No microphone was found. Please check your audio input device and try again."
+              : "Speech recognition is not available in this browser. Please try Chrome or Edge."
+        )
+      } else {
         setError(`Speech recognition error: ${event.error}`)
       }
     }
 
     recognition.onend = () => {
-      if (recognitionRef.current) {
+      if (!fatalError && recognitionRef.current === recognition) {
         try { recognition.start() } catch {}
       }
     }
@@ -140,8 +161,18 @@ export default function AudioSummarizer() {
     if (!rawTranscript.trim()) return
 
     const requiredTokens = calculateRequiredTokens(rawTranscript)
-    if (requiredTokens > remainingWords) { router.push("/pricing"); return }
+    if (requiredTokens > remainingWords) {
+      toast({
+        title: "Not enough tokens",
+        description: `Summarizing this needs ${requiredTokens} tokens but you have ${remainingWords}. Redirecting to pricing.`,
+        variant: "destructive",
+      })
+      await syncWordBalance()
+      router.push("/pricing")
+      return
+    }
 
+    const requestId = ++requestIdRef.current
     setIsProcessing(true)
     setSummary(null)
     setError(null)
@@ -154,13 +185,24 @@ export default function AudioSummarizer() {
         body: JSON.stringify({ text: rawTranscript, tool: "audio-summarize" }),
       })
 
-      if (response.status === 401) { router.push("/signin"); return }
-      if (response.status === 402) { router.push("/pricing"); return }
+      if (requestId !== requestIdRef.current) return
+      if (response.status === 401) { router.push("/signin?next=/audio-summarizer"); return }
+      if (response.status === 402) {
+        toast({
+          title: "Not enough tokens",
+          description: "You have run out of tokens for this summary. Redirecting to pricing.",
+          variant: "destructive",
+        })
+        await syncWordBalance()
+        router.push("/pricing")
+        return
+      }
       const data = await response.json()
+      if (requestId !== requestIdRef.current) return
       if (!response.ok) throw new Error(data.error || "Failed to summarize")
 
       setSummary(data.result)
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Audio Summarized",
@@ -168,36 +210,60 @@ export default function AudioSummarizer() {
         variant: "success",
       })
     } catch (err) {
+      if (requestId !== requestIdRef.current) return
       const msg = err instanceof Error ? err.message : "Failed to summarize"
       setError(msg)
       toast({ title: "Error", description: msg, variant: "destructive" })
     } finally {
-      setIsProcessing(false)
+      if (requestId === requestIdRef.current) setIsProcessing(false)
     }
   }
 
-  const handleCopy = async () => {
-    if (!summary) return
-    const text = [
+  const buildSummaryText = () => {
+    if (!summary) return ""
+    return [
       summary.title && `# ${summary.title}`,
       summary.overview && `\n${summary.overview}`,
       summary.keyPoints?.length && `\n## Key Points\n${summary.keyPoints.map((p, i) => `${i + 1}. ${p}`).join("\n")}`,
       summary.detailedSummary && `\n## Detailed Summary\n${summary.detailedSummary}`,
-      summary.actionItems?.length && `\n## Action Items\n${summary.actionItems.map((a, i) => `- ${a}`).join("\n")}`,
+      summary.actionItems?.length && `\n## Action Items\n${summary.actionItems.map((a) => `- ${a}`).join("\n")}`,
     ].filter(Boolean).join("\n")
+  }
 
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    toast({ title: "Copied!", description: "Summary copied to clipboard", variant: "success" })
-    setTimeout(() => setCopied(false), 2000)
+  const handleCopy = async () => {
+    if (!summary) return
+    try {
+      await navigator.clipboard.writeText(buildSummaryText())
+      setCopied(true)
+      toast({ title: "Copied!", description: "Summary copied to clipboard", variant: "success" })
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast({ title: "Copy failed", description: "Could not access the clipboard. Please copy manually.", variant: "destructive" })
+    }
+  }
+
+  const handleDownload = () => {
+    if (!summary) return
+    const blob = new Blob([buildSummaryText()], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = "audio-summary.txt"
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   const clearAll = () => {
     stopRecording()
+    requestIdRef.current++
+    finalTranscriptRef.current = ""
     setRawTranscript("")
     setSummary(null)
     setDuration(0)
     setError(null)
+    setIsProcessing(false)
   }
 
   const formatDuration = (seconds: number) => {
@@ -268,7 +334,7 @@ export default function AudioSummarizer() {
             {rawTranscript && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
-                <Button variant="ghost" size="sm" onClick={clearAll} className="text-red-500 hover:text-red-600 h-7 text-xs">
+                <Button variant="ghost" size="sm" onClick={clearAll} disabled={isProcessing} className="text-red-500 hover:text-red-600 h-7 text-xs">
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
                 </Button>
               </div>
@@ -288,6 +354,7 @@ export default function AudioSummarizer() {
               value={rawTranscript}
               onChange={(e) => setRawTranscript(e.target.value)}
               placeholder="Record audio above or paste a transcript here..."
+              aria-label="Audio transcript"
             />
 
             {needsSignIn && !user && <ToolSignInPrompt />}
@@ -300,7 +367,7 @@ export default function AudioSummarizer() {
             )}
 
             {error && (
-              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+              <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
             )}
 
             <Button
@@ -311,7 +378,7 @@ export default function AudioSummarizer() {
               {isProcessing ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Summarizing...</>
               ) : (
-                <><FileAudio className="mr-2 h-4 w-4" />Summarize ({calculateRequiredTokens(rawTranscript)} tokens)</>
+                <><FileAudio className="mr-2 h-4 w-4" />Summarize{rawTranscript.trim() ? ` (${calculateRequiredTokens(rawTranscript)} tokens)` : ""}</>
               )}
             </Button>
           </div>
@@ -331,9 +398,14 @@ export default function AudioSummarizer() {
                   </span>
                 )}
               </div>
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 shrink-0" onClick={handleCopy}>
-                {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
-              </Button>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload}>
+                  <Download className="h-3 w-3" />Download .txt
+                </Button>
+              </div>
             </div>
 
             {/* Overview */}

@@ -20,6 +20,17 @@ export async function POST(req: Request) {
       return Response.json({ error: 'No transcript provided' }, { status: 400 });
     }
 
+    if (typeof transcript !== 'string') {
+      return Response.json({ error: 'Invalid transcript parameter' }, { status: 400 });
+    }
+
+    if (transcript.length > 50_000) {
+      return Response.json(
+        { error: 'Transcript exceeds maximum length of 50000 characters' },
+        { status: 400 }
+      );
+    }
+
     if (!mistralClient) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
     }
@@ -105,11 +116,12 @@ Return ONLY a valid JSON object:
         }
       }
 
-      await recordToolUse({
+      void recordToolUse({
         userId: user.id,
         tool: 'speech-to-text',
         input: transcript,
         output: String(result.cleanedText || '').slice(0, 200),
+        metadata: { action: action === 'clean' ? 'clean' : 'format' },
         tokensUsed: cost,
       });
 
@@ -118,15 +130,12 @@ Return ONLY a valid JSON object:
       await refundTextTokens(user.id, cost);
       console.error('Speech-to-text API error:', error);
       return Response.json(
-        { error: error.message || 'Failed to process transcript' },
-        { status: 500 }
+        { error: 'AI service temporarily unavailable. Please try again.' },
+        { status: 502 }
       );
     }
   } catch (error: any) {
     console.error('Speech-to-text API error:', error);
-    return Response.json(
-      { error: error.message || 'Failed to process transcript' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Failed to process transcript' }, { status: 500 });
   }
 }

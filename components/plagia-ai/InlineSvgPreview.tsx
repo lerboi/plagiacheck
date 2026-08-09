@@ -67,7 +67,7 @@ export function InlineSvgPreview({ svg, toolName }: InlineSvgPreviewProps) {
         // in and let the browser size it naturally.
         role="img"
         aria-label={`${label} output`}
-        className="rounded-lg bg-white shadow-sm border border-border overflow-hidden p-3"
+        className="rounded-lg bg-white shadow-sm border border-border overflow-hidden p-3 [&>svg]:w-full [&>svg]:h-auto"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
       <div className="flex items-center justify-end">

@@ -220,7 +220,7 @@ function getBaseStyles(): string {
   `
 }
 
-export function generatePlagiarismReport(data: PlagiarismReportData): void {
+export function generatePlagiarismReport(data: PlagiarismReportData): boolean {
   const scoreClass = data.plagiarismPercentage < 20 ? "score-green" : data.plagiarismPercentage < 50 ? "score-yellow" : "score-red"
 
   const html = `
@@ -261,15 +261,15 @@ export function generatePlagiarismReport(data: PlagiarismReportData): void {
 
       <div class="section">
         <div class="section-title">Analyzed Text</div>
-        <div class="text-box">${data.text.substring(0, 1000)}${data.text.length > 1000 ? "..." : ""}</div>
+        <div class="text-box">${escapeHtml(data.text.substring(0, 1000))}${data.text.length > 1000 ? "..." : ""}</div>
       </div>
 
       ${data.matches.length > 0 ? `
       <div class="section">
         <div class="section-title">Potential Matches (${data.matches.length})</div>
-        ${data.matches.map((match, i) => `
+        ${data.matches.map((match) => `
           <div class="match-item">
-            <div class="match-text">"${match.text}"</div>
+            <div class="match-text">"${escapeHtml(match.text)}"</div>
             <div class="match-similarity">${match.similarity}% similarity</div>
           </div>
         `).join("")}
@@ -284,10 +284,10 @@ export function generatePlagiarismReport(data: PlagiarismReportData): void {
     </html>
   `
 
-  openPrintWindow(html, "Plagiarism_Report")
+  return openPrintWindow(html)
 }
 
-export function generateAIDetectorReport(data: AIDetectorReportData): void {
+export function generateAIDetectorReport(data: AIDetectorReportData): boolean {
   const scoreClass = data.aiScore < 30 ? "score-green" : data.aiScore < 70 ? "score-yellow" : "score-red"
 
   const html = `
@@ -365,7 +365,7 @@ export function generateAIDetectorReport(data: AIDetectorReportData): void {
     </html>
   `
 
-  openPrintWindow(html, "AI_Detection_Report")
+  return openPrintWindow(html)
 }
 
 function escapeHtml(s: string): string {
@@ -377,7 +377,7 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;")
 }
 
-export function generateGrammarReport(data: GrammarReportData): void {
+export function generateGrammarReport(data: GrammarReportData): boolean {
   const html = `
     <!DOCTYPE html>
     <html>
@@ -417,13 +417,13 @@ export function generateGrammarReport(data: GrammarReportData): void {
       ${data.issues.length > 0 ? `
       <div class="section">
         <div class="section-title">Issues Found</div>
-        ${data.issues.map((issue, i) => `
-          <div class="issue-item issue-${issue.type}">
-            <div class="issue-message">${issue.message}</div>
+        ${data.issues.map((issue) => `
+          <div class="issue-item issue-${["error", "warning", "suggestion"].includes(issue.type) ? issue.type : "suggestion"}">
+            <div class="issue-message">${escapeHtml(issue.message)}</div>
             <div class="issue-fix">
-              <span class="strike">${issue.text}</span>
+              <span class="strike">${escapeHtml(issue.text)}</span>
               <span> → </span>
-              <span class="replacement">${issue.replacement}</span>
+              <span class="replacement">${escapeHtml(issue.replacement)}</span>
             </div>
           </div>
         `).join("")}
@@ -432,12 +432,12 @@ export function generateGrammarReport(data: GrammarReportData): void {
 
       <div class="section">
         <div class="section-title">Original Text</div>
-        <div class="text-box">${data.originalText.substring(0, 800)}${data.originalText.length > 800 ? "..." : ""}</div>
+        <div class="text-box">${escapeHtml(data.originalText.substring(0, 800))}${data.originalText.length > 800 ? "..." : ""}</div>
       </div>
 
       <div class="section">
         <div class="section-title">Corrected Text</div>
-        <div class="text-box" style="background: #f0fdf4; border-color: #bbf7d0;">${data.correctedText.substring(0, 800)}${data.correctedText.length > 800 ? "..." : ""}</div>
+        <div class="text-box" style="background: #f0fdf4; border-color: #bbf7d0;">${escapeHtml(data.correctedText.substring(0, 800))}${data.correctedText.length > 800 ? "..." : ""}</div>
       </div>
 
       <div class="footer">
@@ -448,20 +448,31 @@ export function generateGrammarReport(data: GrammarReportData): void {
     </html>
   `
 
-  openPrintWindow(html, "Grammar_Report")
+  return openPrintWindow(html)
 }
 
-function openPrintWindow(html: string, filename: string): void {
+/**
+ * Opens the report in a new window and triggers the print dialog.
+ * Returns false when the popup was blocked so callers can tell the user
+ * instead of toasting a false success.
+ */
+function openPrintWindow(html: string): boolean {
   const printWindow = window.open("", "_blank")
-  if (printWindow) {
-    printWindow.document.write(html)
-    printWindow.document.close()
+  if (!printWindow) return false
 
-    // Wait for content to load then trigger print
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print()
-      }, 250)
+  printWindow.document.write(html)
+  printWindow.document.close()
+
+  // For a document.write'd about:blank the load event may already have
+  // fired by the time we could assign onload — schedule print directly
+  // once the current tick's parsing has settled.
+  setTimeout(() => {
+    try {
+      printWindow.focus()
+      printWindow.print()
+    } catch {
+      // Window was closed before printing — nothing to do.
     }
-  }
+  }, 250)
+  return true
 }

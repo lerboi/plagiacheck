@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -97,9 +97,11 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>("all")
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     const init = async () => {
@@ -110,57 +112,70 @@ export default function HistoryPage() {
       setUser(u)
       setAuthChecked(true)
       if (!u) {
-        router.push("/signin")
+        router.push("/signin?next=/history")
       }
     }
     init()
   }, [supabase, router])
 
+  // Debounce the search input and reset to the first page when it changes,
+  // so the server-side query and pagination stay in sync.
   useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search.trim())
+      setPage(0)
+    }, 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const fetchHistory = useCallback(async () => {
     if (!user) return
-    const fetchHistory = async () => {
-      setLoading(true)
-      setError(null)
-      let query = supabase
-        .from("tool_history")
-        .select(
-          "id, tool, input_preview, output_preview, metadata, tokens_used, created_at",
-          { count: "exact" }
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+    setLoading(true)
+    setError(null)
+    let query = supabase
+      .from("tool_history")
+      .select(
+        "id, tool, input_preview, output_preview, metadata, tokens_used, created_at",
+        { count: "exact" }
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
-      if (filter !== "all") query = query.eq("tool", filter)
+    if (filter !== "all") query = query.eq("tool", filter)
 
-      const { data, error: fetchError, count } = await query
-
-      if (fetchError) {
-        setError("Could not load your history. Please try again.")
-        setRows([])
-        setTotalCount(null)
-        setLoading(false)
-        return
-      }
-
-      const fetched = (data || []) as ToolHistoryRow[]
-      setHasMore(fetched.length > PAGE_SIZE)
-      setRows(fetched.slice(0, PAGE_SIZE))
-      setTotalCount(typeof count === "number" ? count : null)
-      setLoading(false)
+    if (debouncedSearch) {
+      // Escape LIKE wildcards, and neutralize characters that would break
+      // the PostgREST or() filter grammar.
+      const escaped = debouncedSearch
+        .replace(/\\/g, "\\\\")
+        .replace(/[%_]/g, (m) => `\\${m}`)
+        .replace(/[,()"]/g, " ")
+      query = query.or(
+        `input_preview.ilike.%${escaped}%,output_preview.ilike.%${escaped}%`
+      )
     }
-    fetchHistory()
-  }, [supabase, user, filter, page])
 
-  const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows
-    const needle = search.toLowerCase()
-    return rows.filter(
-      (r) =>
-        r.input_preview.toLowerCase().includes(needle) ||
-        (r.output_preview && r.output_preview.toLowerCase().includes(needle))
-    )
-  }, [rows, search])
+    const { data, error: fetchError, count } = await query
+
+    if (fetchError) {
+      setError("Could not load your history. Please try again.")
+      setRows([])
+      setTotalCount(null)
+      setLoading(false)
+      return
+    }
+
+    const fetched = (data || []) as ToolHistoryRow[]
+    setHasMore(fetched.length > PAGE_SIZE)
+    setRows(fetched.slice(0, PAGE_SIZE))
+    setTotalCount(typeof count === "number" ? count : null)
+    setLoading(false)
+  }, [supabase, user, filter, page, debouncedSearch])
+
+  useEffect(() => {
+    fetchHistory()
+  }, [fetchHistory])
 
   const handleDelete = async (id: string) => {
     if (!user) return
@@ -170,6 +185,8 @@ export default function HistoryPage() {
       .eq("id", id)
       .eq("user_id", user.id)
 
+    setConfirmDeleteId(null)
+
     if (delError) {
       toast({
         title: "Could not delete",
@@ -178,7 +195,18 @@ export default function HistoryPage() {
       })
       return
     }
-    setRows((prev) => prev.filter((r) => r.id !== id))
+
+    const newTotal = Math.max(0, (totalCount ?? 1) - 1)
+    setTotalCount(newTotal)
+
+    // If deleting the last row on this page, step back a page; otherwise
+    // refetch the current page so it refills from the server.
+    if (page > 0 && page * PAGE_SIZE >= newTotal) {
+      setPage(page - 1)
+    } else {
+      fetchHistory()
+    }
+
     toast({
       title: "Deleted",
       description: "History entry removed.",
@@ -260,18 +288,20 @@ export default function HistoryPage() {
             <div className="flex justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredRows.length === 0 ? (
+          ) : rows.length === 0 ? (
             <Card className="p-12 text-center border-dashed">
               <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
               <h3 className="font-semibold text-lg">
-                {rows.length === 0 ? "No history yet" : "No matching entries"}
+                {search.trim() || filter !== "all"
+                  ? "No matches for your search"
+                  : "No history yet"}
               </h3>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
-                {rows.length === 0
-                  ? "Your tool runs will show up here."
-                  : "Try a different search or filter."}
+                {search.trim() || filter !== "all"
+                  ? "Try a different search term or tool filter."
+                  : "Your tool runs will show up here."}
               </p>
-              {rows.length === 0 && (
+              {!search.trim() && filter === "all" && (
                 <Button asChild>
                   <Link href="/">
                     Try a tool
@@ -283,7 +313,7 @@ export default function HistoryPage() {
           ) : (
             <>
               <ul className="space-y-3">
-                {filteredRows.map((row, i) => {
+                {rows.map((row, i) => {
                   const meta = TOOL_META[row.tool] || {
                     label: row.tool,
                     href: "/",
@@ -339,15 +369,38 @@ export default function HistoryPage() {
                                 <ArrowRight className="h-3.5 w-3.5 ml-1" />
                               </Link>
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(row.id)}
-                              className="h-8 text-muted-foreground hover:text-red-500"
-                              aria-label="Delete history entry"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {confirmDeleteId === row.id ? (
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDelete(row.id)}
+                                  className="h-8 px-2 text-xs"
+                                  aria-label="Confirm delete"
+                                >
+                                  Delete
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="h-8 px-2 text-xs"
+                                  aria-label="Cancel delete"
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmDeleteId(row.id)}
+                                className="h-8 text-muted-foreground hover:text-red-500"
+                                aria-label="Delete history entry"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </Card>
@@ -355,8 +408,13 @@ export default function HistoryPage() {
                   )
                 })}
               </ul>
+            </>
+          )}
 
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-6">
+          {/* Pagination — always visible when there are results overall, even
+              if the current page/search combination is empty. */}
+          {!loading && totalCount !== null && totalCount > 0 && (
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-6">
                 <span className="text-xs sm:text-sm text-muted-foreground tabular-nums text-center sm:text-left">
                   {totalCount !== null ? (
                     <>
@@ -393,8 +451,7 @@ export default function HistoryPage() {
                     Next
                   </Button>
                 </div>
-              </div>
-            </>
+            </div>
           )}
         </motion.div>
       </section>

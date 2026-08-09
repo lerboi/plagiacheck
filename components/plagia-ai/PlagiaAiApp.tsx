@@ -642,7 +642,15 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
 
         if (!response.ok || !response.body) {
           const errText = await response.text().catch(() => "")
-          throw new Error(errText || `Request failed (${response.status})`)
+          // The route returns JSON error bodies — surface the message, not raw JSON.
+          let friendly = ""
+          try {
+            const parsed = JSON.parse(errText)
+            if (parsed && typeof parsed.error === "string") friendly = parsed.error
+          } catch {
+            friendly = errText
+          }
+          throw new Error(friendly || `Request failed (${response.status})`)
         }
 
         const reader = response.body.getReader()
@@ -1800,11 +1808,17 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 aria-label="Ask PlagiaAI"
                 aria-describedby="plagia-ai-keyboard-hint"
                 value={input}
+                maxLength={12000}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={1}
                 className="min-h-[52px] max-h-[200px] resize-none border-0 bg-transparent text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0"
               />
+              {input.length > 11000 && (
+                <p className="px-3 text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">
+                  {input.length.toLocaleString()}/12,000 characters
+                </p>
+              )}
               <div className="flex items-center justify-between gap-2 px-3 pb-2.5 flex-wrap">
                 <div className="flex items-center gap-1">
                   <button

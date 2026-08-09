@@ -35,6 +35,10 @@ export function ToolPageHeader({
         transition: { duration: 0.3, ease: "easeOut" as const },
       }
 
+  // iconBg is expected to be "<bg-class> <border-class>"; fall back to a
+  // neutral border when only a single class is provided.
+  const ringBorderClass = iconBg.split(" ")[1] || "border-border"
+
   return (
     <motion.div {...motionProps} className="border-b border-border">
       <div className="container max-w-5xl mx-auto px-4 py-10 md:py-14 flex items-center justify-between gap-8">
@@ -56,8 +60,8 @@ export function ToolPageHeader({
           <div className={`relative flex h-20 w-20 items-center justify-center rounded-2xl border ${iconBg}`}>
             <Icon className={`h-9 w-9 ${iconColor}`} strokeWidth={1.5} />
           </div>
-          <div className={`absolute w-28 h-28 rounded-full border border-dashed opacity-15 ${iconBg.split(" ")[1] || "border-border"}`} />
-          <div className={`absolute w-36 h-36 rounded-full border opacity-8 ${iconBg.split(" ")[1] || "border-border"}`} />
+          <div className={`absolute w-28 h-28 rounded-full border border-dashed opacity-15 ${ringBorderClass}`} />
+          <div className={`absolute w-36 h-36 rounded-full border opacity-[0.08] ${ringBorderClass}`} />
         </div>
       </div>
     </motion.div>

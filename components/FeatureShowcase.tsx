@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Search, Zap, Award } from 'lucide-react';
@@ -36,7 +38,8 @@ export const FeatureShowcase: React.FC = () => {
               key={index}
               className="p-6 rounded-lg border border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-white/5 dark:bg-gray-800/5"
               initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
               <div className="flex flex-col items-center text-center">

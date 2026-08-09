@@ -74,6 +74,8 @@ Return ONLY a valid JSON object:
 }`,
 };
 
+const MAX_INPUT_LENGTH = 50_000;
+
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -85,18 +87,23 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Missing text or tool parameter' }, { status: 400 });
     }
 
-    if (!TOOL_PROMPTS[tool]) {
+    if (typeof text !== 'string') {
+      return Response.json({ error: 'Invalid text parameter' }, { status: 400 });
+    }
+
+    if (text.length > MAX_INPUT_LENGTH) {
+      return Response.json(
+        { error: `Text exceeds maximum length of ${MAX_INPUT_LENGTH} characters` },
+        { status: 400 }
+      );
+    }
+
+    if (typeof tool !== 'string' || !Object.prototype.hasOwnProperty.call(TOOL_PROMPTS, tool)) {
       return Response.json({ error: 'Invalid tool' }, { status: 400 });
     }
 
     if (!mistralClient) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
-    }
-
-    const cost = calculateTextTokenCost(text);
-    const newBalance = await deductTextTokens(user.id, cost);
-    if (newBalance === null) {
-      return Response.json({ error: 'Insufficient tokens', code: 'INSUFFICIENT_TOKENS' }, { status: 402 });
     }
 
     let userPrompt = '';
@@ -107,6 +114,12 @@ export async function POST(req: Request) {
       case 'audio-summarize':
         userPrompt = `Summarize this audio transcript, extracting the key points and important information:\n\n${text}`;
         break;
+    }
+
+    const cost = calculateTextTokenCost(text);
+    const newBalance = await deductTextTokens(user.id, cost);
+    if (newBalance === null) {
+      return Response.json({ error: 'Insufficient tokens', code: 'INSUFFICIENT_TOKENS' }, { status: 402 });
     }
 
     try {
@@ -142,11 +155,12 @@ export async function POST(req: Request) {
         ? (result.overview || result.detailedSummary?.slice(0, 200))
         : (result.title ? `${result.title} — ${String(result.essay || '').slice(0, 100)}` : String(result.essay || '').slice(0, 200));
 
-      await recordToolUse({
+      void recordToolUse({
         userId: user.id,
         tool: tool as ToolHistoryTool,
         input: text,
         output: outputPreview,
+        metadata: { tool },
         tokensUsed: cost,
       });
 
@@ -155,15 +169,12 @@ export async function POST(req: Request) {
       await refundTextTokens(user.id, cost);
       console.error('Voice tools API error:', error);
       return Response.json(
-        { error: error.message || 'Internal server error' },
-        { status: 500 }
+        { error: 'AI service temporarily unavailable. Please try again.' },
+        { status: 502 }
       );
     }
   } catch (error: any) {
     console.error('Voice tools API error:', error);
-    return Response.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

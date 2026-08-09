@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
@@ -22,24 +22,46 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [hasRecoverySession, setHasRecoverySession] = useState<boolean | null>(null)
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Supabase auth-helpers automatically exchanges the URL hash for a
-    // session. We start in a loading state and resolve to true/false
-    // once we know.
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setHasRecoverySession(!!session)
-    }
-    checkSession()
+    // Only a genuine password-recovery flow may show the form. A plain
+    // existing session (user already signed in, no recovery link) is NOT
+    // enough — we require the PASSWORD_RECOVERY event or a recovery token
+    // in the URL hash.
+    let isRecovery = false
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setHasRecoverySession(!!session)
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        isRecovery = true
+        setHasRecoverySession(true)
+      }
     })
-    return () => listener.subscription.unsubscribe()
+
+    // The PASSWORD_RECOVERY event can fire before this listener attaches;
+    // the recovery link's hash fragment is a reliable fallback signal.
+    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
+      isRecovery = true
+      setHasRecoverySession(true)
+    }
+
+    // If no recovery signal arrives shortly, treat the visit as invalid.
+    const timer = setTimeout(() => {
+      if (!isRecovery) setHasRecoverySession(false)
+    }, 2500)
+
+    return () => {
+      listener.subscription.unsubscribe()
+      clearTimeout(timer)
+    }
   }, [supabase])
+
+  // Clear the post-success redirect timer if the page unmounts first.
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
+    }
+  }, [])
 
   const validatePassword = (pwd: string) => {
     if (pwd.length < 8) return "Password must be at least 8 characters."
@@ -69,7 +91,8 @@ export default function ResetPasswordPage() {
       const { error: updateError } = await supabase.auth.updateUser({ password })
       if (updateError) throw updateError
       setSuccess("Password updated. Redirecting you to sign in...")
-      setTimeout(() => router.push("/signin"), 1500)
+      await supabase.auth.signOut()
+      redirectTimerRef.current = setTimeout(() => router.push("/signin"), 1500)
     } catch (err: any) {
       setError(err?.message || "Could not update password. The reset link may have expired.")
     } finally {
@@ -80,7 +103,7 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen">
       <Nav />
-      <main className="container py-16">
+      <div className="container mx-auto px-4 py-16">
         <motion.div
           className="max-w-md mx-auto"
           initial={{ opacity: 0, y: 16 }}
@@ -168,6 +191,7 @@ export default function ResetPasswordPage() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
+                        role="alert"
                         className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"
                       >
                         <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
@@ -179,6 +203,8 @@ export default function ResetPasswordPage() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
+                        role="status"
+                        aria-live="polite"
                         className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg"
                       >
                         <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -206,7 +232,7 @@ export default function ResetPasswordPage() {
             </CardContent>
           </Card>
         </motion.div>
-      </main>
+      </div>
     </div>
   )
 }

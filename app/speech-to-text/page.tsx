@@ -5,7 +5,7 @@ import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Mic, Copy, Check, Sparkles, Trash2, Square } from "lucide-react"
+import { Loader2, Mic, Copy, Check, Sparkles, Trash2, Square, Download } from "lucide-react"
 import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -25,7 +25,7 @@ export default function SpeechToText() {
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [isSupported, setIsSupported] = useState(true)
   const [duration, setDuration] = useState(0)
-  const { remainingWords, decrementWords } = useTokenStore()
+  const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -36,7 +36,8 @@ export default function SpeechToText() {
 
   const recognitionRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
-  const interimRef = useRef("")
+  const finalTranscriptRef = useRef("")
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -70,38 +71,61 @@ export default function SpeechToText() {
     recognition.interimResults = true
     recognition.lang = "en-US"
 
+    // Capture whatever is currently in the textarea (including manual edits)
+    // as the finalized base for this recording session.
+    setRawTranscript((cur) => {
+      finalTranscriptRef.current = cur.trim()
+      return cur
+    })
+
+    let fatalError = false
+
     recognition.onresult = (event: any) => {
-      let finalTranscript = ""
       let interimTranscript = ""
 
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
-          finalTranscript += result[0].transcript + " "
+          const segment = result[0].transcript.trim()
+          if (segment) {
+            finalTranscriptRef.current = (finalTranscriptRef.current ? finalTranscriptRef.current + " " : "") + segment
+          }
         } else {
           interimTranscript += result[0].transcript
         }
       }
 
-      if (finalTranscript) {
-        setRawTranscript((prev) => {
-          const cleaned = prev.replace(interimRef.current, "").trim()
-          interimRef.current = ""
-          return (cleaned ? cleaned + " " : "") + finalTranscript.trim()
-        })
-      }
-      interimRef.current = interimTranscript
+      const interim = interimTranscript.trim()
+      const finalized = finalTranscriptRef.current
+      setRawTranscript(interim ? (finalized ? finalized + " " + interim : interim) : finalized)
     }
 
     recognition.onerror = (event: any) => {
-      if (event.error !== "no-speech") {
-        console.error("Speech recognition error:", event.error)
+      if (event.error === "no-speech") return
+      console.error("Speech recognition error:", event.error)
+
+      if (["not-allowed", "audio-capture", "service-not-allowed"].includes(event.error)) {
+        fatalError = true
+        if (recognitionRef.current === recognition) recognitionRef.current = null
+        if (timerRef.current) {
+          clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+        setIsRecording(false)
+        setError(
+          event.error === "not-allowed"
+            ? "Microphone access was denied. Please allow microphone access in your browser and try again."
+            : event.error === "audio-capture"
+              ? "No microphone was found. Please check your audio input device and try again."
+              : "Speech recognition is not available in this browser. Please try Chrome or Edge."
+        )
+      } else {
         setError(`Speech recognition error: ${event.error}`)
       }
     }
 
     recognition.onend = () => {
-      if (recognitionRef.current) {
+      if (!fatalError && recognitionRef.current === recognition) {
         try {
           recognition.start()
         } catch {
@@ -161,10 +185,17 @@ export default function SpeechToText() {
 
     const requiredTokens = calculateRequiredTokens(rawTranscript)
     if (requiredTokens > remainingWords) {
+      toast({
+        title: "Not enough tokens",
+        description: `AI cleanup needs ${requiredTokens} tokens but you have ${remainingWords}. Redirecting to pricing.`,
+        variant: "destructive",
+      })
+      await syncWordBalance()
       router.push("/pricing")
       return
     }
 
+    const requestId = ++requestIdRef.current
     setIsCleaning(true)
     setCleanedText("")
     setError(null)
@@ -177,16 +208,27 @@ export default function SpeechToText() {
         body: JSON.stringify({ transcript: rawTranscript, action: "clean" }),
       })
 
-      if (response.status === 401) { router.push("/signin"); return }
-      if (response.status === 402) { router.push("/pricing"); return }
+      if (requestId !== requestIdRef.current) return
+      if (response.status === 401) { router.push("/signin?next=/speech-to-text"); return }
+      if (response.status === 402) {
+        toast({
+          title: "Not enough tokens",
+          description: "You have run out of tokens for this cleanup. Redirecting to pricing.",
+          variant: "destructive",
+        })
+        await syncWordBalance()
+        router.push("/pricing")
+        return
+      }
       const data = await response.json()
+      if (requestId !== requestIdRef.current) return
 
       if (!response.ok) {
         throw new Error(data.error || "Failed to clean transcript")
       }
 
       setCleanedText(data.result.cleanedText || rawTranscript)
-      await decrementWords(requiredTokens)
+      await syncWordBalance(data.remainingTokens)
 
       toast({
         title: "Transcript Cleaned",
@@ -194,33 +236,53 @@ export default function SpeechToText() {
         variant: "success",
       })
     } catch (err) {
+      if (requestId !== requestIdRef.current) return
       console.error("Cleanup error:", err)
       const msg = err instanceof Error ? err.message : "Failed to clean transcript"
       setError(msg)
       toast({ title: "Error", description: msg, variant: "destructive" })
     } finally {
-      setIsCleaning(false)
+      if (requestId === requestIdRef.current) setIsCleaning(false)
     }
   }
 
   const handleCopy = async (text: string, type: "raw" | "clean") => {
-    await navigator.clipboard.writeText(text)
-    if (type === "raw") {
-      setCopiedRaw(true)
-      setTimeout(() => setCopiedRaw(false), 2000)
-    } else {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(text)
+      if (type === "raw") {
+        setCopiedRaw(true)
+        setTimeout(() => setCopiedRaw(false), 2000)
+      } else {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
+      toast({ title: "Copied!", description: "Text copied to clipboard", variant: "success" })
+    } catch {
+      toast({ title: "Copy failed", description: "Could not access the clipboard. Please copy manually.", variant: "destructive" })
     }
-    toast({ title: "Copied!", description: "Text copied to clipboard", variant: "success" })
+  }
+
+  const handleDownload = (text: string, filename: string) => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   const clearAll = () => {
     stopRecording()
+    requestIdRef.current++
+    finalTranscriptRef.current = ""
     setRawTranscript("")
     setCleanedText("")
     setDuration(0)
     setError(null)
+    setIsCleaning(false)
   }
 
   const formatDuration = (seconds: number) => {
@@ -302,7 +364,7 @@ export default function SpeechToText() {
             {rawTranscript && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
-                <Button variant="ghost" size="sm" onClick={clearAll} className="text-red-500 hover:text-red-600 h-7 text-xs">
+                <Button variant="ghost" size="sm" onClick={clearAll} disabled={isCleaning} className="text-red-500 hover:text-red-600 h-7 text-xs">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
                   Clear
                 </Button>
@@ -321,10 +383,16 @@ export default function SpeechToText() {
                     <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
                     Raw Transcript
                   </h3>
-                  <Button variant="ghost" size="sm" onClick={() => handleCopy(rawTranscript, "raw")} className="h-8">
-                    {copiedRaw ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
-                    {copiedRaw ? "Copied!" : "Copy"}
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleCopy(rawTranscript, "raw")} className="h-8">
+                      {copiedRaw ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
+                      {copiedRaw ? "Copied!" : "Copy"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDownload(rawTranscript, "raw-transcript.txt")} className="h-8">
+                      <Download className="h-4 w-4 mr-1" />
+                      Download .txt
+                    </Button>
+                  </div>
                 </div>
 
                 <Textarea
@@ -332,6 +400,7 @@ export default function SpeechToText() {
                   value={rawTranscript}
                   onChange={(e) => setRawTranscript(e.target.value)}
                   placeholder="Transcript appears here as you speak..."
+                  aria-label="Raw transcript"
                 />
 
                 {needsSignIn && !user && <ToolSignInPrompt />}
@@ -344,7 +413,7 @@ export default function SpeechToText() {
                 )}
 
                 {error && (
-                  <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+                  <p role="alert" className="text-xs text-red-600 dark:text-red-400">{error}</p>
                 )}
 
                 <Button
@@ -355,7 +424,7 @@ export default function SpeechToText() {
                   {isCleaning ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Cleaning Up...</>
                   ) : (
-                    <><Sparkles className="mr-2 h-4 w-4" />AI Clean Up ({calculateRequiredTokens(rawTranscript)} tokens)</>
+                    <><Sparkles className="mr-2 h-4 w-4" />AI Clean Up{rawTranscript.trim() ? ` (${calculateRequiredTokens(rawTranscript)} tokens)` : ""}</>
                   )}
                 </Button>
               </div>
@@ -377,6 +446,9 @@ export default function SpeechToText() {
                     <div className="ml-auto flex gap-1">
                       <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={() => handleCopy(cleanedText, "clean")}>
                         <Copy className="h-3 w-3" />Copy cleaned
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={() => handleDownload(cleanedText, "cleaned-transcript.txt")}>
+                        <Download className="h-3 w-3" />Download .txt
                       </Button>
                     </div>
                   </div>

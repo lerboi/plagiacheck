@@ -7,7 +7,7 @@ export default function NotFound() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Nav />
-      <main className="flex-1 flex items-center justify-center px-4">
+      <div className="flex-1 flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center space-y-6">
           <div className="mx-auto w-14 h-14 rounded-2xl bg-blue-500/10 flex items-center justify-center">
             <FileQuestion className="h-7 w-7 text-blue-500" />
@@ -33,7 +33,7 @@ export default function NotFound() {
             </Button>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

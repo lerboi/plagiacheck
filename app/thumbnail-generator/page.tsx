@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
-import { Loader2, ImagePlus, Download, Copy, Maximize } from "lucide-react"
+import { Loader2, ImagePlus, Download, Copy, Maximize, Trash2 } from "lucide-react"
 import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
@@ -22,6 +22,18 @@ const STYLES = [
   { value: "gradient", label: "Gradient" },
 ]
 
+const MAX_INPUT_CHARS = 2000
+
+function sanitizeFilename(name: string | null | undefined, fallback: string): string {
+  const cleaned = (name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+  return cleaned || fallback
+}
+
 export default function ThumbnailGenerator() {
   const [text, setText] = useState("")
   const [style, setStyle] = useState("modern")
@@ -29,11 +41,12 @@ export default function ThumbnailGenerator() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { remainingImageTokens, decrementImageTokens } = useTokenStore()
+  const { remainingImageTokens, syncImageBalance } = useTokenStore()
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
+  const generationRef = useRef(0)
 
   const IMAGE_TOKEN_COST = 2
 
@@ -60,6 +73,7 @@ export default function ThumbnailGenerator() {
       return
     }
 
+    const generation = ++generationRef.current
     setIsProcessing(true)
     setSvgOutput("")
     setError(null)
@@ -72,16 +86,23 @@ export default function ThumbnailGenerator() {
         body: JSON.stringify({ text, tool: "thumbnail", options: { style } }),
       })
 
-      if (response.status === 401) { router.push("/signin"); return }
-      if (response.status === 402) { router.push("/pricing"); return }
+      if (response.status === 401) { router.push("/signin?next=/thumbnail-generator"); return }
+      if (response.status === 402) {
+        toast({ title: "Not enough image tokens", description: "Purchase image tokens to generate thumbnails.", variant: "destructive" })
+        await syncImageBalance()
+        router.push("/pricing")
+        return
+      }
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to generate thumbnail")
+      if (generation !== generationRef.current) return
 
       setSvgOutput(data.result.svg || "")
-      await decrementImageTokens(IMAGE_TOKEN_COST)
+      await syncImageBalance(data.remainingImageTokens)
 
       toast({ title: "Thumbnail Generated", description: `${data.result.style || style} style cover image created`, variant: "success" })
     } catch (err) {
+      if (generation !== generationRef.current) return
       const msg = err instanceof Error ? err.message : "Failed to generate"
       setError(msg)
       toast({ title: "Error", description: msg, variant: "destructive" })
@@ -90,21 +111,35 @@ export default function ThumbnailGenerator() {
     }
   }
 
+  const handleClear = () => {
+    generationRef.current++
+    setText("")
+    setSvgOutput("")
+    setError(null)
+  }
+
   const handleDownload = () => {
     if (!svgOutput) return
     const blob = new Blob([svgOutput], { type: "image/svg+xml" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = "thumbnail.svg"
+    a.download = `${sanitizeFilename(text, "thumbnail")}.svg`
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 0)
     toast({ title: "Downloaded!", description: "SVG file saved", variant: "success" })
   }
 
   const handleCopySvg = async () => {
-    await navigator.clipboard.writeText(svgOutput)
-    toast({ title: "Copied!", description: "SVG code copied to clipboard", variant: "success" })
+    if (!svgOutput) return
+    try {
+      await navigator.clipboard.writeText(svgOutput)
+      toast({ title: "Copied!", description: "SVG code copied to clipboard", variant: "success" })
+    } catch {
+      toast({ title: "Copy failed", description: "Could not access the clipboard", variant: "destructive" })
+    }
   }
 
   return (
@@ -124,14 +159,24 @@ export default function ThumbnailGenerator() {
       <section className="container max-w-2xl mx-auto px-4 py-6 space-y-4">
         {/* Input card */}
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-          <span className="text-sm font-medium">Title or Topic</span>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Title or Topic</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground tabular-nums">{text.length}/{MAX_INPUT_CHARS}</span>
+              <Button variant="ghost" size="sm" onClick={handleClear} disabled={isProcessing} className="h-7 text-xs text-destructive hover:text-destructive">
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Clear
+              </Button>
+            </div>
+          </div>
 
           <input
             type="text"
             placeholder="e.g., 'The Future of Artificial Intelligence in Healthcare'"
             className="w-full h-11 px-3 text-sm rounded-lg border border-border bg-transparent outline-none transition-colors focus:border-violet-500 dark:focus:border-violet-400"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            maxLength={MAX_INPUT_CHARS}
+            onChange={(e) => setText(e.target.value.slice(0, MAX_INPUT_CHARS))}
           />
 
           {/* Style selector */}
@@ -191,7 +236,7 @@ export default function ThumbnailGenerator() {
               </div>
             </div>
             <div className="rounded-xl border border-border overflow-hidden bg-black" style={{ aspectRatio: "1200/630" }}>
-              <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full h-full" />
+              <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full h-full [&>svg]:w-full [&>svg]:h-auto" />
             </div>
           </div>
         </ResultReveal>
