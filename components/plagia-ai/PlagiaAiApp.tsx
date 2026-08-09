@@ -55,6 +55,7 @@ import {
   downloadConversationMarkdown,
   type ExportableMessage,
 } from "@/lib/plagia-ai/export"
+import { AssistantMarkdown } from "@/components/plagia-ai/AssistantMarkdown"
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
 import { EmptyState } from "@/components/plagia-ai/EmptyState"
 import { InlineSvgPreview } from "@/components/plagia-ai/InlineSvgPreview"
@@ -1473,12 +1474,16 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         transition={{ duration: 0.15 }}
                         className="flex flex-col items-start"
                       >
-                        <div className="group relative max-w-[85%] text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">
+                        <div className="group relative max-w-[85%] text-sm leading-relaxed text-foreground">
                           <span className="sr-only">Assistant said: </span>
-                          {it.content}
-                          {isStreamingThis && (
-                            <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" aria-hidden="true" />
-                          )}
+                          <AssistantMarkdown
+                            content={it.content}
+                            trailing={
+                              isStreamingThis ? (
+                                <span className="inline-block ml-0.5 w-1.5 h-3.5 bg-violet-500/70 align-[-2px] animate-pulse" aria-hidden="true" />
+                              ) : null
+                            }
+                          />
                           {!isStreamingThis && it.content.trim() && (
                             <button
                               type="button"
