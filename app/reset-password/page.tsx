@@ -38,11 +38,19 @@ export default function ResetPasswordPage() {
       }
     })
 
-    // The PASSWORD_RECOVERY event can fire before this listener attaches;
-    // the recovery link's hash fragment is a reliable fallback signal.
-    if (typeof window !== "undefined" && window.location.hash.includes("type=recovery")) {
-      isRecovery = true
-      setHasRecoverySession(true)
+    // The PASSWORD_RECOVERY event can fire before this listener attaches.
+    // Recovery links arrive in two shapes depending on the auth flow:
+    // implicit flow puts "type=recovery" in the hash; PKCE flow puts a
+    // "?code=" query param (exchanged for a session on load, which may
+    // emit SIGNED_IN instead of PASSWORD_RECOVERY). Accept either link
+    // shape as a recovery signal — a plain signed-in visit has neither.
+    if (typeof window !== "undefined") {
+      const hasRecoveryHash = window.location.hash.includes("type=recovery")
+      const hasPkceCode = new URLSearchParams(window.location.search).has("code")
+      if (hasRecoveryHash || hasPkceCode) {
+        isRecovery = true
+        setHasRecoverySession(true)
+      }
     }
 
     // If no recovery signal arrives shortly, treat the visit as invalid.

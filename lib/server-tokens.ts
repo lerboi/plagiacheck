@@ -44,11 +44,15 @@ export async function deductTextTokens(
  * Refund text tokens to a user (e.g. when the AI call fails after deduction).
  * Best-effort: errors are logged but not surfaced.
  */
+/**
+ * Best-effort refund. Returns true when the RPC succeeded so callers can
+ * report the refund honestly; a false return is logged, never thrown.
+ */
 export async function refundTextTokens(
   userId: string,
   amount: number
-): Promise<void> {
-  if (amount <= 0) return
+): Promise<boolean> {
+  if (amount <= 0) return false
   const supabase = createClient(supabaseUrl, supabaseKey)
   const { error } = await supabase.rpc("refund_user_tokens", {
     p_user_id: userId,
@@ -56,7 +60,9 @@ export async function refundTextTokens(
   })
   if (error) {
     console.error("refundTextTokens RPC error:", error.message)
+    return false
   }
+  return true
 }
 
 export async function deductImageTokens(
@@ -81,8 +87,8 @@ export async function deductImageTokens(
 export async function refundImageTokens(
   userId: string,
   amount: number
-): Promise<void> {
-  if (amount <= 0) return
+): Promise<boolean> {
+  if (amount <= 0) return false
   const supabase = createClient(supabaseUrl, supabaseKey)
   const { error } = await supabase.rpc("refund_image_tokens", {
     p_user_id: userId,
@@ -90,5 +96,7 @@ export async function refundImageTokens(
   })
   if (error) {
     console.error("refundImageTokens RPC error:", error.message)
+    return false
   }
+  return true
 }

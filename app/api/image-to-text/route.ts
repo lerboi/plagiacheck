@@ -112,7 +112,7 @@ Return ONLY a valid JSON object:
         }
       }
 
-      void recordToolUse({
+      await recordToolUse({
         userId: user.id,
         tool: 'image-to-text',
         input: `[image, ${safeMimeType}, ${Math.round(imageBase64.length / 1024)} KB]`,

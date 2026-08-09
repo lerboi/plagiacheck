@@ -376,7 +376,7 @@ export default function VoiceToEssay() {
               aria-label="Voice notes transcript"
             />
 
-            {needsSignIn && !user && <ToolSignInPrompt />}
+            {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/voice-to-essay" />}
 
             {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
               <p className="text-xs text-amber-600 dark:text-amber-400">

@@ -140,10 +140,12 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       let refunded = false;
+      let refundSucceeded = false;
       const safeRefund = async () => {
-        if (refunded) return;
+        if (refunded) return refundSucceeded;
         refunded = true;
-        await refundTextTokens(userId, cost);
+        refundSucceeded = await refundTextTokens(userId, cost);
+        return refundSucceeded;
       };
 
       try {
@@ -183,10 +185,11 @@ export async function POST(req: Request) {
         }
 
         if (!result) {
-          // AI failed at runtime — fall back to the local heuristic, but do
-          // not charge for a degraded analysis.
+          // AI failed at runtime — fall back to the local heuristic, and try
+          // not to charge for a degraded analysis. Only claim the refund in
+          // the note if the refund RPC actually succeeded.
           usedFallback = true;
-          await safeRefund();
+          const refundOk = await safeRefund();
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 70 })}\n\n`));
           const basicDetection = detectPotentialPlagiarism(inputText);
           result = {
@@ -196,7 +199,9 @@ export async function POST(req: Request) {
               similarity: Math.round(match.similarity),
             })),
             method: 'algorithmic',
-            note: 'AI analysis was unavailable, so a basic pattern check ran instead. No tokens were charged.',
+            note: refundOk
+              ? 'AI analysis was unavailable, so a basic pattern check ran instead. No tokens were charged.'
+              : 'AI analysis was unavailable, so a basic pattern check ran instead.',
           };
         }
 
@@ -234,8 +239,9 @@ export async function POST(req: Request) {
             return match.endIndex > match.startIndex;
           });
 
-        const tokensCharged = usedFallback ? 0 : cost;
-        const finalBalance = usedFallback ? newBalance + cost : newBalance;
+        // Only report the refunded balance when the refund actually landed.
+        const tokensCharged = usedFallback && refundSucceeded ? 0 : cost;
+        const finalBalance = usedFallback && refundSucceeded ? newBalance + cost : newBalance;
 
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 100 })}\n\n`));
         controller.enqueue(
@@ -249,9 +255,11 @@ export async function POST(req: Request) {
           )
         );
 
-        // Best-effort history write — never lets a history failure trigger
-        // the refund path after the result has already been delivered.
-        void recordToolUse({
+        // Best-effort history write. recordToolUse swallows its own errors
+        // (so it cannot trigger the catch/refund path after the result has
+        // been delivered), and awaiting keeps the insert alive on serverless
+        // hosts that freeze the function once the stream closes.
+        await recordToolUse({
           userId,
           tool: 'plagiarism',
           input: inputText,

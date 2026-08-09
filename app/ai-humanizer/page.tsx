@@ -23,7 +23,7 @@ const FAQ_ITEMS = [
   {
     question: "What tones can I choose?",
     answer:
-      "Five presets: casual, professional, academic, creative, and friendly. The tone shapes vocabulary and sentence style while keeping your original meaning.",
+      "Six presets: casual, professional, academic, creative, friendly, and persuasive. The tone shapes vocabulary and sentence style while keeping your original meaning.",
   },
   {
     question: "What does the humanization level slider do?",

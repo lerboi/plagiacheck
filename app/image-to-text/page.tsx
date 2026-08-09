@@ -328,7 +328,7 @@ export default function ImageToText() {
               </p>
             )}
 
-            {needsSignIn && !user && <ToolSignInPrompt />}
+            {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/image-to-text" />}
 
             <Button
               className="h-9 px-5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium"

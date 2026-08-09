@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { Nav } from "@/components/nav"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, CheckCircle2, Copy, Check, MousePointerClick, FileText } from "lucide-react"
+import { Loader2, CheckCircle2, Copy, Check, MousePointerClick, FileText, Download } from "lucide-react"
+import { generateGrammarReport } from "@/lib/pdf-generator"
 import { useTokenStore, getAuthHeader } from "@/lib/store"
 import { useRouter } from "next/navigation"
 import { FAQ } from "@/components/FAQ"
@@ -184,6 +185,21 @@ export default function GrammarChecker() {
     }
   }
 
+  const handleDownloadReport = () => {
+    if (!correctedText && issues.length === 0) return
+    const opened = generateGrammarReport({
+      originalText: text,
+      correctedText,
+      issues,
+      date: new Date(),
+    })
+    if (opened) {
+      toast({ title: "Report Generated", description: "Your PDF report is ready to download", variant: "success" })
+    } else {
+      toast({ title: "Popup blocked", description: "Allow popups for this site to download the PDF report.", variant: "destructive" })
+    }
+  }
+
   const applyFix = (issueIndex: number) => {
     const issue = issues[issueIndex]
     if (!issue || issue.text.length === 0) return
@@ -334,9 +350,14 @@ export default function GrammarChecker() {
                   </div>
                 )}
                 {correctedText && (
-                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 ml-auto" onClick={handleCopy}>
-                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy corrected</>}
-                  </Button>
+                  <div className="flex items-center gap-1 ml-auto">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+                      {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy corrected</>}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownloadReport} disabled={isProcessing}>
+                      <Download className="h-3 w-3" />PDF
+                    </Button>
+                  </div>
                 )}
               </div>
             </ResultReveal>

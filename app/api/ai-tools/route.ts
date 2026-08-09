@@ -165,7 +165,7 @@ function extractJSON(content: string): any {
 export async function POST(req: Request) {
   // Set after a successful deduction so the outer catch can refund if
   // anything throws before the success response is returned.
-  let refundOnFailure: (() => Promise<void>) | null = null;
+  let refundOnFailure: (() => Promise<boolean>) | null = null;
 
   try {
     const user = await getUserFromRequest(req);
@@ -295,8 +295,10 @@ export async function POST(req: Request) {
     // Success is locked in — the outer catch must no longer refund.
     refundOnFailure = null;
 
-    // Best-effort history write; never blocks or fails the response.
-    void recordToolUse({
+    // Best-effort history write. recordToolUse swallows its own errors, and
+    // awaiting it keeps the insert alive on serverless hosts that freeze the
+    // function as soon as the response returns.
+    await recordToolUse({
       userId: user.id,
       tool: tool as ToolHistoryTool,
       input: text,

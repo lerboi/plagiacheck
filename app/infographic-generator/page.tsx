@@ -15,18 +15,10 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { sanitizeFilename } from "@/lib/utils"
 
 const MAX_INPUT_CHARS = 2000
 
-function sanitizeFilename(name: string | null | undefined, fallback: string): string {
-  const cleaned = (name || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60)
-  return cleaned || fallback
-}
 
 const FAQ_ITEMS = [
   {
@@ -218,7 +210,7 @@ export default function InfographicGenerator() {
               </p>
             )}
 
-            {needsSignIn && !user && <ToolSignInPrompt />}
+            {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/infographic-generator" />}
 
             <Button
               className="h-9 px-5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium"

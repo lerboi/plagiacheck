@@ -385,7 +385,7 @@ export default function AudioSummarizer() {
               aria-label="Audio transcript"
             />
 
-            {needsSignIn && !user && <ToolSignInPrompt />}
+            {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/audio-summarizer" />}
 
             {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
               <p className="text-xs text-amber-600 dark:text-amber-400">

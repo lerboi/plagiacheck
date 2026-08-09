@@ -431,7 +431,7 @@ export default function SpeechToText() {
                   aria-label="Raw transcript"
                 />
 
-                {needsSignIn && !user && <ToolSignInPrompt />}
+                {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/speech-to-text" />}
 
                 {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">

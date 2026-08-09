@@ -241,7 +241,7 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Set after a successful deduction so the outer catch can refund too.
-  let refundOnFailure: (() => Promise<void>) | null = null;
+  let refundOnFailure: (() => Promise<boolean>) | null = null;
 
   try {
     const { text, tool, options } = await req.json();
@@ -404,7 +404,7 @@ export async function POST(req: Request) {
     // Success is locked in — the outer catch must no longer refund.
     refundOnFailure = null;
 
-    void recordToolUse({
+    await recordToolUse({
       userId: user.id,
       tool: tool as ToolHistoryTool,
       input: text,

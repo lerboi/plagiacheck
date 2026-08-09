@@ -116,7 +116,7 @@ Return ONLY a valid JSON object:
         }
       }
 
-      void recordToolUse({
+      await recordToolUse({
         userId: user.id,
         tool: 'speech-to-text',
         input: transcript,

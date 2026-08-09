@@ -155,7 +155,7 @@ export async function POST(req: Request) {
         ? (result.overview || result.detailedSummary?.slice(0, 200))
         : (result.title ? `${result.title} — ${String(result.essay || '').slice(0, 100)}` : String(result.essay || '').slice(0, 200));
 
-      void recordToolUse({
+      await recordToolUse({
         userId: user.id,
         tool: tool as ToolHistoryTool,
         input: text,

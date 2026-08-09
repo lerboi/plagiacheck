@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Check, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Copy, Download, Check, AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 import React, { useState } from "react";
+import { generatePlagiarismReport } from "@/lib/pdf-generator";
 
 interface PlagiarismMatch {
   text: string;
@@ -57,6 +58,7 @@ export function PlagiarismResults({
 }: PlagiarismResultsProps) {
   const [copied, setCopied] = useState(false);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number | null>(null);
+  const [pdfBlocked, setPdfBlocked] = useState(false);
 
   if (!isChecking && !result) return null;
 
@@ -167,6 +169,20 @@ export function PlagiarismResults({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = () => {
+    if (!result) return;
+    const opened = generatePlagiarismReport({
+      text: originalText || "",
+      plagiarismPercentage: Math.round(result.plagiarismPercentage),
+      matches: (result.matches || []).map((m) => ({
+        text: m.text,
+        similarity: Math.round(m.similarity),
+      })),
+      date: new Date(),
+    });
+    setPdfBlocked(!opened);
   };
 
   const verdict = result ? getScoreVerdict(result.plagiarismPercentage) : null;
@@ -311,9 +327,23 @@ export function PlagiarismResults({
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download Report
+                  Download .txt
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPdf}
+                  className="flex-1"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF Report
                 </Button>
               </div>
+              {pdfBlocked && (
+                <p role="alert" className="text-xs text-amber-600 dark:text-amber-400">
+                  The PDF opens in a new window — allow popups for this site and try again.
+                </p>
+              )}
             </div>
           )
         )}
