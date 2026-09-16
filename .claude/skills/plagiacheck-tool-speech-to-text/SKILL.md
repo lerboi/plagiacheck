@@ -1,11 +1,11 @@
 ---
 name: plagiacheck-tool-speech-to-text
-description: How the Speech to Text tool works — the page at /speech-to-text using the browser Web Speech API for transcription, and the /api/speech-to-text route for Mistral-powered cleanup. Browser support is required (Chrome/Edge/Safari only). Use when the user asks about speech recognition, voice transcription, the microphone button, or wants to modify the speech-to-text tool.
+description: How the Speech to Text tool works — the page at /speech-to-text using the browser Web Speech API for transcription, and the /api/speech-to-text route for Gemini-powered cleanup. Browser support is required (Chrome/Edge/Safari only). Use when the user asks about speech recognition, voice transcription, the microphone button, or wants to modify the speech-to-text tool.
 ---
 
 # Speech to Text
 
-Records the user's voice via the browser's Web Speech API and sends the raw transcript to Mistral for cleanup.
+Records the user's voice via the browser's Web Speech API and sends the raw transcript to Gemini for cleanup.
 
 **Status:** functional but **browser-dependent** — only Chrome, Edge, and Safari expose `webkitSpeechRecognition` / `SpeechRecognition`. Firefox and many mobile browsers will see a "not supported" notice.
 
@@ -14,7 +14,7 @@ Records the user's voice via the browser's Web Speech API and sends the raw tran
 | File | Role |
 |------|------|
 | `app/speech-to-text/page.tsx` | Tool page — recording, live transcript, cleanup trigger |
-| `app/api/speech-to-text/route.ts` | API route — Mistral cleanup (action: "clean") |
+| `app/api/speech-to-text/route.ts` | API route — Gemini cleanup (action: "clean") |
 
 ## How it works
 
@@ -22,7 +22,7 @@ Records the user's voice via the browser's Web Speech API and sends the raw tran
 2. On record, instantiates `SpeechRecognition` with `continuous=true`, `interimResults=true`, `lang="en-US"`.
 3. As the user speaks, interim results stream into the textarea and final results are appended to `rawTranscript`.
 4. When the user clicks "Clean Up", the page POSTs the transcript to `/api/speech-to-text` (`action: "clean"`).
-5. The route deducts text tokens, calls Mistral with a "transcript cleaner" system prompt, returns `{ cleanedText, changes }`.
+5. The route deducts text tokens, calls Gemini with a "transcript cleaner" system prompt, returns `{ cleanedText, changes }`.
 
 ## API contract
 

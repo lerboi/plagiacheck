@@ -1,284 +1,245 @@
+import type { AiToolDef } from "@/lib/ai"
 import type { PlagiaAiToolName } from "./types"
 
-interface MistralToolDef {
-  type: "function"
-  function: {
-    name: PlagiaAiToolName
-    description: string
-    parameters: Record<string, unknown>
-  }
+/** AiToolDef with the name narrowed to the tools PlagiaAI actually dispatches. */
+interface PlagiaAiToolDef extends AiToolDef {
+  name: PlagiaAiToolName
 }
 
-export const MISTRAL_TOOLS: MistralToolDef[] = [
+export const AI_TOOLS: PlagiaAiToolDef[] = [
   {
-    type: "function",
-    function: {
-      name: "paraphrase",
-      description:
-        "Rewrite text in different words while preserving meaning. Use when the user wants the same content phrased differently, more formal, more casual, simpler, or more academic. Examples: \"rewrite this paragraph\", \"reword this\", \"make this more formal\", \"academic version of this sentence\", \"say this differently\". Do NOT use when the user says their text 'sounds like AI' or wants to evade AI detectors — that's `humanize`. Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            description: "The text to paraphrase. Required.",
-          },
-          mode: {
-            type: "string",
-            enum: ["standard", "fluency", "formal", "simple", "creative", "academic"],
-            description:
-              "The paraphrasing mode. 'standard' = balanced rewrite. 'fluency' = readability. 'formal' = elevated register. 'simple' = plain B1-level vocabulary. 'creative' = more lexical variation. 'academic' = scholarly tone with passive voice and hedges.",
-          },
+    name: "paraphrase",
+    description:
+      "Rewrite text in different words while preserving meaning. Use when the user wants the same content phrased differently, more formal, more casual, simpler, or more academic. Examples: \"rewrite this paragraph\", \"reword this\", \"make this more formal\", \"academic version of this sentence\", \"say this differently\". Do NOT use when the user says their text 'sounds like AI' or wants to evade AI detectors — that's `humanize`. Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The text to paraphrase. Required.",
         },
-        required: ["text", "mode"],
+        mode: {
+          type: "string",
+          enum: ["standard", "fluency", "formal", "simple", "creative", "academic"],
+          description:
+            "The paraphrasing mode. 'standard' = balanced rewrite. 'fluency' = readability. 'formal' = elevated register. 'simple' = plain B1-level vocabulary. 'creative' = more lexical variation. 'academic' = scholarly tone with passive voice and hedges.",
+        },
       },
+      required: ["text", "mode"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "summarize",
-      description:
-        "Condense ordinary written text (article, essay, document) into a shorter version. Examples: \"summarize this\", \"TL;DR\", \"give me the gist\", \"key takeaways\", \"shorten this paragraph\", \"main points of this article\". For transcripts of spoken content (lecture/interview/meeting/podcast) use `audio_summarize` instead. Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            description: "The text to summarize. Required.",
-          },
-          length_percent: {
-            type: "integer",
-            minimum: 10,
-            maximum: 90,
-            description:
-              "Target summary length as a percentage of the original word count (10-90). Default 30 if user doesn't specify.",
-          },
-          format: {
-            type: "string",
-            enum: ["paragraph", "bullets"],
-            description:
-              "Output format. 'paragraph' = one cohesive paragraph. 'bullets' = 3-7 bullet points.",
-          },
+    name: "summarize",
+    description:
+      "Condense ordinary written text (article, essay, document) into a shorter version. Examples: \"summarize this\", \"TL;DR\", \"give me the gist\", \"key takeaways\", \"shorten this paragraph\", \"main points of this article\". For transcripts of spoken content (lecture/interview/meeting/podcast) use `audio_summarize` instead. Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The text to summarize. Required.",
         },
-        required: ["text", "length_percent", "format"],
+        length_percent: {
+          type: "integer",
+          minimum: 10,
+          maximum: 90,
+          description:
+            "Target summary length as a percentage of the original word count (10-90). Default 30 if user doesn't specify.",
+        },
+        format: {
+          type: "string",
+          enum: ["paragraph", "bullets"],
+          description:
+            "Output format. 'paragraph' = one cohesive paragraph. 'bullets' = 3-7 bullet points.",
+        },
       },
+      required: ["text", "length_percent", "format"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "humanize",
-      description:
-        "Rewrite AI-generated text to sound more human and less robotic. Use ONLY when the user explicitly indicates their text was AI-written or sounds AI-generated. Examples: \"this sounds like AI, fix it\", \"make this sound human\", \"remove AI tells from this text\", \"help me pass an AI detector\", \"my GPT-written essay needs to sound natural\". Do NOT use for general rewriting (use `paraphrase`) or just making text more formal (use `paraphrase` with mode='formal'). Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            description: "The AI-generated text to humanize. Required.",
-          },
-          tone: {
-            type: "string",
-            enum: ["casual", "professional", "academic", "creative", "friendly"],
-            description: "The target tone of the humanized output.",
-          },
-          level: {
-            type: "integer",
-            minimum: 0,
-            maximum: 100,
-            description:
-              "Humanization intensity. 0-20 = light edit. 21-50 = moderate. 51-80 = strong restructure. 81-100 = heavy rewrite. Default 50.",
-          },
+    name: "humanize",
+    description:
+      "Rewrite AI-generated text to sound more human and less robotic. Use ONLY when the user explicitly indicates their text was AI-written or sounds AI-generated. Examples: \"this sounds like AI, fix it\", \"make this sound human\", \"remove AI tells from this text\", \"help me pass an AI detector\", \"my GPT-written essay needs to sound natural\". Do NOT use for general rewriting (use `paraphrase`) or just making text more formal (use `paraphrase` with mode='formal'). Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The AI-generated text to humanize. Required.",
         },
-        required: ["text", "tone", "level"],
+        tone: {
+          type: "string",
+          enum: ["casual", "professional", "academic", "creative", "friendly"],
+          description: "The target tone of the humanized output.",
+        },
+        level: {
+          type: "integer",
+          minimum: 0,
+          maximum: 100,
+          description:
+            "Humanization intensity. 0-20 = light edit. 21-50 = moderate. 51-80 = strong restructure. 81-100 = heavy rewrite. Default 50.",
+        },
       },
+      required: ["text", "tone", "level"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "ai_detect",
-      description:
-        "Score the likelihood that text was generated by AI. Returns an overall percentage and a sentence-by-sentence breakdown. Examples: \"is this AI?\", \"was this written by ChatGPT?\", \"check if this is AI-generated\", \"how likely is this text AI?\", \"detect AI in this essay\". This DETECTS — to rewrite AI text into human-sounding text use `humanize` instead. Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            description: "The text to analyze. Required.",
-          },
+    name: "ai_detect",
+    description:
+      "Score the likelihood that text was generated by AI. Returns an overall percentage and a sentence-by-sentence breakdown. Examples: \"is this AI?\", \"was this written by ChatGPT?\", \"check if this is AI-generated\", \"how likely is this text AI?\", \"detect AI in this essay\". This DETECTS — to rewrite AI text into human-sounding text use `humanize` instead. Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The text to analyze. Required.",
         },
-        required: ["text"],
       },
+      required: ["text"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "grammar",
-      description:
-        "Check text for grammar, spelling, and punctuation errors. Returns the corrected text plus a list of specific issues with positions and explanations. Examples: \"proofread this\", \"check the grammar\", \"any typos in this?\", \"fix errors in my essay\", \"is this grammatically correct?\". Does NOT rewrite for style — use `paraphrase` for that. Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            description: "The text to check. Required.",
-          },
+    name: "grammar",
+    description:
+      "Check text for grammar, spelling, and punctuation errors. Returns the corrected text plus a list of specific issues with positions and explanations. Examples: \"proofread this\", \"check the grammar\", \"any typos in this?\", \"fix errors in my essay\", \"is this grammatically correct?\". Does NOT rewrite for style — use `paraphrase` for that. Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The text to check. Required.",
         },
-        required: ["text"],
       },
+      required: ["text"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "plagiarism_check",
-      description:
-        "Analyze text for signs of plagiarism — flagging segments that look copied or stylistically inconsistent with the surrounding text. Examples: \"is this plagiarized?\", \"check for plagiarism\", \"originality check\", \"did I copy this from somewhere?\", \"is my essay original?\". Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          text: {
-            type: "string",
-            description: "The text to check. Required.",
-          },
+    name: "plagiarism_check",
+    description:
+      "Analyze text for signs of plagiarism — flagging segments that look copied or stylistically inconsistent with the surrounding text. Examples: \"is this plagiarized?\", \"check for plagiarism\", \"originality check\", \"did I copy this from somewhere?\", \"is my essay original?\". Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The text to check. Required.",
         },
-        required: ["text"],
       },
+      required: ["text"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "generate_infographic",
-      description:
-        "Generate a deterministic SVG infographic from source content (title, intro, key stats, sections, conclusion are extracted automatically). Examples: \"turn this article into an infographic\", \"make a visual summary of this essay\", \"infographic of these stats\". For data charts use `generate_chart`; for a single cover image use `generate_thumbnail`. Costs image tokens (paid currency, separate from text tokens) — ask the user to confirm before the first image-token call of the conversation.",
-      parameters: {
-        type: "object",
-        properties: {
-          source_text: {
-            type: "string",
-            description:
-              "The full source content to turn into an infographic (article, summary, notes, etc.). Required.",
-          },
+    name: "generate_infographic",
+    description:
+      "Generate a deterministic SVG infographic from source content (title, intro, key stats, sections, conclusion are extracted automatically). Examples: \"turn this article into an infographic\", \"make a visual summary of this essay\", \"infographic of these stats\". For data charts use `generate_chart`; for a single cover image use `generate_thumbnail`. Costs image tokens (paid currency, separate from text tokens) — ask the user to confirm before the first image-token call of the conversation.",
+    parameters: {
+      type: "object",
+      properties: {
+        source_text: {
+          type: "string",
+          description:
+            "The full source content to turn into an infographic (article, summary, notes, etc.). Required.",
         },
-        required: ["source_text"],
       },
+      required: ["source_text"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "generate_chart",
-      description:
-        "Generate an SVG chart, diagram, or visualization. Supports bar, line, pie, flowchart, mindmap, timeline, and comparison types — 'auto-detect' picks the best fit. Examples: \"bar chart of Q1-Q4 sales\", \"flowchart of the signup process\", \"mind map of productivity habits\", \"timeline of the moon landings\", \"compare React vs Vue vs Svelte\", \"pie chart of survey results\". Costs image tokens — ask the user to confirm before the first image-token call of the conversation.",
-      parameters: {
-        type: "object",
-        properties: {
-          description: {
-            type: "string",
-            description:
-              "A natural-language description of what the chart should show. Required.",
-          },
-          chart_type: {
-            type: "string",
-            enum: [
-              "auto-detect",
-              "bar",
-              "line",
-              "pie",
-              "flowchart",
-              "mindmap",
-              "timeline",
-              "comparison",
-            ],
-            description:
-              "The chart type. 'auto-detect' lets the system pick the best fit. Default 'auto-detect'.",
-          },
+    name: "generate_chart",
+    description:
+      "Generate an SVG chart, diagram, or visualization. Supports bar, line, pie, flowchart, mindmap, timeline, and comparison types — 'auto-detect' picks the best fit. Examples: \"bar chart of Q1-Q4 sales\", \"flowchart of the signup process\", \"mind map of productivity habits\", \"timeline of the moon landings\", \"compare React vs Vue vs Svelte\", \"pie chart of survey results\". Costs image tokens — ask the user to confirm before the first image-token call of the conversation.",
+    parameters: {
+      type: "object",
+      properties: {
+        description: {
+          type: "string",
+          description:
+            "A natural-language description of what the chart should show. Required.",
         },
-        required: ["description", "chart_type"],
+        chart_type: {
+          type: "string",
+          enum: [
+            "auto-detect",
+            "bar",
+            "line",
+            "pie",
+            "flowchart",
+            "mindmap",
+            "timeline",
+            "comparison",
+          ],
+          description:
+            "The chart type. 'auto-detect' lets the system pick the best fit. Default 'auto-detect'.",
+        },
       },
+      required: ["description", "chart_type"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "image_to_text",
-      description:
-        "Extract text from an image the user has attached to the conversation (photo of a document, handwritten notes, screenshot, sign, printed page). Examples: \"what does this image say?\", \"OCR this screenshot\", \"transcribe these handwritten notes\", \"read the text in this photo\", \"extract text from this image\". REQUIRES the user to have attached an image via the paperclip button — if no image is attached, do NOT call this tool; ask the user to attach one first. Costs image tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          note: {
-            type: "string",
-            description:
-              "A short note from the user about what they want extracted, or just 'extract text' if no instruction. The image itself is supplied by the chat UI, not by you.",
-          },
+    name: "image_to_text",
+    description:
+      "Extract text from an image the user has attached to the conversation (photo of a document, handwritten notes, screenshot, sign, printed page). Examples: \"what does this image say?\", \"OCR this screenshot\", \"transcribe these handwritten notes\", \"read the text in this photo\", \"extract text from this image\". REQUIRES the user to have attached an image via the paperclip button — if no image is attached, do NOT call this tool; ask the user to attach one first. Costs image tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        note: {
+          type: "string",
+          description:
+            "A short note from the user about what they want extracted, or just 'extract text' if no instruction. The image itself is supplied by the chat UI, not by you.",
         },
-        required: [],
       },
+      required: [],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "voice_to_essay",
-      description:
-        "Transform a raw voice-transcript or dictated speech into a well-structured written essay (intro / body / conclusion, fixed grammar, filler-words removed). Examples: \"turn my voice transcript into an essay\", \"rewrite this dictation as a paper\", \"structure these spoken notes into prose\", \"clean up this transcript and make it an essay\". For ordinary text-to-text rewriting use `paraphrase`. Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          transcript: {
-            type: "string",
-            description:
-              "The raw voice transcript or spoken-style text to convert into an essay. Required.",
-          },
+    name: "voice_to_essay",
+    description:
+      "Transform a raw voice-transcript or dictated speech into a well-structured written essay (intro / body / conclusion, fixed grammar, filler-words removed). Examples: \"turn my voice transcript into an essay\", \"rewrite this dictation as a paper\", \"structure these spoken notes into prose\", \"clean up this transcript and make it an essay\". For ordinary text-to-text rewriting use `paraphrase`. Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        transcript: {
+          type: "string",
+          description:
+            "The raw voice transcript or spoken-style text to convert into an essay. Required.",
         },
-        required: ["transcript"],
       },
+      required: ["transcript"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "audio_summarize",
-      description:
-        "Summarize a transcript of SPOKEN content — lecture, interview, meeting, podcast, speech — extracting topic, overview, key points, and action items. Examples: \"summarize this lecture transcript\", \"key points from this interview\", \"action items from this meeting transcript\", \"TL;DR of this podcast\". Returns structured output. For ordinary text (articles, essays, documents) use `summarize` instead. Costs text tokens.",
-      parameters: {
-        type: "object",
-        properties: {
-          transcript: {
-            type: "string",
-            description: "The full audio transcript to summarize. Required.",
-          },
+    name: "audio_summarize",
+    description:
+      "Summarize a transcript of SPOKEN content — lecture, interview, meeting, podcast, speech — extracting topic, overview, key points, and action items. Examples: \"summarize this lecture transcript\", \"key points from this interview\", \"action items from this meeting transcript\", \"TL;DR of this podcast\". Returns structured output. For ordinary text (articles, essays, documents) use `summarize` instead. Costs text tokens.",
+    parameters: {
+      type: "object",
+      properties: {
+        transcript: {
+          type: "string",
+          description: "The full audio transcript to summarize. Required.",
         },
-        required: ["transcript"],
       },
+      required: ["transcript"],
     },
   },
   {
-    type: "function",
-    function: {
-      name: "generate_thumbnail",
-      description:
-        "Generate a 1200x630 SVG thumbnail / cover image with a title and styled gradient background. Examples: \"YouTube thumbnail for my new video about X\", \"blog header image titled X\", \"OG / social preview for my post\", \"cover image for this article\". Costs image tokens — ask the user to confirm before the first image-token call of the conversation.",
-      parameters: {
-        type: "object",
-        properties: {
-          title: {
-            type: "string",
-            description: "The main title text for the thumbnail. Required.",
-          },
-          style: {
-            type: "string",
-            enum: ["modern", "minimal", "bold", "gradient"],
-            description: "Visual style of the thumbnail. Default 'modern'.",
-          },
+    name: "generate_thumbnail",
+    description:
+      "Generate a 1200x630 SVG thumbnail / cover image with a title and styled gradient background. Examples: \"YouTube thumbnail for my new video about X\", \"blog header image titled X\", \"OG / social preview for my post\", \"cover image for this article\". Costs image tokens — ask the user to confirm before the first image-token call of the conversation.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "The main title text for the thumbnail. Required.",
         },
-        required: ["title", "style"],
+        style: {
+          type: "string",
+          enum: ["modern", "minimal", "bold", "gradient"],
+          description: "Visual style of the thumbnail. Default 'modern'.",
+        },
       },
+      required: ["title", "style"],
     },
   },
 ]

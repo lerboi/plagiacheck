@@ -1,13 +1,9 @@
-import { Mistral } from '@mistralai/mistralai';
+import { ai } from '@/lib/ai';
 import { getUserFromRequest } from '@/lib/server-auth';
 import { calculateTextTokenCost, deductTextTokens, refundTextTokens } from '@/lib/server-tokens';
 import { recordToolUse } from '@/lib/server-history';
 
-const mistralClient = process.env.MISTRAL_API_KEY
-  ? new Mistral({ apiKey: process.env.MISTRAL_API_KEY })
-  : null;
 
-const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
@@ -31,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!mistralClient) {
+    if (!ai.isConfigured()) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
@@ -79,26 +75,17 @@ Return ONLY a valid JSON object:
     }
 
     try {
-      const completion = await mistralClient.chat.complete({
-        model: MISTRAL_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
+      const contentString = await ai.generate({
+        system: systemPrompt,
+        prompt: userPrompt,
         temperature: 0.2,
+        json: true,
       });
 
-      if (!completion.choices || !completion.choices[0]?.message?.content) {
+      if (!contentString) {
         await refundTextTokens(user.id, cost);
         return Response.json({ error: 'No response from AI' }, { status: 500 });
       }
-
-      const content = completion.choices[0].message.content;
-      const contentString = typeof content === 'string'
-        ? content
-        : Array.isArray(content)
-          ? content.map((chunk: any) => chunk.text || '').join('')
-          : String(content);
 
       let result;
       try {

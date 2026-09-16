@@ -12,7 +12,7 @@ If you ever find yourself searching the codebase to answer a question that has a
 
 ## What Plagiacheck is (one paragraph)
 
-A Next.js 15 (App Router) writing-tools SaaS at `https://www.plagiacheck.online/`. It bundles **15 tools** across three categories (Writing, Image & Visual, Voice & Audio), gated by a **two-currency token system** (text tokens + image tokens) topped up via Stripe. Auth + DB are Supabase. AI is Mistral. State is Zustand. UI is Tailwind + shadcn.
+A Next.js 15 (App Router) writing-tools SaaS at `https://www.plagiacheck.online/`. It bundles **15 tools** across three categories (Writing, Image & Visual, Voice & Audio), gated by a **two-currency token system** (text tokens + image tokens) topped up via Stripe. Auth + DB are Supabase. AI is Google Gemini (via `lib/ai`, provider-swappable). State is Zustand. UI is Tailwind + shadcn.
 
 ## Two-minute mental model
 
@@ -21,7 +21,7 @@ A Next.js 15 (App Router) writing-tools SaaS at `https://www.plagiacheck.online/
 3. Tool calls an API route (`app/api/.../route.ts`) which:
    - validates the Supabase JWT (Bearer header) via `lib/server-auth.ts`
    - atomically deducts tokens via Supabase RPCs (`lib/server-tokens.ts`)
-   - calls Mistral AI (or browser APIs for voice tools)
+   - calls Google Gemini through `lib/ai` (or browser APIs for voice tools)
    - refunds tokens on failure, records the run in `tool_history` (`lib/server-history.ts`)
 4. Token balance is mirrored client-side in a Zustand store (`lib/store.ts`) for display. Server is authoritative.
 5. Payments flow Stripe Checkout → Stripe webhook (`app/api/webhook/stripe/route.js`) → Supabase tables (`PurchasedToken`, `Package`, `user_profiles`, `Payment`).
@@ -46,7 +46,7 @@ When a user question or task lands, identify which slice of the system it touche
 ### Per-tool skills (one per tool, 15 total)
 
 **Writing tools (text tokens):**
-- `plagiacheck-tool-plagiarism-checker` — `/plagiarism-checker` (the home page `/` now hosts PlagiaAI chat), SSE streaming, Mistral + algorithmic fallback
+- `plagiacheck-tool-plagiarism-checker` — `/plagiarism-checker` (the home page `/` now hosts PlagiaAI chat), SSE streaming, Gemini + algorithmic fallback
 - `plagiacheck-tool-ai-detector` — `/ai-detector`, sentence-by-sentence scoring, PDF report
 - `plagiacheck-tool-ai-humanizer` — `/ai-humanizer`, tone × level controls
 - `plagiacheck-tool-paraphraser` — `/paraphraser`, 6 modes
@@ -55,16 +55,16 @@ When a user question or task lands, identify which slice of the system it touche
 - `plagiacheck-tool-word-counter` — `/word-counter`, **FREE**, client-only
 
 **Image & visual tools (image tokens):**
-- `plagiacheck-tool-image-to-text` — `/image-to-text`, Mistral pixtral-12b OCR
+- `plagiacheck-tool-image-to-text` — `/image-to-text`, Gemini vision OCR
 - `plagiacheck-tool-infographic-generator` — `/infographic-generator`, LLM JSON spec → deterministic SVG via `lib/svg-templates.ts`
 - `plagiacheck-tool-thumbnail-generator` — `/thumbnail-generator`, LLM JSON spec → deterministic 1200×630 SVG via `lib/svg-templates.ts`
 - `plagiacheck-tool-chart-generator` — `/chart-generator`, LLM JSON spec → deterministic SVG (bar / line / pie / flowchart / mindmap / timeline / comparison) via `lib/svg-templates.ts`
 
 **Voice & audio tools (browser-dependent):**
-- `plagiacheck-tool-speech-to-text` — `/speech-to-text`, Web Speech API + Mistral cleanup
+- `plagiacheck-tool-speech-to-text` — `/speech-to-text`, Web Speech API + Gemini cleanup
 - `plagiacheck-tool-text-to-speech` — `/text-to-speech`, **FREE**, browser SpeechSynthesis only
-- `plagiacheck-tool-voice-to-essay` — `/voice-to-essay`, Web Speech API + Mistral
-- `plagiacheck-tool-audio-summarizer` — `/audio-summarizer`, Web Speech API + Mistral
+- `plagiacheck-tool-voice-to-essay` — `/voice-to-essay`, Web Speech API + Gemini
+- `plagiacheck-tool-audio-summarizer` — `/audio-summarizer`, Web Speech API + Gemini
 
 ### Cross-cutting infrastructure skills
 
@@ -75,7 +75,7 @@ When a user question or task lands, identify which slice of the system it touche
 - `plagiacheck-history` — `tool_history` table, `recordToolUse`, the `/history` page
 - `plagiacheck-components` — nav mega-menu, ToolPageHeader, FAQ, shadcn/ui inventory
 - `plagiacheck-pages-non-tool` — `/pricing`, `/billing`, `/history`, `/signin`, `/forgot-password`, `/reset-password`, `/privacy`, `/terms`
-- `plagiacheck-env` — every env var, including the `URL2` legacy alias
+- `plagiacheck-env` — every env var, including the `URL2` legacy alias and the `GEMINI_*` keys
 
 ---
 
@@ -113,7 +113,7 @@ These come up often enough that they belong in the front door:
 ## Project metadata
 
 - **Production URL:** `https://www.plagiacheck.online/`
-- **Stack:** Next.js 15 / React 19 / TypeScript / Tailwind / shadcn-ui / Supabase / Stripe / Mistral AI / Zustand / Framer Motion
+- **Stack:** Next.js 15 / React 19 / TypeScript / Tailwind / shadcn-ui / Supabase / Stripe / Google Gemini / Zustand / Framer Motion
 - **Default theme:** dark (`next-themes`)
 - **Path alias:** `@/` → repo root (configured in `components.json`)
 

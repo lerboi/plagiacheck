@@ -1,6 +1,6 @@
 ---
 name: plagiacheck-tool-image-to-text
-description: How the Image to Text (OCR) tool works — the page at /image-to-text, base64 upload, the /api/image-to-text route powered by Mistral pixtral-12b, and the image-token cost. Use when the user asks about OCR, extracting text from images, the pixtral model, image uploads, or wants to modify anything in the image-to-text tool.
+description: How the Image to Text (OCR) tool works — the page at /image-to-text, base64 upload, the /api/image-to-text route powered by Gemini vision, and the image-token cost. Use when the user asks about OCR, extracting text from images, the vision model, image uploads, or wants to modify anything in the image-to-text tool.
 ---
 
 # Image to Text (OCR)
@@ -14,7 +14,7 @@ Extracts text from uploaded images. Handles printed, handwritten, and screenshot
 | File | Role |
 |------|------|
 | `app/image-to-text/page.tsx` | Tool page UI with image preview and drag-drop |
-| `app/api/image-to-text/route.ts` | API route — calls Mistral pixtral-12b-2409 |
+| `app/api/image-to-text/route.ts` | API route — calls Gemini vision via `lib/ai` |
 
 ## API contract
 
@@ -26,7 +26,7 @@ POST /api/image-to-text
 }
 ```
 
-The route reconstructs `data:${mimeType};base64,${imageBase64}` internally and passes it as an `image_url` content chunk to Mistral.
+The route passes the RAW base64 plus its mime type to `ai.generate({ image })`, which sends it as a Gemini `inlineData` part. Note the difference from the old Mistral path: Gemini wants raw base64, and a full `data:` URL passed as the data field is accepted but silently yields garbage OCR.
 
 Returns:
 
@@ -53,7 +53,7 @@ Server rejects payloads larger than ~8 MB of base64 (`8 * 1024 * 1024 * 1.4`, ac
 
 ## Model
 
-`pixtral-12b-2409` — Mistral's multimodal model. The system prompt asks it to preserve formatting, read multi-column layouts left-to-right top-to-bottom, and return `"No text detected in this image."` if blank.
+`gemini-3.5-flash-lite` (override with `GEMINI_VISION_MODEL`) — Gemini is natively multimodal, so OCR uses the same model family as the text tools. The system prompt asks it to preserve formatting, read multi-column layouts left-to-right top-to-bottom, and return `"No text detected in this image."` if blank.
 
 ## Common edits
 

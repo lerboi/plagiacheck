@@ -1,4 +1,4 @@
-import { Mistral } from '@mistralai/mistralai';
+import { ai } from '@/lib/ai';
 import { getUserFromRequest } from '@/lib/server-auth';
 import { IMAGE_TOKEN_COST, deductImageTokens, refundImageTokens } from '@/lib/server-tokens';
 import { recordToolUse } from '@/lib/server-history';
@@ -22,11 +22,7 @@ import {
  * its response.
  */
 
-const mistralClient = process.env.MISTRAL_API_KEY
-  ? new Mistral({ apiKey: process.env.MISTRAL_API_KEY })
-  : null;
 
-const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 
 const TOOL_COST: Record<string, number> = {
   chart: IMAGE_TOKEN_COST.chart,
@@ -265,7 +261,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Invalid tool' }, { status: 400 });
     }
 
-    if (!mistralClient) {
+    if (!ai.isConfigured()) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
@@ -308,34 +304,23 @@ export async function POST(req: Request) {
         break;
     }
 
-    let completion;
+    let content: string;
     try {
-      completion = await mistralClient.chat.complete({
-        model: MISTRAL_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+      content = await ai.generate({
+        system: systemPrompt,
+        prompt: userPrompt,
         temperature: 0.4,
+        json: true,
       });
     } catch (err: any) {
-      console.error('Mistral chat error:', err);
+      console.error('AI chat error:', err);
       return refundAndFail(502, 'AI service temporarily unavailable. Please try again.');
     }
 
-    if (!completion.choices || !completion.choices[0]?.message?.content) {
+    if (!content) {
       return refundAndFail(500, 'No response from AI');
     }
-
-    const content = completion.choices[0].message.content;
-    const contentString =
-      typeof content === 'string'
-        ? content
-        : Array.isArray(content)
-          ? content.map((chunk: any) => chunk.text || '').join('')
-          : String(content);
-
-    const rawSpec = extractJSON(contentString);
+    const rawSpec = extractJSON(content);
     if (!rawSpec) {
       return refundAndFail(500, 'Failed to parse AI response');
     }

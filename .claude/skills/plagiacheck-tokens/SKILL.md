@@ -11,7 +11,7 @@ Two separate currencies, both atomic, both server-authoritative.
 
 | Currency | Where it lives | Spent by | Cost |
 |----------|----------------|----------|------|
-| **Text tokens** | `user_profiles.tokens` (free + included) and `PurchasedToken.textTokens` (top-ups) | All text tools (plagiarism, AI detect, humanize, paraphrase, summarize, grammar, voice → Mistral cleanup) | `Math.ceil(text.length / 6)` per call |
+| **Text tokens** | `user_profiles.tokens` (free + included) and `PurchasedToken.textTokens` (top-ups) | All text tools (plagiarism, AI detect, humanize, paraphrase, summarize, grammar, voice → Gemini cleanup) | `Math.ceil(text.length / 6)` per call |
 | **Image tokens** | `PurchasedToken.imageTokens` | Image tools (image-to-text, chart, infographic, thumbnail) | Fixed: 1 for image-to-text, 2 for the SVG generators |
 
 > The two currencies are deliberately **not interchangeable** — image tokens come from the package subscriptions (`200Image`, `1000Image`), text tokens come from monthly subscriptions or one-time purchases.
@@ -48,7 +48,7 @@ if (newBalance === null) {
 }
 
 try {
-  // ... call Mistral / do work ...
+  // ... call the AI provider / do work ...
 } catch (err) {
   await refundTextTokens(user.id, cost)
   return Response.json({ error: "..." }, { status: 502 })

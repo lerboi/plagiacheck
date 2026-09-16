@@ -1,7 +1,7 @@
-import { Mistral } from "@mistralai/mistralai"
+import { ai, type AiTurn, type ToolsResult } from "@/lib/ai"
 import { createClient } from "@supabase/supabase-js"
 import { getUserFromRequest } from "@/lib/server-auth"
-import { MISTRAL_TOOLS, summarizeArgs } from "@/lib/plagia-ai/tools"
+import { AI_TOOLS, summarizeArgs } from "@/lib/plagia-ai/tools"
 import { dispatchTool } from "@/lib/plagia-ai/dispatcher"
 import { estimateToolCost } from "@/lib/plagia-ai/config"
 import { buildPreferencesSystemMessage, loadPreferences } from "@/lib/plagia-ai/preferences"
@@ -13,11 +13,7 @@ import {
   type PlagiaAiToolName,
 } from "@/lib/plagia-ai/types"
 
-const mistralClient = process.env.MISTRAL_API_KEY
-  ? new Mistral({ apiKey: process.env.MISTRAL_API_KEY })
-  : null
 
-const MISTRAL_MODEL = process.env.MISTRAL_MODEL || "mistral-large-latest"
 
 const MAX_MESSAGES = 40
 const MAX_MESSAGE_LENGTH = 12_000
@@ -164,39 +160,8 @@ function validateMessages(raw: unknown): PlagiaAiMessage[] | null {
   return out
 }
 
-function extractText(content: unknown): string {
-  if (typeof content === "string") return content
-  if (Array.isArray(content)) {
-    let text = ""
-    for (const piece of content) {
-      if (typeof piece === "string") {
-        text += piece
-      } else if (piece && typeof piece === "object" && "text" in piece) {
-        const t = (piece as { text?: unknown }).text
-        if (typeof t === "string") text += t
-      }
-    }
-    return text
-  }
-  return ""
-}
-
 function isKnownToolName(name: string): name is PlagiaAiToolName {
   return (PLAGIA_AI_TOOL_NAMES as readonly string[]).includes(name)
-}
-
-function safeParseArgs(raw: unknown): Record<string, unknown> {
-  if (!raw) return {}
-  if (typeof raw === "object") return raw as Record<string, unknown>
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw)
-      return parsed && typeof parsed === "object" ? parsed : {}
-    } catch {
-      return {}
-    }
-  }
-  return {}
 }
 
 function sseEncoder() {
@@ -264,7 +229,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid messages payload" }, { status: 400 })
   }
 
-  if (!mistralClient) {
+  if (!ai.isConfigured()) {
     return Response.json({ error: "AI service not configured" }, { status: 500 })
   }
 
@@ -323,14 +288,18 @@ export async function POST(req: Request) {
   const userPrefs = await loadPreferences(prefsSupabase, user.id)
   const prefsSystemMessage = buildPreferencesSystemMessage(userPrefs)
 
-  // Build the running message history we feed back to Mistral each round.
-  // We use `any[]` because Mistral message types include both tool roles and
-  // toolCalls fields that aren't in our public PlagiaAiMessage type.
-  const conversation: any[] = [
-    { role: "system", content: SYSTEM_PROMPT },
-    ...(prefsSystemMessage ? [{ role: "system", content: prefsSystemMessage }] : []),
-    ...validated.map((m) => ({ role: m.role, content: m.content })),
-  ]
+  // The running history we feed back to the model each round. Unlike the
+  // OpenAI/Mistral shape this used to be, there is no "system" turn: the
+  // provider takes the system prompt separately (Gemini has no system role and
+  // rejects one in the message list), so it is joined and passed as
+  // `systemInstruction` on every call instead.
+  const systemInstruction = prefsSystemMessage
+    ? `${SYSTEM_PROMPT}\n\n${prefsSystemMessage}`
+    : SYSTEM_PROMPT
+  const conversation: AiTurn[] = validated.map((m) => ({
+    role: m.role,
+    content: m.content,
+  })) as AiTurn[]
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -390,16 +359,7 @@ export async function POST(req: Request) {
 
             // Synthesize an assistant→tool exchange in the conversation
             // history so the model can see the tool was actually run.
-            const syntheticToolCall = [
-              {
-                id: callId,
-                type: "function",
-                function: {
-                  name: toolName,
-                  arguments: JSON.stringify(args),
-                },
-              },
-            ]
+            const syntheticToolCall = [{ id: callId, name: toolName, args }]
 
             if (outcome.ok) {
               lastSuccessfulToolName = toolName
@@ -422,7 +382,7 @@ export async function POST(req: Request) {
               })
               conversation.push({
                 role: "tool",
-                toolCallId: callId,
+                callId,
                 name: toolName,
                 content: JSON.stringify({
                   ok: true,
@@ -447,7 +407,7 @@ export async function POST(req: Request) {
               })
               conversation.push({
                 role: "tool",
-                toolCallId: callId,
+                callId,
                 name: toolName,
                 content: JSON.stringify({ ok: false, error: outcome.error }),
               })
@@ -463,23 +423,22 @@ export async function POST(req: Request) {
         // and surfaces that to the model so it switches tactic or apologizes.
         const failureCounts: Map<PlagiaAiToolName, number> = new Map()
         for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-          const completion = await mistralClient.chat.complete({
-            model: MISTRAL_MODEL,
-            temperature: 0.4,
-            messages: conversation,
-            tools: MISTRAL_TOOLS as any,
-            toolChoice: "auto",
-          })
-
-          const choice = completion.choices?.[0]
-          const message = choice?.message
-          if (!message) {
+          let turn: ToolsResult
+          try {
+            turn = await ai.generateWithTools({
+              system: systemInstruction,
+              turns: conversation,
+              tools: AI_TOOLS,
+              temperature: 0.4,
+            })
+          } catch (err) {
+            console.error("PlagiaAI model error:", err)
             controller.enqueue(encode({ type: "error", message: "No response from AI" }))
             break
           }
 
-          const rawAssistantText = extractText(message.content)
-          const toolCalls = (message as { toolCalls?: any[] }).toolCalls || []
+          const rawAssistantText = turn.text
+          const toolCalls = turn.toolCalls
           const hasToolCalls = toolCalls.length > 0
 
           // FE-10 — parse out the [[FOLLOWUPS: a | b | c]] marker the model
@@ -541,9 +500,10 @@ export async function POST(req: Request) {
 
           for (const call of toolCalls) {
             const callId: string = call.id || `call_${Math.random().toString(36).slice(2)}`
-            const fnName: string = call.function?.name || ""
-            const argsRaw = call.function?.arguments
-            const args = safeParseArgs(argsRaw)
+            const fnName: string = call.name || ""
+            // The provider hands back parsed arguments, so there is no JSON
+            // string to decode here any more.
+            const args = call.args || {}
 
             if (!isKnownToolName(fnName)) {
               controller.enqueue(
@@ -557,7 +517,7 @@ export async function POST(req: Request) {
               )
               conversation.push({
                 role: "tool",
-                toolCallId: callId,
+                callId,
                 name: fnName,
                 content: JSON.stringify({ ok: false, error: `Unknown tool ${fnName}` }),
               })
@@ -593,7 +553,7 @@ export async function POST(req: Request) {
               )
               conversation.push({
                 role: "tool",
-                toolCallId: callId,
+                callId,
                 name: fnName,
                 content: JSON.stringify({ ok: false, error: capMessage }),
               })
@@ -681,7 +641,7 @@ export async function POST(req: Request) {
               )
               conversation.push({
                 role: "tool",
-                toolCallId: callId,
+                callId,
                 name: fnName,
                 content: JSON.stringify({
                   ok: true,
@@ -705,7 +665,7 @@ export async function POST(req: Request) {
               )
               conversation.push({
                 role: "tool",
-                toolCallId: callId,
+                callId,
                 name: fnName,
                 content: JSON.stringify({ ok: false, error: outcome.error }),
               })

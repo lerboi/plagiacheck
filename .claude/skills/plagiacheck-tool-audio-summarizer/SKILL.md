@@ -49,7 +49,7 @@ Returns:
 
 ## Prompt rules
 
-The system prompt instructs Mistral to:
+The system prompt instructs the model to:
 - Identify content type and tailor the summary (meetings get action items + decisions; interviews get Q&A pairs; lectures get key concepts/definitions).
 - Aim for ~20-30% of the original length.
 - Strip filler words and repetition.

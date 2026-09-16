@@ -63,7 +63,7 @@ The page styles each type differently (red / amber / blue). Don't add a new type
 
 ## Position accuracy
 
-The prompt insists `startIndex` / `endIndex` must be exact character positions in the original text — the page uses these for inline highlighting. If you change the prompt, validate that positions still match the original (Mistral has a tendency to drift on long inputs).
+The prompt insists `startIndex` / `endIndex` must be exact character positions in the original text — the page uses these for inline highlighting. If you change the prompt, validate that positions still match the original (models tend to drift on long inputs).
 
 ## Common edits
 

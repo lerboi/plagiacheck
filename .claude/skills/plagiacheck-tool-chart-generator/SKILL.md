@@ -1,6 +1,6 @@
 ---
 name: plagiacheck-tool-chart-generator
-description: How the Chart Generator tool works — the page at /chart-generator and the /api/generate-image route that asks Mistral for a structured JSON spec, then builds the SVG deterministically via lib/svg-templates.ts. Supports bar, line, pie, flowchart, mindmap, timeline, and comparison. Use when the user asks about chart generation, diagrams, flowcharts, mind maps, or wants to modify the chart tool, the SVG templates, or the JSON schema the LLM returns.
+description: How the Chart Generator tool works — the page at /chart-generator and the /api/generate-image route that asks Gemini for a structured JSON spec, then builds the SVG deterministically via lib/svg-templates.ts. Supports bar, line, pie, flowchart, mindmap, timeline, and comparison. Use when the user asks about chart generation, diagrams, flowcharts, mind maps, or wants to modify the chart tool, the SVG templates, or the JSON schema the LLM returns.
 ---
 
 # Chart Generator

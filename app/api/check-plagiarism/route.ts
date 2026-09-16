@@ -1,4 +1,4 @@
-import { Mistral } from '@mistralai/mistralai';
+import { ai } from '@/lib/ai';
 import { getUserFromRequest } from '@/lib/server-auth';
 import {
   calculateTextTokenCost,
@@ -7,11 +7,7 @@ import {
 } from '@/lib/server-tokens';
 import { recordToolUse } from '@/lib/server-history';
 
-const mistralClient = process.env.MISTRAL_API_KEY ? new Mistral({
-  apiKey: process.env.MISTRAL_API_KEY
-}) : null;
 
-const MISTRAL_MODEL = process.env.MISTRAL_MODEL || 'mistral-large-latest';
 const MAX_INPUT_LENGTH = 50_000;
 
 function detectPotentialPlagiarism(text: string): { matches: any[], score: number } {
@@ -118,7 +114,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!mistralClient) {
+  if (!ai.isConfigured()) {
     // Never charge for the keyword-frequency fallback alone — it exists to
     // absorb transient AI failures, not to stand in for a missing API key.
     return Response.json({ error: 'AI service not configured' }, { status: 500 });
@@ -154,32 +150,24 @@ export async function POST(req: Request) {
         let result: any = null;
         let usedFallback = false;
 
-        if (mistralClient) {
+        if (ai.isConfigured()) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 30 })}\n\n`));
 
           try {
-            const completion = await mistralClient.chat.complete({
-              model: MISTRAL_MODEL,
-              messages: [
-                { role: 'system', content: ENHANCED_SYSTEM_PROMPT },
-                { role: 'user', content: `Analyze this text for plagiarism:\n\n${inputText}` },
-              ],
+            const aiContent = await ai.generate({
+              system: ENHANCED_SYSTEM_PROMPT,
+              prompt: `Analyze this text for plagiarism:\n\n${inputText}`,
               temperature: 0.1,
+              json: true,
             });
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ progress: 80 })}\n\n`));
 
-            if (completion.choices && completion.choices[0]?.message?.content) {
-              const mistralContent = completion.choices[0].message.content;
-              const mistralContentString: string = typeof mistralContent === 'string'
-                ? mistralContent
-                : Array.isArray(mistralContent)
-                  ? mistralContent.map((chunk: any) => chunk.text || '').join('')
-                  : String(mistralContent);
-              result = extractJSON(mistralContentString);
+            if (aiContent) {
+              result = extractJSON(aiContent);
             }
           } catch (aiErr) {
-            console.error('Mistral plagiarism error, falling back:', aiErr);
+            console.error('AI plagiarism error, falling back:', aiErr);
             // Fall through to algorithmic fallback below.
           }
         }

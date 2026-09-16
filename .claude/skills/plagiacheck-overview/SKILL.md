@@ -11,7 +11,7 @@ This is the **starting point** for any question about the Plagiacheck codebase. 
 
 A Next.js 15 (App Router) writing-tools SaaS at `https://www.plagiacheck.online/`. It bundles **15 tools** across three categories (Writing, Image & Visual, Voice & Audio), gated by a **two-currency token system** (text tokens + image tokens) that is topped up via Stripe subscriptions or one-time purchases.
 
-**Stack:** Next.js 15 / React 19 / TypeScript / Tailwind / shadcn-ui / Supabase (auth + Postgres) / Stripe / Mistral AI / Zustand / Framer Motion.
+**Stack:** Next.js 15 / React 19 / TypeScript / Tailwind / shadcn-ui / Supabase (auth + Postgres) / Stripe / Google Gemini / Zustand / Framer Motion.
 
 ## Two-minute mental model
 
@@ -20,7 +20,7 @@ A Next.js 15 (App Router) writing-tools SaaS at `https://www.plagiacheck.online/
 3. **Tool calls an API route** (`app/api/.../route.ts`). The route:
    - Validates the Supabase JWT via `lib/server-auth.ts`.
    - Atomically deducts tokens via Supabase RPCs (`lib/server-tokens.ts`).
-   - Calls Mistral AI (or browser APIs for voice tools).
+   - Calls Google Gemini through `lib/ai` (or browser APIs for voice tools).
    - Refunds tokens on failure, records the run in `tool_history` (`lib/server-history.ts`).
 4. **Token balance** is mirrored client-side in a Zustand store (`lib/store.ts`) for display; the **server is authoritative**.
 5. **Payments** flow through Stripe checkout → Stripe webhook (`app/api/webhook/stripe/route.js`) → Supabase tables (`PurchasedToken`, `Package`, `user_profiles`, `Payment`).
@@ -32,25 +32,25 @@ Each topic has its own `plagiacheck-*` skill. Read the skill instead of re-deriv
 ### Per-tool skills (one per tool, 15 total)
 
 **Writing tools (consume text tokens):**
-- `plagiacheck-tool-plagiarism-checker` — `/plagiarism-checker` (the home page `/` now hosts PlagiaAI chat), Mistral + algorithmic fallback, SSE streaming
-- `plagiacheck-tool-ai-detector` — `/ai-detector`, Mistral sentence-by-sentence scoring
-- `plagiacheck-tool-ai-humanizer` — `/ai-humanizer`, Mistral with tone + level controls
-- `plagiacheck-tool-paraphraser` — `/paraphraser`, Mistral with 6 modes
-- `plagiacheck-tool-summarizer` — `/summarizer`, Mistral, paragraph or bullet output
-- `plagiacheck-tool-grammar-checker` — `/grammar-checker`, Mistral, returns issues + corrected text
+- `plagiacheck-tool-plagiarism-checker` — `/plagiarism-checker` (the home page `/` now hosts PlagiaAI chat), Gemini + algorithmic fallback, SSE streaming
+- `plagiacheck-tool-ai-detector` — `/ai-detector`, Gemini sentence-by-sentence scoring
+- `plagiacheck-tool-ai-humanizer` — `/ai-humanizer`, Gemini with tone + level controls
+- `plagiacheck-tool-paraphraser` — `/paraphraser`, Gemini with 6 modes
+- `plagiacheck-tool-summarizer` — `/summarizer`, Gemini, paragraph or bullet output
+- `plagiacheck-tool-grammar-checker` — `/grammar-checker`, Gemini, returns issues + corrected text
 - `plagiacheck-tool-word-counter` — `/word-counter`, **FREE**, client-only, no API call
 
 **Image & visual tools (consume image tokens):**
-- `plagiacheck-tool-image-to-text` — `/image-to-text`, Mistral pixtral-12b vision OCR
+- `plagiacheck-tool-image-to-text` — `/image-to-text`, Gemini pixtral-12b vision OCR
 - `plagiacheck-tool-infographic-generator` — `/infographic-generator`, LLM produces JSON spec → server renders SVG via `lib/svg-templates.ts`
 - `plagiacheck-tool-thumbnail-generator` — `/thumbnail-generator`, LLM picks palette + headline → server renders 1200×630 SVG via `lib/svg-templates.ts`
 - `plagiacheck-tool-chart-generator` — `/chart-generator`, LLM produces structured chart spec → server renders SVG via `lib/svg-templates.ts` (supports bar, line, pie, flowchart, mindmap, timeline, comparison)
 
 **Voice & audio tools (browser-dependent):**
-- `plagiacheck-tool-speech-to-text` — `/speech-to-text`, Web Speech API + Mistral cleanup
+- `plagiacheck-tool-speech-to-text` — `/speech-to-text`, Web Speech API + Gemini cleanup
 - `plagiacheck-tool-text-to-speech` — `/text-to-speech`, **FREE**, browser SpeechSynthesis only, no API
-- `plagiacheck-tool-voice-to-essay` — `/voice-to-essay`, Web Speech API + Mistral essay rewrite
-- `plagiacheck-tool-audio-summarizer` — `/audio-summarizer`, Web Speech API + Mistral summarization
+- `plagiacheck-tool-voice-to-essay` — `/voice-to-essay`, Web Speech API + Gemini essay rewrite
+- `plagiacheck-tool-audio-summarizer` — `/audio-summarizer`, Web Speech API + Gemini summarization
 
 > **Architecture note for the SVG generators (chart, infographic, thumbnail):** the LLM emits a structured JSON spec, never raw SVG. The route validates the spec and `lib/svg-templates.ts` renders the SVG deterministically. Output quality therefore does not depend on the LLM getting positioning right — it just has to extract content.
 
@@ -63,7 +63,7 @@ Each topic has its own `plagiacheck-*` skill. Read the skill instead of re-deriv
 - `plagiacheck-history` — `tool_history` table, `recordToolUse`, what shows up on `/history`
 - `plagiacheck-components` — `nav.tsx`, `tool-page-header`, `tool-signin-prompt`, shadcn-ui inventory
 - `plagiacheck-pages-non-tool` — `/pricing`, `/billing`, `/signin`, `/history`, `/forgot-password`, `/reset-password`, `/privacy`, `/terms`
-- `plagiacheck-env` — every environment variable the app uses, including the `URL2` legacy alias
+- `plagiacheck-env` — every environment variable the app uses, including the `URL2` legacy alias and the `GEMINI_*` keys
 
 ## Restricted areas (DO NOT MODIFY)
 

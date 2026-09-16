@@ -20,7 +20,7 @@ Lets users speak ideas freely, then converts the raw transcript into a well-stru
 
 1. Web Speech API records and produces a raw transcript (same pattern as `plagiacheck-tool-speech-to-text`).
 2. User clicks "Generate Essay" → page POSTs `{ text: transcript, tool: "voice-to-essay" }` to `/api/voice-tools`.
-3. Server deducts text tokens, calls Mistral with the "essay writer" system prompt, returns structured JSON.
+3. Server deducts text tokens, calls Gemini with the "essay writer" system prompt, returns structured JSON.
 
 ## API contract
 
@@ -53,7 +53,7 @@ Returns:
 
 ## Prompt rules
 
-The system prompt asks Mistral to:
+The system prompt asks the model to:
 - Add a clear introduction, body paragraphs, and a conclusion.
 - Fix grammar, punctuation, and speech recognition errors.
 - Strip filler words (um/uh/like/you know).

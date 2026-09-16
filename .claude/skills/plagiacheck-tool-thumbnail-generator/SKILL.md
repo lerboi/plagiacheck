@@ -1,6 +1,6 @@
 ---
 name: plagiacheck-tool-thumbnail-generator
-description: How the Thumbnail Generator works — the page at /thumbnail-generator and the /api/generate-image route that asks Mistral for a JSON spec (title, subtitle, palette, vibe), then renders a deterministic 1200x630 SVG cover via lib/svg-templates.ts. Use when the user asks about thumbnail generation, OG/cover images, the palette logic, the layout, or wants to modify the template.
+description: How the Thumbnail Generator works — the page at /thumbnail-generator and the /api/generate-image route that asks Gemini for a JSON spec (title, subtitle, palette, vibe), then renders a deterministic 1200x630 SVG cover via lib/svg-templates.ts. Use when the user asks about thumbnail generation, OG/cover images, the palette logic, the layout, or wants to modify the template.
 ---
 
 # Thumbnail Generator

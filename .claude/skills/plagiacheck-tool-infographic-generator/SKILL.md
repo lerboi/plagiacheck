@@ -1,6 +1,6 @@
 ---
 name: plagiacheck-tool-infographic-generator
-description: How the Infographic Generator works — the page at /infographic-generator and the /api/generate-image route that asks Mistral for a structured JSON spec (title, intro, stats, sections, conclusion), then renders the infographic deterministically via lib/svg-templates.ts. Use when the user asks about infographic generation, the spec schema, the layout, or wants to modify the templates or the LLM prompt.
+description: How the Infographic Generator works — the page at /infographic-generator and the /api/generate-image route that asks Gemini for a structured JSON spec (title, intro, stats, sections, conclusion), then renders the infographic deterministically via lib/svg-templates.ts. Use when the user asks about infographic generation, the spec schema, the layout, or wants to modify the templates or the LLM prompt.
 ---
 
 # Infographic Generator

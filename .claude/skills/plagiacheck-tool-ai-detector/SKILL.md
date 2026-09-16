@@ -44,7 +44,7 @@ Returns:
 }
 ```
 
-The system prompt (in `route.ts`) tells Mistral to be calibrated: casual writing with typos should score low; formulaic polished text should score higher. The model is instructed to return EXACT sentence text from the input so the UI can highlight passages.
+The system prompt (in `route.ts`) tells the model to be calibrated: casual writing with typos should score low; formulaic polished text should score higher. The model is instructed to return EXACT sentence text from the input so the UI can highlight passages.
 
 ## Token cost
 
@@ -59,4 +59,4 @@ The system prompt (in `route.ts`) tells Mistral to be calibrated: casual writing
 ## Common edits
 
 - To tweak detection sensitivity, edit the `ai-detect` system prompt in `app/api/ai-tools/route.ts`. Don't change the JSON schema unless you also update the page UI and `lib/pdf-generator.ts`.
-- The verdict thresholds (`Likely Human`/`Possibly AI`/`Likely AI`) are decided by Mistral, not by the client. If you want hard cutoffs, do it on the server side after `extractJSON`.
+- The verdict thresholds (`Likely Human`/`Possibly AI`/`Likely AI`) are decided by the model, not by the client. If you want hard cutoffs, do it on the server side after `extractJSON`.

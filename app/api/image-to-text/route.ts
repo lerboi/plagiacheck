@@ -1,11 +1,8 @@
-import { Mistral } from '@mistralai/mistralai';
+import { ai } from '@/lib/ai';
 import { getUserFromRequest } from '@/lib/server-auth';
 import { IMAGE_TOKEN_COST, deductImageTokens, refundImageTokens } from '@/lib/server-tokens';
 import { recordToolUse } from '@/lib/server-history';
 
-const mistralClient = process.env.MISTRAL_API_KEY
-  ? new Mistral({ apiKey: process.env.MISTRAL_API_KEY })
-  : null;
 
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
@@ -25,7 +22,7 @@ export async function POST(req: Request) {
     const ALLOWED_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
     const safeMimeType = ALLOWED_MIME_TYPES.has(mimeType) ? mimeType : 'image/png';
 
-    if (!mistralClient) {
+    if (!ai.isConfigured()) {
       return Response.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
@@ -36,17 +33,10 @@ export async function POST(req: Request) {
     }
 
     try {
-      const dataUrl = `data:${safeMimeType};base64,${imageBase64}`;
-
-      const completion = await mistralClient.chat.complete({
-        model: 'pixtral-12b-2409',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Extract ALL text from this image. This could be a photo of a document, handwritten notes, a screenshot, a printed page, or any image containing text.
+      // Gemini takes the image as an inlineData part with RAW base64 — a full
+      // data: URL passed as `data` is accepted but silently produces garbage.
+      const contentString = await ai.generate({
+        prompt: `Extract ALL text from this image. This could be a photo of a document, handwritten notes, a screenshot, a printed page, or any image containing text.
 
 Rules:
 - Extract every piece of text visible in the image
@@ -62,29 +52,16 @@ Return ONLY a valid JSON object:
   "confidence": "high" | "medium" | "low",
   "textType": "printed" | "handwritten" | "mixed" | "screenshot",
   "wordCount": number
-}`
-              },
-              {
-                type: 'image_url',
-                imageUrl: dataUrl,
-              }
-            ],
-          }
-        ],
+}`,
+        image: { base64: imageBase64, mimeType: safeMimeType },
         temperature: 0.1,
+        json: true,
       });
 
-      if (!completion.choices || !completion.choices[0]?.message?.content) {
+      if (!contentString) {
         await refundImageTokens(user.id, cost);
         return Response.json({ error: 'No response from AI' }, { status: 500 });
       }
-
-      const content = completion.choices[0].message.content;
-      const contentString = typeof content === 'string'
-        ? content
-        : Array.isArray(content)
-          ? content.map((chunk: any) => chunk.text || '').join('')
-          : String(content);
 
       let result;
       try {

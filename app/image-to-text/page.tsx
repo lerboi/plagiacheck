@@ -30,7 +30,7 @@ const FAQ_ITEMS = [
   {
     question: "How does the OCR work?",
     answer:
-      "Your image is sent to a vision AI model (Mistral's pixtral-12b) that reads the text in it, which handles photos, screenshots, and scans better than traditional pattern-matching OCR.",
+      "Your image is sent to a vision AI model (Google's Gemini) that reads the text in it, which handles photos, screenshots, and scans better than traditional pattern-matching OCR.",
   },
   {
     question: "How much does an extraction cost?",

@@ -36,7 +36,7 @@ Defaults if `options` is missing: `tone="casual"`, `level=50`.
 
 ## How tone × level interact
 
-The system prompt (`humanize` in `route.ts`) instructs Mistral:
+The system prompt (`humanize` in `route.ts`) instructs the model:
 - **Tone** controls vocabulary and register (casual = contractions, academic = third person + hedging, etc.)
 - **Level** controls structural rewriting depth — 0-20 is light edit, 81-100 is heavy rewrite with rhythm changes.
 - If they conflict: tone wins for vocabulary, level wins for structure.
