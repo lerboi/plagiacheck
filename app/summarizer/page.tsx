@@ -282,7 +282,7 @@ export default function Summarizer() {
             <Textarea
               aria-label="Text to summarize"
               placeholder="Paste your long text, article, or document here to summarize..."
-              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-green-500/30 focus-visible:ring-offset-0"
+              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-green-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

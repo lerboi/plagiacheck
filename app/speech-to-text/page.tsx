@@ -424,7 +424,7 @@ export default function SpeechToText() {
                 </div>
 
                 <Textarea
-                  className="min-h-[140px] resize-none text-sm leading-relaxed"
+                  className="min-h-[140px] resize-none text-base md:text-sm leading-relaxed"
                   value={rawTranscript}
                   onChange={(e) => setRawTranscript(e.target.value)}
                   placeholder="Transcript appears here as you speak..."

@@ -101,7 +101,9 @@ function ConversationList({
     <div
       role="list"
       aria-label="Saved conversations"
-      className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5 min-h-0"
+      /* pb-safe resolves to the same 0.75rem as pb-3 today; it exists so the
+         last row clears the home indicator in the mobile drawer. */
+      className="flex-1 overflow-y-auto px-2 pb-safe space-y-0.5 min-h-0"
     >
       {loading && (
         <div aria-hidden="true" className="space-y-0.5">
@@ -216,7 +218,7 @@ function ConversationList({
                         }
                       }}
                       onBlur={() => void commitRename()}
-                      className={`w-full h-7 px-2 rounded-md border bg-background text-xs focus:outline-none focus:ring-1 ${
+                      className={`w-full h-8 md:h-7 px-2 rounded-md border bg-background text-base md:text-xs focus:outline-none focus:ring-1 ${
                         !renameDraft.trim()
                           ? "border-red-400 focus:ring-red-400"
                           : "border-violet-500 focus:ring-violet-500"
@@ -383,7 +385,7 @@ export function ConversationSidebar({
               onChange={(e) => setFilterQuery(e.target.value)}
               placeholder="Filter conversations"
               aria-label="Filter conversations"
-              className="w-full h-8 px-2.5 rounded-md border border-border bg-background text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full h-9 md:h-8 px-2.5 rounded-md border border-border bg-background text-base md:text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
             />
           </div>
         )}
@@ -476,7 +478,7 @@ export function ConversationSidebar({
                   onChange={(e) => setFilterQuery(e.target.value)}
                   placeholder="Filter conversations"
                   aria-label="Filter conversations"
-                  className="w-full h-8 px-2.5 rounded-md border border-border bg-background text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  className="w-full h-9 md:h-8 px-2.5 rounded-md border border-border bg-background text-base md:text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>
             )}

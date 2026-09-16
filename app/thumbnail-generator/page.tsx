@@ -193,7 +193,7 @@ export default function ThumbnailGenerator() {
           <input
             type="text"
             placeholder="e.g., 'The Future of Artificial Intelligence in Healthcare'"
-            className="w-full h-11 px-3 text-sm rounded-lg border border-border bg-transparent outline-none transition-colors focus:border-violet-500 dark:focus:border-violet-400"
+            className="w-full h-11 px-3 text-base md:text-sm rounded-lg border border-border bg-transparent outline-none transition-colors focus:border-violet-500 dark:focus:border-violet-400"
             value={text}
             maxLength={MAX_INPUT_CHARS}
             onChange={(e) => setText(e.target.value.slice(0, MAX_INPUT_CHARS))}

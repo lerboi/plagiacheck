@@ -242,7 +242,7 @@ export default function TextToSpeech() {
 
                 <Textarea
                   placeholder="Paste your essay, article, or any text here to hear it read aloud. Great for catching errors your eyes might miss..."
-                  className="min-h-[280px] resize-none text-sm leading-relaxed"
+                  className="min-h-[280px] resize-none text-base md:text-sm leading-relaxed"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   aria-label="Text to read aloud"

@@ -193,7 +193,7 @@ export default function InfographicGenerator() {
 
             <Textarea
               placeholder="Paste your article, essay, report, or any text you want to turn into an infographic..."
-              className="min-h-[320px] resize-none text-sm leading-relaxed"
+              className="min-h-[320px] resize-none text-base md:text-sm leading-relaxed"
               value={text}
               maxLength={MAX_INPUT_CHARS}
               onChange={(e) => setText(e.target.value.slice(0, MAX_INPUT_CHARS))}

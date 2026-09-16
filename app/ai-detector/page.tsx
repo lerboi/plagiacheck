@@ -308,7 +308,7 @@ export default function AIDetector() {
           <Textarea
             aria-label="Text to analyze"
             placeholder="Paste text to analyze..."
-            className="min-h-[200px] resize-none rounded-xl border-border text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-purple-500/30 focus-visible:ring-offset-0"
+            className="min-h-[200px] resize-none rounded-xl border-border text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-purple-500/30 focus-visible:ring-offset-0"
             value={text}
             onChange={(e) => setText(e.target.value)}
           />

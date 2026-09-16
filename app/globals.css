@@ -125,3 +125,62 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/50;
 }
+/* ── Mobile viewport utilities (iOS Safari) ─────────────────────────────────
+   iOS Safari resolves `vh` against the LARGE viewport — the screen as it would
+   be with the URL/search bar retracted. Anything sized in `vh` therefore runs
+   ~50-90px taller than what the user can actually see, and its bottom edge
+   hides behind Safari's bottom bar. `dvh` tracks the viewport as it actually
+   is right now, so it is the correct unit for a fixed overlay.
+
+   Each rule keeps a `vh` line first as a fallback for pre-2022 browsers that
+   do not understand `dvh` (iOS Safari gained it in 15.4); browsers that do
+   understand it apply the second declaration and win. */
+.max-h-sheet-dvh {
+  max-height: calc(100vh - 3.5rem);
+  max-height: calc(100dvh - 3.5rem);
+}
+
+.h-drawer-dvh {
+  height: calc(100vh - 3.5rem);
+  height: calc(100dvh - 3.5rem);
+}
+
+.h-screen-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Bottom padding for a pinned footer inside a mobile overlay. The viewport is
+   left at its default `viewport-fit=auto`, so the UA already insets the page
+   past the home indicator and env() resolves to 0 — the max() simply keeps the
+   0.75rem baseline today and starts honouring the inset automatically if
+   viewport-fit=cover is ever adopted. */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* ── iOS Safari focus-zoom guard ────────────────────────────────────────────
+   iOS Safari magnifies the page whenever a focusable text control is focused
+   with a RENDERED font-size below 16px, and never zooms back out on blur. The
+   individual controls all declare `text-base md:text-sm` (16px on phones) so
+   this rule is normally a no-op; it exists so a control added later — or one
+   whose `text-sm` survives a tailwind-merge — cannot silently reintroduce the
+   zoom.
+
+   Deliberately NOT fixed with `maximum-scale=1` in the viewport meta: iOS
+   ignores that for pinch-zoom anyway, while Android honours it and genuinely
+   blocks zooming, which fails WCAG 2.2 SC 1.4.4.
+
+   Lives outside @layer so it follows Tailwind's utilities in source order, and
+   each selector is specificity-boosted past a single utility class (0,1,0) so
+   a stray `text-sm` cannot beat it. Types that never open a keyboard
+   (checkbox, radio, range, colour, and the button-like inputs) are excluded so
+   their sizing is left alone. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  textarea:not([hidden]),
+  select:not([hidden]),
+  [contenteditable]:not([contenteditable="false"]) {
+    font-size: 16px;
+  }
+}

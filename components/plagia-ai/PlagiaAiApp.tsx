@@ -1206,7 +1206,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   animate={{ x: 0 }}
                   exit={{ x: "-100%" }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="fixed top-14 bottom-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-xl"
+                  /* h-drawer-dvh instead of bottom-0: a fixed `bottom: 0`
+                     resolves against the layout viewport, which on iOS Safari
+                     runs behind the bottom bar, hiding the last conversation
+                     rows. Sizing in dvh ends the drawer at the real visible
+                     edge. */
+                  className="fixed top-14 left-0 z-50 h-drawer-dvh w-[280px] max-w-[85vw] shadow-xl"
                   aria-label="Conversation history (drawer)"
                   role="dialog"
                   aria-modal="true"
@@ -1409,7 +1414,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                                 }
                               }}
                               rows={2}
-                              className="min-h-[60px] resize-none border-0 bg-transparent text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                              className="min-h-[60px] resize-none border-0 bg-transparent text-base md:text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
                               aria-label="Edit your message"
                             />
                             <div className="flex items-center justify-end gap-1.5">
@@ -1817,7 +1822,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                className="min-h-[52px] max-h-[200px] resize-none border-0 bg-transparent text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="min-h-[52px] max-h-[200px] resize-none border-0 bg-transparent text-base md:text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               {input.length > 11000 && (
                 <p className="px-3 text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">
@@ -1955,7 +1960,7 @@ function PreferencesPanel({
                 (e.target.value || undefined) as PlagiaAiPreferences["paraphraseMode"],
               )
             }
-            className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-full h-9 rounded-md border border-border bg-background px-2 text-base md:text-sm"
           >
             <option value="">No preference</option>
             <option value="standard">Standard</option>
@@ -1977,7 +1982,7 @@ function PreferencesPanel({
                 (e.target.value || undefined) as PlagiaAiPreferences["humanizerTone"],
               )
             }
-            className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+            className="w-full h-9 rounded-md border border-border bg-background px-2 text-base md:text-sm"
           >
             <option value="">No preference</option>
             <option value="casual">Casual</option>

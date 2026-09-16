@@ -206,7 +206,7 @@ export default function ChartGenerator() {
 
             <Textarea
               placeholder={`Describe the data or concept you want to visualize. Examples:\n\n• 'Sales by quarter: Q1 $50k, Q2 $75k, Q3 $60k, Q4 $90k'\n• 'User signup flow: landing page → register → verify email → dashboard'\n• 'Compare React vs Vue vs Angular in terms of speed, ecosystem, learning curve'`}
-              className="min-h-[200px] resize-none text-sm leading-relaxed"
+              className="min-h-[200px] resize-none text-base md:text-sm leading-relaxed"
               value={text}
               maxLength={MAX_INPUT_CHARS}
               onChange={(e) => setText(e.target.value.slice(0, MAX_INPUT_CHARS))}

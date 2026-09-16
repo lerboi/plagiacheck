@@ -369,7 +369,7 @@ export default function VoiceToEssay() {
               Voice Notes
             </h3>
             <Textarea
-              className="min-h-[140px] resize-none text-sm leading-relaxed"
+              className="min-h-[140px] resize-none text-base md:text-sm leading-relaxed"
               value={rawTranscript}
               onChange={(e) => setRawTranscript(e.target.value)}
               placeholder="Record above or type your voice notes here..."

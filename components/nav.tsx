@@ -419,9 +419,14 @@ export function Nav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
-            className="fixed top-14 left-0 right-0 bg-background border-b shadow-lg z-50 max-h-[calc(100vh-3.5rem)] overflow-y-auto"
+            /* max-h-sheet-dvh (globals.css) sizes the panel against the
+               viewport as it actually is, so its bottom edge lands above
+               Safari's bottom bar instead of behind it. flex-col then splits
+               the panel into a scrolling body and a pinned footer, so the auth
+               buttons stay reachable however long the tool list gets. */
+            className="fixed top-14 left-0 right-0 bg-background border-b shadow-lg z-50 max-h-sheet-dvh flex flex-col"
           >
-            <div className="p-4 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-2">
 
               {/* Mobile token summary */}
               <MobileTokenSummary user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} />
@@ -557,9 +562,13 @@ export function Nav() {
                 <span className="text-sm font-medium">Theme</span>
                 <ThemeToggle />
               </div>
+            </div>
 
-              {/* Auth Buttons */}
-              <div className="space-y-2 pt-1">
+            {/* Auth Buttons — pinned below the scroll area so they are never
+                pushed under Safari's bottom bar. pb-safe keeps them clear of
+                the home indicator too. */}
+            <div className="shrink-0 border-t border-border/60 bg-background px-4 pt-3 pb-safe">
+              <div className="space-y-2">
                 {user ? (
                   <div className="space-y-2">
                     <div className="text-sm text-muted-foreground px-3 py-2 bg-accent/30 rounded-lg">

@@ -301,7 +301,7 @@ export default function GrammarChecker() {
             <Textarea
               aria-label="Text to check for grammar and spelling errors"
               placeholder="Type or paste your text here to check for grammar and spelling errors..."
-              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-0"
+              className="min-h-[360px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

@@ -163,7 +163,11 @@ function AuthForm({
   };
 
   return (
-    <div className="fixed inset-0 flex z-40">
+    /* h-screen-dvh rather than inset-0: a fixed box sized to the layout
+       viewport extends behind Safari's bottom bar, cutting off the tail of the
+       form panel (this is the page's only scroller). dvh ends it at the real
+       visible edge. */
+    <div className="fixed inset-x-0 top-0 h-screen-dvh flex z-40">
       {/* Left dark branding panel */}
       <div className="hidden lg:flex lg:w-2/5 xl:w-[42%] flex-col justify-between p-10 xl:p-14 bg-slate-900 text-white">
         <Link href="/" className="flex items-center gap-2.5 w-fit">
@@ -456,7 +460,7 @@ export default function SignIn() {
 
   return (
     <Suspense fallback={
-      <div className="fixed inset-0 flex items-center justify-center bg-background z-40">
+      <div className="fixed inset-x-0 top-0 h-screen-dvh flex items-center justify-center bg-background z-40">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     }>
