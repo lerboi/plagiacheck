@@ -39,7 +39,7 @@ import { useState, useEffect, useRef } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
-import { ThemeToggle } from "./theme-toggle"
+import { ThemeToggle, ThemeMenuRow } from "./theme-toggle"
 import { ProfileDropdown } from "@/components/Profile/ProfileDropdown"
 
 interface Tool {
@@ -428,87 +428,73 @@ export function Nav() {
           >
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-2">
 
-              {/* Mobile token summary */}
-              <MobileTokenSummary user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} />
+              {/* Token summary — one quiet line. The nav bar already shows
+                  the live counts next to the menu button, so this only adds
+                  the labels those bare numbers are missing. */}
+              <MobileTokenSummary user={user} remainingWords={remainingWords} remainingImageTokens={remainingImageTokens} guestTokens={guestTokens} onNavigate={closeMobileMenu} />
 
-              {/* Featured: PlagiaAI (mobile) */}
+              {/* Featured: PlagiaAI (mobile). The one accented row in the
+                  sheet — a faint tint rather than a bordered gradient card, so
+                  it still reads as "first" without boxing itself off. */}
               <Link
                 href="/"
                 onClick={closeMobileMenu}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  onPlagiaAi
-                    ? "border-violet-500/50 bg-gradient-to-r from-violet-500/15 to-fuchsia-500/10"
-                    : "border-violet-200/40 dark:border-violet-800/40 bg-gradient-to-r from-violet-500/8 to-fuchsia-500/8"
+                className={`flex items-center gap-3 py-3 px-3 rounded-lg transition-colors ${
+                  onPlagiaAi ? "bg-violet-500/10" : "bg-violet-500/5 hover:bg-violet-500/10"
                 }`}
               >
-                <div className="p-1.5 rounded-lg bg-violet-500/15">
-                  <Sparkles className="h-4 w-4 text-violet-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold">PlagiaAI</span>
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-violet-500/20 text-violet-600 dark:text-violet-300 rounded-full leading-none">
-                      NEW
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    Chat with an AI that uses all your tools
-                  </span>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Sparkles className="h-5 w-5 text-violet-500 shrink-0" />
+                <span className="font-medium text-sm">PlagiaAI</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-violet-500/20 text-violet-600 dark:text-violet-300 rounded-full leading-none">
+                  NEW
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 ml-auto" />
               </Link>
 
-              {/* Categorized Tool Sections */}
+              {/* Categorized Tool Sections — plain accordion rows that match
+                  the links below them. The category icon keeps its colour so
+                  the three groups stay scannable; everything else (card
+                  border, icon chip, two-column grid) is dropped. */}
               {toolCategories.map((category) => {
                 const isExpanded = expandedMobileCategory === category.label
                 return (
-                  <div key={category.label} className="rounded-xl border border-border/60 overflow-hidden">
-                    {/* Category Header — Accordion Toggle */}
+                  <div key={category.label}>
                     <button
                       onClick={() => toggleMobileCategory(category.label)}
-                      className="flex items-center justify-between w-full px-4 py-3 hover:bg-accent/50 transition-colors"
+                      className={`flex items-center gap-3 w-full py-3 px-3 rounded-lg transition-colors ${
+                        isExpanded ? "bg-accent/60" : "hover:bg-accent"
+                      }`}
                       aria-expanded={isExpanded}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-lg ${category.bgColor}`}>
-                          <category.icon className={`h-4 w-4 ${category.color}`} />
-                        </div>
-                        <div className="text-left">
-                          <span className="text-sm font-semibold">{category.label}</span>
-                          <span className="text-xs text-muted-foreground ml-2">{category.tools.length} tools</span>
-                        </div>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                      <category.icon className={`h-5 w-5 shrink-0 ${category.color}`} />
+                      <span className="font-medium text-sm">{category.label}</span>
+                      <span className="text-xs text-muted-foreground">{category.tools.length}</span>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 ml-auto transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                     </button>
 
-                    {/* Expanded Tool List */}
+                    {/* One tool per row: the old two-column grid truncated
+                        half the names ("Speech to...", "Voice to E..."). */}
                     {isExpanded && (
-                      <div className="px-2 pb-2 grid grid-cols-2 gap-1.5">
+                      <div className="mt-0.5 mb-1 pl-3 border-l border-border/60 ml-5 space-y-0.5">
                         {category.tools.map((tool) => (
                           <Link
                             key={tool.name}
                             href={tool.href}
-                            className="flex items-center gap-2.5 p-3 rounded-lg hover:bg-accent transition-colors"
+                            className="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-accent transition-colors"
                             onClick={closeMobileMenu}
                           >
-                            <div className={`p-1.5 rounded-md ${tool.bgColor} flex-shrink-0`}>
-                              <tool.icon className={`h-4 w-4 ${tool.color}`} />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs font-medium truncate">{tool.name}</span>
-                                {tool.isFree && (
-                                  <span className="text-[8px] font-semibold px-1 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded leading-none flex-shrink-0">
-                                    FREE
-                                  </span>
-                                )}
-                                {tool.usesImageTokens && (
-                                  <span className="text-[8px] font-semibold px-1 py-0.5 bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-300 rounded leading-none flex-shrink-0">
-                                    IMG
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            <tool.icon className={`h-4 w-4 shrink-0 ${tool.color}`} />
+                            <span className="text-sm truncate">{tool.name}</span>
+                            {tool.isFree && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-green-500/15 text-green-600 dark:text-green-400 rounded-full leading-none shrink-0">
+                                FREE
+                              </span>
+                            )}
+                            {tool.usesImageTokens && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-rose-500/15 text-rose-600 dark:text-rose-400 rounded-full leading-none shrink-0">
+                                IMG
+                              </span>
+                            )}
                           </Link>
                         ))}
                       </div>
@@ -555,12 +541,10 @@ export function Nav() {
                     </Link>
                   </>
                 )}
-              </div>
 
-              {/* Theme Toggle */}
-              <div className="flex items-center justify-between py-3 px-3 bg-accent/50 rounded-lg">
-                <span className="text-sm font-medium">Theme</span>
-                <ThemeToggle />
+                {/* Theme — the same row as the links above it, so a display
+                    setting stops outweighing the actual navigation. */}
+                <ThemeMenuRow />
               </div>
             </div>
 
@@ -682,49 +666,34 @@ function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTok
   )
 }
 
-function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens }: TokenBadgeProps) {
+function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens, onNavigate }: TokenBadgeProps & { onNavigate: () => void }) {
   if (!user) {
+    // Signed out: the nav bar already carries a "Sign up" pill and the sheet
+    // pins a "Get Started" button, so this is a quiet reminder of what signing
+    // up gives you rather than a third competing call to action.
     return (
       <Link
         href="/signin?tab=register"
-        className="flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/40 dark:border-blue-800/40 hover:border-blue-400/40 transition-colors"
+        onClick={onNavigate}
+        className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-blue-500" />
-          <div>
-            <p className="text-sm font-semibold">Sign up — 1,000 free tokens</p>
-          </div>
-        </div>
-        <span
-          className="text-xs font-semibold text-blue-600 dark:text-blue-400"
-          aria-hidden="true"
-        >
-          Sign up →
-        </span>
+        <Sparkles className="h-5 w-5 text-blue-500 shrink-0" />
+        <span className="font-medium text-sm">Sign up</span>
+        <span className="text-xs text-muted-foreground">1,000 free tokens</span>
       </Link>
     )
   }
 
+  // Signed in: one line. The counts are already live in the nav bar badge —
+  // this exists to label them, which two bare numbers behind icons cannot.
   return (
-    <div className="grid grid-cols-2 gap-2 mb-1">
-      <div className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-500/8 dark:bg-blue-500/10 border border-blue-200/40 dark:border-blue-800/40">
-        <div className="p-1.5 rounded-lg bg-blue-500/15">
-          <Coins className="h-4 w-4 text-blue-500" />
-        </div>
-        <div>
-          <p className="text-sm font-bold tabular-nums">{remainingWords.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">text tokens</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-500/8 dark:bg-rose-500/10 border border-rose-200/40 dark:border-rose-800/40">
-        <div className="p-1.5 rounded-lg bg-rose-500/15">
-          <ImageIcon className="h-4 w-4 text-rose-500" />
-        </div>
-        <div>
-          <p className="text-sm font-bold tabular-nums">{remainingImageTokens}</p>
-          <p className="text-xs text-muted-foreground">image tokens</p>
-        </div>
-      </div>
+    <div className="flex items-center gap-3 py-3 px-3">
+      <Coins className="h-5 w-5 text-muted-foreground shrink-0" />
+      <span className="text-sm text-muted-foreground">
+        <span className="font-medium text-foreground tabular-nums">{remainingWords.toLocaleString()}</span> text
+        <span className="mx-1.5 text-border">|</span>
+        <span className="font-medium text-foreground tabular-nums">{remainingImageTokens}</span> image
+      </span>
     </div>
   )
 }
