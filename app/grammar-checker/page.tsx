@@ -16,6 +16,9 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useLocale, useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
+import { localeTags } from "@/i18n/config"
 
 interface GrammarIssue {
   type: "error" | "warning" | "suggestion"
@@ -25,35 +28,15 @@ interface GrammarIssue {
   position: { start: number; end: number }
 }
 
-const FAQ_ITEMS = [
-  {
-    question: "What kinds of issues does it find?",
-    answer:
-      "Three types: errors (grammar and spelling mistakes), warnings (likely problems such as awkward agreement or punctuation), and suggestions (optional style and clarity improvements).",
-  },
-  {
-    question: "How do I apply the fixes?",
-    answer:
-      "Each issue comes with a suggested replacement. You can review issues one by one or copy the fully corrected text — you stay in control of which changes to accept.",
-  },
-  {
-    question: "How do I know where each issue is in my text?",
-    answer:
-      "Every issue includes its exact character position, so it can be located and highlighted in your original text rather than just listed abstractly.",
-  },
-  {
-    question: "Does it rewrite my style?",
-    answer:
-      "No. It focuses on correctness — grammar, spelling, and punctuation — plus optional clarity suggestions. If you want a full rewrite, use the Paraphraser instead.",
-  },
-  {
-    question: "How much does a check cost?",
-    answer:
-      "Token cost scales with text length at roughly 1 text token per 6 characters. If the check fails, the tokens are refunded automatically.",
-  },
-]
+const FAQ_KEYS = ["kinds", "apply", "location", "style", "cost"] as const
+const USE_CASE_KEYS = ["emails", "essays", "nonNative", "bloggers", "teams"] as const
+const TIP_KEYS = ["writeFirst", "review", "twice", "sections"] as const
 
 export default function GrammarChecker() {
+  const t = useTranslations("GrammarChecker")
+  const tPdf = useTranslations("PdfReport")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [correctedText, setCorrectedText] = useState("")
   const [issues, setIssues] = useState<GrammarIssue[]>([])
@@ -83,6 +66,11 @@ export default function GrammarChecker() {
   const calculateRequiredTokens = (text: string) => {
     return Math.ceil(text.length / 6)
   }
+
+  const faqItems = FAQ_KEYS.map((key) => ({
+    question: t(`faq.${key}.question`),
+    answer: t(`faq.${key}.answer`),
+  }))
 
   const handleCheck = async () => {
     if (!user) {
@@ -125,7 +113,7 @@ export default function GrammarChecker() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to check grammar")
+        throw new Error(data.error || t("errors.checkFailed"))
       }
 
       setCorrectedText(data.result.correctedText || text)
@@ -134,7 +122,7 @@ export default function GrammarChecker() {
         type: issue.type || "error",
         text: issue.text || "",
         replacement: issue.replacement || "",
-        message: issue.message || "Grammar issue detected",
+        message: issue.message || t("results.issueFallback"),
         position: {
           start: issue.startIndex || 0,
           end: issue.endIndex || 0
@@ -145,18 +133,20 @@ export default function GrammarChecker() {
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Check Complete",
+        title: t("toasts.completeTitle"),
         description: mappedIssues.length > 0
-          ? `Found ${mappedIssues.length} issue${mappedIssues.length > 1 ? 's' : ''} in your text.`
-          : "No issues found! Your text looks great.",
+          ? t("toasts.issuesFound", { count: mappedIssues.length })
+          : t("toasts.noIssues"),
         variant: mappedIssues.length > 0 ? "default" : "success",
       })
     } catch (err) {
       console.error("Error checking grammar:", err)
-      const errorMessage = err instanceof Error ? err.message : "Failed to check grammar"
+      const errorMessage = err instanceof Error
+        ? apiError(err.message, t("errors.checkFailed"))
+        : t("errors.checkFailed")
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: t("toasts.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -171,15 +161,15 @@ export default function GrammarChecker() {
       await navigator.clipboard.writeText(correctedText)
       setCopied(true)
       toast({
-        title: "Copied!",
-        description: "Corrected text copied to clipboard",
+        title: t("toasts.copiedTitle"),
+        description: t("toasts.copiedDescription"),
         variant: "success",
       })
       setTimeout(() => setCopied(false), 2000)
     } catch {
       toast({
-        title: "Copy failed",
-        description: "Could not access the clipboard. Please copy manually.",
+        title: t("toasts.copyFailedTitle"),
+        description: t("toasts.copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -187,16 +177,33 @@ export default function GrammarChecker() {
 
   const handleDownloadReport = () => {
     if (!correctedText && issues.length === 0) return
-    const opened = generateGrammarReport({
-      originalText: text,
-      correctedText,
-      issues,
-      date: new Date(),
-    })
+    const opened = generateGrammarReport(
+      {
+        originalText: text,
+        correctedText,
+        issues,
+        date: new Date(),
+      },
+      {
+        localeTag: localeTags[locale],
+        labels: {
+          documentTitle: tPdf("grammar.documentTitle"),
+          reportTitle: tPdf("grammar.reportTitle"),
+          generatedOn: (date) => tPdf("common.generatedOn", { date }),
+          issuesFound: tPdf("grammar.issuesFound"),
+          errors: tPdf("grammar.errors"),
+          warnings: tPdf("grammar.warnings"),
+          suggestions: tPdf("grammar.suggestions"),
+          originalText: tPdf("grammar.originalText"),
+          correctedText: tPdf("grammar.correctedText"),
+          footer: tPdf("grammar.footer"),
+        },
+      }
+    )
     if (opened) {
-      toast({ title: "Report Generated", description: "Your PDF report is ready to download", variant: "success" })
+      toast({ title: t("toasts.reportTitle"), description: t("toasts.reportDescription"), variant: "success" })
     } else {
-      toast({ title: "Popup blocked", description: "Allow popups for this site to download the PDF report.", variant: "destructive" })
+      toast({ title: t("toasts.popupTitle"), description: t("toasts.popupDescription"), variant: "destructive" })
     }
   }
 
@@ -216,8 +223,8 @@ export default function GrammarChecker() {
     }
     if (idx === -1) {
       toast({
-        title: "Unable to apply fix",
-        description: "The original text no longer appears in your input. Edit manually or re-check.",
+        title: t("toasts.fixFailedTitle"),
+        description: t("toasts.fixFailedDescription"),
         variant: "destructive",
       })
       return
@@ -246,8 +253,8 @@ export default function GrammarChecker() {
 
     setIssues(updatedIssues)
     toast({
-      title: "Fixed!",
-      description: `Changed "${issue.text}" to "${issue.replacement}"`,
+      title: t("toasts.fixedTitle"),
+      description: t("toasts.fixedDescription", { from: String(issue.text), to: String(issue.replacement) }),
       variant: "success",
     })
   }
@@ -257,8 +264,8 @@ export default function GrammarChecker() {
     setText(correctedText)
     setIssues([])
     toast({
-      title: "All fixes applied",
-      description: "Your text has been replaced with the corrected version.",
+      title: t("toasts.allFixedTitle"),
+      description: t("toasts.allFixedDescription"),
       variant: "success",
     })
   }
@@ -268,9 +275,9 @@ export default function GrammarChecker() {
       <Nav />
       <ToolPageHeader
         icon={CheckCircle2}
-        title="Grammar Checker"
-        description="Identify and fix grammar errors, spelling mistakes, and style issues. Review each correction individually and apply fixes with one click."
-        category="Writing Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         iconColor="text-emerald-500"
         iconBg="bg-emerald-500/10 border-emerald-500/20"
         categoryColor="text-emerald-600 dark:text-emerald-400"
@@ -280,14 +287,17 @@ export default function GrammarChecker() {
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
-            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+            {t.rich("input.needTokens", {
+              required: calculateRequiredTokens(text),
+              remaining: remainingWords,
+              link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+            })}
           </p>
         )}
 
         {text.length > 50000 && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+            {t("input.tooLong", { current: text.length.toLocaleString() })}
           </p>
         )}
 
@@ -299,25 +309,25 @@ export default function GrammarChecker() {
           {/* LEFT — input */}
           <div className="space-y-3">
             <Textarea
-              aria-label="Text to check for grammar and spelling errors"
-              placeholder="Type or paste your text here to check for grammar and spelling errors..."
+              aria-label={t("input.ariaLabel")}
+              placeholder={t("input.placeholder")}
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-emerald-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{text.split(/\s+/).filter(Boolean).length} words · {text.length} chars</span>
+              <span className="text-xs text-muted-foreground">{t("input.counts", { words: text.split(/\s+/).filter(Boolean).length, chars: text.length })}</span>
               <Button
                 onClick={handleCheck}
                 disabled={isProcessing || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
-                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Checking...</>
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />{t("input.checking")}</>
                 ) : text.trim() ? (
-                  `Check Grammar (${calculateRequiredTokens(text)} tokens)`
+                  t("input.checkWithCost", { count: calculateRequiredTokens(text) })
                 ) : (
-                  "Check Grammar"
+                  t("input.check")
                 )}
               </Button>
             </div>
@@ -330,20 +340,23 @@ export default function GrammarChecker() {
               <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-border bg-card text-sm flex-wrap">
                 {issues.length === 0 ? (
                   <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium">
-                    <Check className="h-3.5 w-3.5" /> No issues found
+                    <Check className="h-3.5 w-3.5" /> {t("results.noIssues")}
                   </span>
                 ) : (
                   <div className="flex gap-3">
-                    {[
-                      { type: "error", color: "bg-red-500", label: "errors" },
-                      { type: "warning", color: "bg-amber-500", label: "warnings" },
-                      { type: "suggestion", color: "bg-blue-500", label: "suggestions" },
-                    ].map(({ type, color, label }) => {
+                    {([
+                      { type: "error", color: "bg-red-500" },
+                      { type: "warning", color: "bg-amber-500" },
+                      { type: "suggestion", color: "bg-blue-500" },
+                    ] as const).map(({ type, color }) => {
                       const count = issues.filter((i) => i.type === type).length
                       return count > 0 ? (
                         <span key={type} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <span className={`w-2 h-2 rounded-full ${color}`} />
-                          <span className="font-semibold text-foreground">{count}</span> {label}
+                          {t.rich(`results.counts.${type}`, {
+                            count,
+                            b: (chunks) => <span className="font-semibold text-foreground">{chunks}</span>,
+                          })}
                         </span>
                       ) : null
                     })}
@@ -352,7 +365,7 @@ export default function GrammarChecker() {
                 {correctedText && (
                   <div className="flex items-center gap-1 ml-auto">
                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
-                      {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy corrected</>}
+                      {copied ? <><Check className="h-3 w-3" />{t("results.copied")}</> : <><Copy className="h-3 w-3" />{t("results.copyCorrected")}</>}
                     </Button>
                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownloadReport} disabled={isProcessing}>
                       <Download className="h-3 w-3" />PDF
@@ -367,13 +380,13 @@ export default function GrammarChecker() {
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  <span className="text-xs font-medium">Corrected Text</span>
+                  <span className="text-xs font-medium">{t("results.correctedText")}</span>
                 </div>
                 <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap max-h-52 overflow-y-auto">{correctedText}</div>
               </div>
             ) : (
               <div className="min-h-[160px] rounded-xl border border-border bg-muted/30 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground/50">Corrected text appears here</p>
+                <p className="text-xs text-muted-foreground/50">{t("results.emptyCorrected")}</p>
               </div>
             )}
 
@@ -382,7 +395,7 @@ export default function GrammarChecker() {
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-border flex items-center justify-between gap-2">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {issues.length} {issues.length === 1 ? "Issue" : "Issues"}
+                    {t("results.issueCount", { count: issues.length })}
                   </span>
                   {correctedText && (
                     <Button
@@ -391,7 +404,7 @@ export default function GrammarChecker() {
                       className="h-7 text-xs"
                       onClick={applyAllFixes}
                     >
-                      Apply all fixes
+                      {t("results.applyAll")}
                     </Button>
                   )}
                 </div>
@@ -421,7 +434,7 @@ export default function GrammarChecker() {
                         className="h-7 text-xs shrink-0"
                         onClick={() => applyFix(i)}
                       >
-                        Fix
+                        {t("results.fix")}
                       </Button>
                     </div>
                   ))}
@@ -438,72 +451,48 @@ export default function GrammarChecker() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                <h3 className="text-sm font-semibold">Three Severity Levels</h3>
+                <h3 className="text-sm font-semibold">{t("features.severity.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Issues are categorised as errors (must fix), warnings (should review), and suggestions (optional improvements).</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.severity.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <MousePointerClick className="h-4 w-4 text-emerald-500" />
-                <h3 className="text-sm font-semibold">One-Click Fixes</h3>
+                <h3 className="text-sm font-semibold">{t("features.oneClick.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Each issue shows the exact before → after change. Apply it instantly or skip it — you stay in control.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.oneClick.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-emerald-500" />
-                <h3 className="text-sm font-semibold">Full Corrected Text</h3>
+                <h3 className="text-sm font-semibold">{t("features.fullText.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">A clean corrected version is generated alongside the issue list so you can copy it directly without applying fixes one by one.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.fullText.description")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  Polishing professional emails before sending to clients or executives
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  Proofreading essays, cover letters, and academic submissions
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  Non-native English speakers checking grammar before publishing
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  Bloggers doing a final pass before hitting publish
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  Teams reviewing shared documents for consistency and correctness
-                </li>
+                {USE_CASE_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    {t(`useCases.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-emerald-500 font-bold shrink-0">→</span>
-                  Write first, check grammar after — editing as you type disrupts flow and produces worse writing.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-emerald-500 font-bold shrink-0">→</span>
-                  Review suggestions carefully; stylistic recommendations may not always fit your intended voice.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-emerald-500 font-bold shrink-0">→</span>
-                  Run it twice: once after writing, once after making your own edits.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-emerald-500 font-bold shrink-0">→</span>
-                  For long documents, paste in sections to get more focused, accurate feedback.
-                </li>
+                {TIP_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-emerald-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -511,7 +500,7 @@ export default function GrammarChecker() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

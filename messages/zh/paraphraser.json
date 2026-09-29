@@ -1,1 +1,109 @@
-{}
+{
+  "header": {
+    "category": "写作工具",
+    "title": "改写工具",
+    "description": "以不同风格改写任意文本，同时保留原意。可选择标准、流畅、正式、简洁、创意或学术模式。"
+  },
+  "needTokens": "需要 {required} 积分，你当前有 {remaining} 积分。<link>升级</link>",
+  "tooLong": "文本过长：最多 50,000 个字符（当前 {current} 个）。",
+  "modes": {
+    "standard": "标准",
+    "fluency": "流畅",
+    "formal": "正式",
+    "simple": "简洁",
+    "creative": "创意",
+    "academic": "学术"
+  },
+  "modeBadge": {
+    "standard": "标准模式",
+    "fluency": "流畅模式",
+    "formal": "正式模式",
+    "simple": "简洁模式",
+    "creative": "创意模式",
+    "academic": "学术模式"
+  },
+  "input": {
+    "ariaLabel": "需要改写的文本",
+    "placeholder": "在此输入或粘贴需要改写的文本…",
+    "charCount": "{count} 个字符",
+    "processing": "处理中…",
+    "submitWithCost": "改写（{count} 积分）",
+    "submit": "改写"
+  },
+  "output": {
+    "wordChange": "<num>{before}</num> → <num>{after}</num> 个词",
+    "copy": "复制",
+    "copied": "已复制",
+    "save": "保存",
+    "rewriting": "改写中…",
+    "empty": "改写后的文本将显示在这里"
+  },
+  "features": {
+    "modes": {
+      "title": "六种写作模式",
+      "body": "标准、流畅、正式、简洁、创意和学术——每种模式都有各自的语气和用途。"
+    },
+    "meaning": {
+      "title": "保留原意",
+      "body": "核心观点和事实保持不变，只调整措辞、结构和用词。"
+    },
+    "instant": {
+      "title": "即时出结果",
+      "body": "无需等待，几秒钟就能得到结果，方便你快速迭代、比较不同模式。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "students": "学生在不同稿件之间避免无意中的自我抄袭",
+      "marketers": "内容营销人员为现有文章制作 SEO 变体版本",
+      "nonNative": "英语非母语者润色自己的文章",
+      "academics": "学者将非正式笔记整理成正式文稿",
+      "bloggers": "博主无需从头重写即可翻新旧文章"
+    }
+  },
+  "tips": {
+    "title": "使用技巧",
+    "items": {
+      "academic": "论文和正式报告请使用学术模式——它会提升用词水平和句子复杂度。",
+      "creative": "创意模式最适合社交媒体配文和轻松的博客文章。",
+      "compare": "用多种模式改写同一段文本，找出最符合你风格的版本。",
+      "short": "较短的输入（300 词以内）通常能得到最干净的改写结果。"
+    }
+  },
+  "toasts": {
+    "successTitle": "改写完成",
+    "successDescription": "你的文本已成功改写。",
+    "errorTitle": "错误",
+    "copiedTitle": "已复制！",
+    "copiedDescription": "文本已复制到剪贴板",
+    "copyFailedTitle": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。"
+  },
+  "errors": {
+    "failedText": "文本改写失败",
+    "failed": "改写失败"
+  },
+  "faq": {
+    "modes": {
+      "question": "六种模式分别有什么作用？",
+      "answer": "标准模式自然地改写；流畅模式理顺生硬的措辞；正式模式让语体更正式；简洁模式使用更浅显的词语和更短的句子；创意模式在风格上更自由地发挥；学术模式追求学术化的语气和精确的表达。"
+    },
+    "meaning": {
+      "question": "改写后会保留原意吗？",
+      "answer": "每种模式都以此为目标，不过创意模式在表达上发挥得最多。请务必通读结果——最终文本由你负责。"
+    },
+    "languages": {
+      "question": "支持哪些语言？",
+      "answer": "英语的支持效果最好。主要的欧洲语言通常也能使用，但质量可能参差不齐——请仔细检查非英语的输出。"
+    },
+    "repeat": {
+      "question": "同一段文本可以多次改写吗？",
+      "answer": "可以。每次重新运行同一输入都会得到不同的版本，你也可以切换模式来获得不同的风格。每次运行都会消耗积分。"
+    },
+    "cost": {
+      "question": "费用是多少？",
+      "answer": "积分消耗随文本长度增加，大约每 6 个字符消耗 1 文本积分。如果运行失败，积分会自动退还。"
+    }
+  }
+}

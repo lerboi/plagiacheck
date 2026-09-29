@@ -17,6 +17,8 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { FAQ } from "@/components/FAQ"
 import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
 interface PlagiarismMatch {
   text: string
@@ -37,6 +39,8 @@ interface PlagiarismMatchResult {
 type PlagiarismResult = PlagiarismMatchResult | null
 
 export default function PlagiarismCheckerContent() {
+  const t = useTranslations("PlagiarismChecker")
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [needsSignIn, setNeedsSignIn] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
@@ -143,7 +147,7 @@ export default function PlagiarismCheckerContent() {
       }
 
       if (!response.ok) {
-        let message = "Failed to check plagiarism"
+        let message = t("errors.checkFailed")
         try {
           const errorData = await response.json()
           if (typeof errorData?.error === "string" && errorData.error) {
@@ -157,7 +161,7 @@ export default function PlagiarismCheckerContent() {
 
       const reader = response.body?.getReader()
       if (!reader) {
-        throw new Error("No response stream available")
+        throw new Error(t("errors.noStream"))
       }
 
       const decoder = new TextDecoder()
@@ -189,10 +193,11 @@ export default function PlagiarismCheckerContent() {
             }
 
             if (data.error) {
-              setError(data.error)
+              const streamError = apiError(data.error, t("errors.checkFailed"))
+              setError(streamError)
               toast({
-                title: "Error",
-                description: data.error,
+                title: t("toasts.errorTitle"),
+                description: streamError,
                 variant: "destructive",
               })
             }
@@ -206,8 +211,8 @@ export default function PlagiarismCheckerContent() {
               })
               await syncWordBalance(data.remainingTokens)
               toast({
-                title: "Check Complete",
-                description: `Plagiarism score: ${data.result.plagiarismPercentage}%`,
+                title: t("toasts.completeTitle"),
+                description: t("toasts.completeDescription", { score: String(data.result.plagiarismPercentage) }),
                 variant: "success",
               })
             }
@@ -219,11 +224,11 @@ export default function PlagiarismCheckerContent() {
     } catch (err) {
       console.error("Plagiarism check error:", err)
       const errorMessage = err instanceof Error && err.message
-        ? err.message
-        : "Failed to check plagiarism. Please try again."
+        ? apiError(err.message, t("errors.checkFailedRetry"))
+        : t("errors.checkFailedRetry")
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: t("toasts.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -243,8 +248,8 @@ export default function PlagiarismCheckerContent() {
 
     if (!isPlainText) {
       toast({
-        title: "Unsupported file format",
-        description: `Only plain text (.txt, .md) is currently supported. For ${ext.toUpperCase()} files, copy and paste the text directly.`,
+        title: t("toasts.unsupportedTitle"),
+        description: t("toasts.unsupportedDescription", { ext: ext.toUpperCase() }),
         variant: "destructive",
       })
       event.target.value = ""
@@ -258,8 +263,8 @@ export default function PlagiarismCheckerContent() {
     }
     reader.onerror = () => {
       toast({
-        title: "Failed to read file",
-        description: "Please try again or paste the text directly.",
+        title: t("toasts.readFailedTitle"),
+        description: t("toasts.readFailedDescription"),
         variant: "destructive",
       })
     }
@@ -270,7 +275,7 @@ export default function PlagiarismCheckerContent() {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(text)
     setCopied(true)
-    toast({ title: "Copied!", description: "Text copied to clipboard", variant: "success" })
+    toast({ title: t("toasts.copiedTitle"), description: t("toasts.copiedDescription"), variant: "success" })
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -280,9 +285,9 @@ export default function PlagiarismCheckerContent() {
 
       <ToolPageHeader
         icon={Shield}
-        title="Plagiarism Checker"
-        description="Detect copied or reused text with sentence-level highlighting. Paste your text or upload a .txt/.md file."
-        category="Originality Detection"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         iconColor="text-blue-500"
         iconBg="bg-blue-500/10 border-blue-500/20"
         categoryColor="text-blue-600 dark:text-blue-400"
@@ -302,22 +307,28 @@ export default function PlagiarismCheckerContent() {
                   <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Check Your Text</h2>
-                  <p className="text-sm text-muted-foreground">Paste text or upload a file to scan</p>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t("input.heading")}</h2>
+                  <p className="text-sm text-muted-foreground">{t("input.subheading")}</p>
                 </div>
               </div>
               <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium">{wordCount.toLocaleString()}</span> words
+                {t.rich("input.wordCount", {
+                  count: wordCount.toLocaleString(),
+                  b: (chunks) => <span className="font-medium">{chunks}</span>,
+                })}
                 <span className="text-gray-300 dark:text-gray-600 mx-1">|</span>
-                <span className="font-medium">{text.length.toLocaleString()}</span> chars
+                {t.rich("input.charCount", {
+                  count: text.length.toLocaleString(),
+                  b: (chunks) => <span className="font-medium">{chunks}</span>,
+                })}
               </div>
             </div>
 
             <div className="px-6 md:px-8 pb-6 md:pb-8 space-y-5">
               <div className="relative group">
                 <Textarea
-                  aria-label="Text to check for plagiarism"
-                  placeholder="Paste your text here to check for plagiarism. You can also upload a .txt or .md file using the button below..."
+                  aria-label={t("input.ariaLabel")}
+                  placeholder={t("input.placeholder")}
                   className="min-h-[220px] md:min-h-[280px] resize-none border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 text-base leading-relaxed rounded-xl transition-colors duration-200 pr-12"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
@@ -330,16 +341,16 @@ export default function PlagiarismCheckerContent() {
                       size="sm"
                       onClick={handleCopy}
                       className="h-8 w-8 p-0 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                      title="Copy text"
+                      title={t("input.copyTitle")}
                     >
                       {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-gray-400" />}
                     </Button>
                   )}
                   <label
                     className="h-8 w-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 focus-within:ring-2 focus-within:ring-blue-500 transition-colors"
-                    title="Upload file"
+                    title={t("input.uploadTitle")}
                   >
-                    <span className="sr-only">Upload a .txt or .md file</span>
+                    <span className="sr-only">{t("input.uploadSrOnly")}</span>
                     <Upload className="h-4 w-4 text-gray-400" />
                     <input
                       type="file"
@@ -368,10 +379,15 @@ export default function PlagiarismCheckerContent() {
                   className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl"
                 >
                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Not enough tokens. You need {calculateRequiredTokens(text)} but have {remainingWords}.{" "}
-                    <Link href="/pricing" className="font-semibold underline">
-                      Upgrade your plan
-                    </Link>
+                    {t.rich("input.notEnoughTokens", {
+                      required: calculateRequiredTokens(text),
+                      remaining: remainingWords,
+                      link: (chunks) => (
+                        <Link href="/pricing" className="font-semibold underline">
+                          {chunks}
+                        </Link>
+                      ),
+                    })}
                   </p>
                 </motion.div>
               )}
@@ -383,7 +399,7 @@ export default function PlagiarismCheckerContent() {
                   className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl"
                 >
                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+                    {t("input.tooLong", { current: text.length.toLocaleString() })}
                   </p>
                 </motion.div>
               )}
@@ -401,14 +417,14 @@ export default function PlagiarismCheckerContent() {
                   {isChecking ? (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Analyzing... {Math.round(progress)}%</span>
+                      <span>{t("button.analyzing", { progress: Math.round(progress) })}</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <Shield className="h-5 w-5" />
-                      <span>Check for Plagiarism</span>
+                      <span>{t("button.check")}</span>
                       {text.trim() && (
-                        <span className="text-blue-200 text-sm ml-1">({calculateRequiredTokens(text)} tokens)</span>
+                        <span className="text-blue-200 text-sm ml-1">{t("button.cost", { count: calculateRequiredTokens(text) })}</span>
                       )}
                     </div>
                   )}
@@ -416,7 +432,7 @@ export default function PlagiarismCheckerContent() {
 
                 <label className="sm:hidden w-full h-12 rounded-xl border-2 border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex items-center justify-center text-sm font-medium cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 transition-colors">
                   <File className="h-5 w-5 mr-2" />
-                  Upload File
+                  {t("input.uploadButton")}
                   <input
                     type="file"
                     accept=".txt,.md,text/plain"
@@ -434,7 +450,7 @@ export default function PlagiarismCheckerContent() {
           {!isChecking && !result && (
             <div className="min-h-[280px] rounded-xl border border-border bg-muted/30 flex flex-col items-center justify-center gap-2">
               <Shield className="h-6 w-6 text-blue-500/40" />
-              <p className="text-xs text-muted-foreground/40">Results appear here</p>
+              <p className="text-xs text-muted-foreground/40">{t("emptyResults")}</p>
             </div>
           )}
           <ResultReveal show={isChecking || !!result}>

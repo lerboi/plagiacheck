@@ -1,1 +1,119 @@
-{}
+{
+  "header": {
+    "category": "语音工具",
+    "title": "语音转文字",
+    "description": "录下你的语音，实时生成转写文本。使用 AI 整理功能去除口头禅、修正标点，并排版成清晰易读的文本。"
+  },
+  "unsupported": {
+    "title": "你的浏览器不支持 Web Speech API。",
+    "hint": "请使用 Chrome、Edge 或 Safari 进行语音识别。"
+  },
+  "recorder": {
+    "start": "开始录音",
+    "stop": "停止录音",
+    "recording": "正在录音...",
+    "recordMore": "点击继续录音",
+    "idle": "点击麦克风开始录音",
+    "wordsTranscribed": "已转写 {count} 个词",
+    "clear": "清空"
+  },
+  "errors": {
+    "micDenied": "麦克风访问被拒绝。请在浏览器中允许使用麦克风后重试。",
+    "noMic": "未检测到麦克风。请检查音频输入设备后重试。",
+    "unavailable": "此浏览器不支持语音识别。请尝试使用 Chrome 或 Edge。",
+    "recognition": "语音识别出错：{error}",
+    "cleanFailed": "整理转写文本失败"
+  },
+  "toasts": {
+    "error": "错误",
+    "notEnoughTokens": "积分不足",
+    "needTokensRedirect": "AI 整理需要 {required} 积分，你当前只有 {remaining} 积分。正在跳转到价格页面。",
+    "outOfTokens": "你的积分不足以完成本次整理。正在跳转到价格页面。",
+    "cleaned": "转写文本已整理",
+    "correctionsMade": "已修正 {count} 处",
+    "copied": "已复制！",
+    "copiedDescription": "文本已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。"
+  },
+  "raw": {
+    "title": "原始转写文本",
+    "copy": "复制",
+    "copied": "已复制！",
+    "download": "下载 .txt",
+    "placeholder": "你说话时，转写文本会显示在这里...",
+    "ariaLabel": "原始转写文本",
+    "needTokens": "需要 {required} 积分，你当前有 {remaining} 积分。",
+    "upgrade": "升级",
+    "cleaning": "正在整理...",
+    "clean": "AI 整理",
+    "cleanWithCost": "AI 整理（{count} 积分）"
+  },
+  "cleaned": {
+    "raw": "原始：",
+    "cleaned": "整理后：",
+    "words": "{count} 个词",
+    "copy": "复制整理结果",
+    "download": "下载 .txt",
+    "title": "整理后的转写文本",
+    "useWith": "将转写文本用于：",
+    "plagiarism": "抄袭检测",
+    "aiDetector": "AI 内容检测",
+    "summarize": "生成摘要"
+  },
+  "features": {
+    "realtime": {
+      "title": "实时转写",
+      "description": "浏览器会在你说话时逐词转写——无需上传，无需等待。"
+    },
+    "cleanup": {
+      "title": "AI 整理",
+      "description": "一键去除口头禅（嗯、呃、那个），修正标点和大小写，并将转写文本划分为合适的段落。"
+    },
+    "export": {
+      "title": "即时导出",
+      "description": "复制原始或整理后的转写文本，直接粘贴到任意工具中——摘要生成、语法检查或 AI 内容检测。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "dictation": "免动手口述邮件、消息或文档",
+      "interviews": "在麦克风旁外放访谈录音进行转写",
+      "memos": "将语音备忘录转换为可编辑的文本",
+      "accessibility": "有无障碍需求、更习惯说话而非打字的学生",
+      "meetings": "实时记录会议笔记，无需额外的转写服务"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "browser": "使用 Chrome 或 Edge 可获得最准确的 Web Speech API 转写效果。",
+      "pace": "保持适中的语速——说得太快会导致转写时词语被错误地连在一起。",
+      "cleanup": "AI 整理会消耗积分，但对于较长的录音，输出会明显更整洁。",
+      "speakers": "转写访谈时，在不同发言人之间稍作停顿，以免转写文本混在一起。"
+    }
+  },
+  "faq": {
+    "browsers": {
+      "question": "支持哪些浏览器？",
+      "answer": "转写使用浏览器的 Web Speech API，可在 Chrome、Edge 和 Safari 中使用。Firefox 不支持该 API，因此本工具无法在 Firefox 中使用。"
+    },
+    "microphone": {
+      "question": "为什么麦克风无法使用？",
+      "answer": "浏览器需要获得麦克风使用权限——请留意权限提示或地址栏中的麦克风图标。同时请确认没有其他应用正在占用麦克风。"
+    },
+    "free": {
+      "question": "转写是免费的吗？",
+      "answer": "是的，原始转写完全在你的浏览器中完成，因此免费。只有可选的 AI 整理步骤会消耗积分。"
+    },
+    "cleanup": {
+      "question": "AI 整理有什么作用？费用是多少？",
+      "answer": "它会修正原始转写文本中的标点、大小写和明显的识别错误。费用随转写文本长度而定，大约每 6 个字符消耗 1 文本积分。"
+    },
+    "upload": {
+      "question": "可以上传音频文件，而不是现场说话吗？",
+      "answer": "目前不支持——本工具仅转写麦克风的实时输入。对于已录制的音频，可以在麦克风旁播放作为变通方法，但准确度会降低。"
+    }
+  }
+}

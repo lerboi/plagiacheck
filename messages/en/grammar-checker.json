@@ -1,1 +1,111 @@
-{}
+{
+  "header": {
+    "title": "Grammar Checker",
+    "description": "Identify and fix grammar errors, spelling mistakes, and style issues. Review each correction individually and apply fixes with one click.",
+    "category": "Writing Tools"
+  },
+  "input": {
+    "needTokens": "Need {required} tokens — you have {remaining}. <link>Upgrade</link>",
+    "tooLong": "Text is too long — the maximum is 50,000 characters (currently {current}).",
+    "ariaLabel": "Text to check for grammar and spelling errors",
+    "placeholder": "Type or paste your text here to check for grammar and spelling errors...",
+    "counts": "{words} words · {chars} chars",
+    "checking": "Checking...",
+    "checkWithCost": "Check Grammar ({count} tokens)",
+    "check": "Check Grammar"
+  },
+  "results": {
+    "noIssues": "No issues found",
+    "counts": {
+      "error": "<b>{count}</b> errors",
+      "warning": "<b>{count}</b> warnings",
+      "suggestion": "<b>{count}</b> suggestions"
+    },
+    "copied": "Copied",
+    "copyCorrected": "Copy corrected",
+    "correctedText": "Corrected Text",
+    "emptyCorrected": "Corrected text appears here",
+    "issueCount": "{count, plural, =1 {{count} Issue} other {{count} Issues}}",
+    "applyAll": "Apply all fixes",
+    "fix": "Fix",
+    "issueFallback": "Grammar issue detected"
+  },
+  "toasts": {
+    "completeTitle": "Check Complete",
+    "issuesFound": "{count, plural, one {Found {count} issue in your text.} other {Found {count} issues in your text.}}",
+    "noIssues": "No issues found! Your text looks great.",
+    "errorTitle": "Error",
+    "copiedTitle": "Copied!",
+    "copiedDescription": "Corrected text copied to clipboard",
+    "copyFailedTitle": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually.",
+    "reportTitle": "Report Generated",
+    "reportDescription": "Your PDF report is ready to download",
+    "popupTitle": "Popup blocked",
+    "popupDescription": "Allow popups for this site to download the PDF report.",
+    "fixFailedTitle": "Unable to apply fix",
+    "fixFailedDescription": "The original text no longer appears in your input. Edit manually or re-check.",
+    "fixedTitle": "Fixed!",
+    "fixedDescription": "Changed \"{from}\" to \"{to}\"",
+    "allFixedTitle": "All fixes applied",
+    "allFixedDescription": "Your text has been replaced with the corrected version."
+  },
+  "errors": {
+    "checkFailed": "Failed to check grammar"
+  },
+  "features": {
+    "severity": {
+      "title": "Three Severity Levels",
+      "description": "Issues are categorised as errors (must fix), warnings (should review), and suggestions (optional improvements)."
+    },
+    "oneClick": {
+      "title": "One-Click Fixes",
+      "description": "Each issue shows the exact before → after change. Apply it instantly or skip it — you stay in control."
+    },
+    "fullText": {
+      "title": "Full Corrected Text",
+      "description": "A clean corrected version is generated alongside the issue list so you can copy it directly without applying fixes one by one."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "emails": "Polishing professional emails before sending to clients or executives",
+      "essays": "Proofreading essays, cover letters, and academic submissions",
+      "nonNative": "Non-native English speakers checking grammar before publishing",
+      "bloggers": "Bloggers doing a final pass before hitting publish",
+      "teams": "Teams reviewing shared documents for consistency and correctness"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "writeFirst": "Write first, check grammar after — editing as you type disrupts flow and produces worse writing.",
+      "review": "Review suggestions carefully; stylistic recommendations may not always fit your intended voice.",
+      "twice": "Run it twice: once after writing, once after making your own edits.",
+      "sections": "For long documents, paste in sections to get more focused, accurate feedback."
+    }
+  },
+  "faq": {
+    "kinds": {
+      "question": "What kinds of issues does it find?",
+      "answer": "Three types: errors (grammar and spelling mistakes), warnings (likely problems such as awkward agreement or punctuation), and suggestions (optional style and clarity improvements)."
+    },
+    "apply": {
+      "question": "How do I apply the fixes?",
+      "answer": "Each issue comes with a suggested replacement. You can review issues one by one or copy the fully corrected text — you stay in control of which changes to accept."
+    },
+    "location": {
+      "question": "How do I know where each issue is in my text?",
+      "answer": "Every issue includes its exact character position, so it can be located and highlighted in your original text rather than just listed abstractly."
+    },
+    "style": {
+      "question": "Does it rewrite my style?",
+      "answer": "No. It focuses on correctness — grammar, spelling, and punctuation — plus optional clarity suggestions. If you want a full rewrite, use the Paraphraser instead."
+    },
+    "cost": {
+      "question": "How much does a check cost?",
+      "answer": "Token cost scales with text length at roughly 1 text token per 6 characters. If the check fails, the tokens are refunded automatically."
+    }
+  }
+}

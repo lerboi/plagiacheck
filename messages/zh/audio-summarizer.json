@@ -1,1 +1,122 @@
-{}
+{
+  "header": {
+    "category": "语音工具",
+    "title": "音频摘要",
+    "description": "录制会议、讲座或播客，获得结构化摘要，包含要点、内容类型识别和待办事项。"
+  },
+  "unsupported": {
+    "title": "你的浏览器不支持 Web Speech API。",
+    "hint": "请使用 Chrome、Edge 或 Safari。"
+  },
+  "recorder": {
+    "start": "开始录音",
+    "stop": "停止录音",
+    "recording": "正在录音...",
+    "recordMore": "点击继续录音",
+    "idle": "录制讲座、会议或播客，生成摘要",
+    "wordsTranscribed": "已转写 {count} 个词",
+    "clear": "清空"
+  },
+  "errors": {
+    "micDenied": "麦克风访问被拒绝。请在浏览器中允许使用麦克风后重试。",
+    "noMic": "未检测到麦克风。请检查音频输入设备后重试。",
+    "unavailable": "此浏览器不支持语音识别。请尝试使用 Chrome 或 Edge。",
+    "recognition": "语音识别出错：{error}",
+    "summarizeFailed": "生成摘要失败"
+  },
+  "toasts": {
+    "error": "错误",
+    "notEnoughTokens": "积分不足",
+    "needTokensRedirect": "生成本次摘要需要 {required} 积分，你当前只有 {remaining} 积分。正在跳转到价格页面。",
+    "outOfTokens": "你的积分不足以生成本次摘要。正在跳转到价格页面。",
+    "summarized": "音频摘要已生成",
+    "summarizedDescription": "{type}摘要已生成，共 {count} 个要点",
+    "contentFallback": "内容",
+    "copied": "已复制！",
+    "copiedDescription": "摘要已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。"
+  },
+  "transcript": {
+    "title": "转写文本",
+    "placeholder": "在上方录音，或在此粘贴转写文本...",
+    "ariaLabel": "音频转写文本",
+    "needTokens": "需要 {required} 积分，你当前有 {remaining} 积分。",
+    "upgrade": "升级",
+    "summarizing": "正在生成摘要...",
+    "summarize": "生成摘要",
+    "summarizeWithCost": "生成摘要（{count} 积分）"
+  },
+  "result": {
+    "fallbackTitle": "摘要",
+    "copy": "复制",
+    "copied": "已复制",
+    "download": "下载 .txt",
+    "keyPoints": "要点",
+    "detailedSummary": "详细摘要",
+    "actionItems": "待办事项"
+  },
+  "contentTypes": {
+    "lecture": "讲座",
+    "interview": "访谈",
+    "meeting": "会议",
+    "podcast": "播客",
+    "speech": "演讲",
+    "other": "其他"
+  },
+  "features": {
+    "livePaste": {
+      "title": "实时录音 + 粘贴",
+      "description": "直接用麦克风录音，或粘贴来自任意来源的现有转写文本——会议记录、播客应用或视频字幕均可。"
+    },
+    "structured": {
+      "title": "结构化输出",
+      "description": "结果分为标题、概述、编号要点、详细摘要和待办事项清单。"
+    },
+    "contentType": {
+      "title": "内容类型识别",
+      "description": "自动识别音频是讲座、访谈、会议、播客还是演讲，并据此调整摘要。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "meetings": "每周团队例会和站会",
+      "lectures": "大学讲座和课堂录音",
+      "podcasts": "播客节目和长篇访谈",
+      "calls": "客户电话和销售演示",
+      "conferences": "会议演讲和网络研讨会录像"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "clarity": "吐字清晰、语速正常——浏览器语音 API 在安静的环境中效果最好。",
+      "speakers": "粘贴转写文本时，如有发言人姓名请一并保留，AI 会借此更好地组织摘要结构。",
+      "actionItems": "当录音中包含明确的决定或任务分配时，待办事项部分的效果最好。",
+      "length": "对 30 分钟以内的录音生成摘要，输出最为聚焦。"
+    }
+  },
+  "faq": {
+    "purpose": {
+      "question": "音频摘要有什么用途？",
+      "answer": "录制讲座、会议或口头笔记，获得结构化摘要，而不是一大段转写文本。当回听录音太耗时的时候，它尤其有用。"
+    },
+    "includes": {
+      "question": "摘要包含哪些内容？",
+      "answer": "概述、要点以及对话中识别出的待办事项，另外还会推测内容类型（讲座、会议等）。"
+    },
+    "browsers": {
+      "question": "支持哪些浏览器？",
+      "answer": "Chrome、Edge 和 Safari。转写使用浏览器的 Web Speech API，Firefox 不支持该 API，并且你需要授予麦克风权限。"
+    },
+    "existingFile": {
+      "question": "可以为已有的音频文件生成摘要吗？",
+      "answer": "不能直接实现——本工具转写的是麦克风的实时音频。在麦克风旁外放录音也可行，但转写准确度会降低。"
+    },
+    "cost": {
+      "question": "费用是多少？",
+      "answer": "录音和转写在浏览器中完成，因此免费。AI 摘要会根据转写文本长度消耗文本积分，大约每 6 个字符消耗 1 积分。"
+    }
+  }
+}

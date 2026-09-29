@@ -1,1 +1,94 @@
-{}
+{
+  "header": {
+    "category": "Utility",
+    "title": "Word Counter",
+    "description": "Instant word, character, sentence, and paragraph counts for any text. See reading time, top keywords, and unique word frequency — all free."
+  },
+  "input": {
+    "ariaLabel": "Text to count words and characters",
+    "placeholder": "Start typing or paste your text here to see word count and other statistics..."
+  },
+  "actions": {
+    "copy": "Copy",
+    "copied": "Copied",
+    "clear": "Clear",
+    "lowercase": "lowercase",
+    "uppercase": "UPPERCASE",
+    "titleCase": "Title Case",
+    "undo": "Undo"
+  },
+  "stats": {
+    "words": "Words",
+    "characters": "Characters",
+    "sentences": "Sentences",
+    "paragraphs": "Paragraphs",
+    "readingTime": "Reading time",
+    "speakingTime": "Speaking time",
+    "charsNoSpaces": "Chars (no spaces)",
+    "uniqueWords": "Unique words",
+    "topWords": "Top Words"
+  },
+  "time": {
+    "underOneMinute": "'<' 1 min",
+    "minutes": "{count} min"
+  },
+  "features": {
+    "realtime": {
+      "title": "Real-Time Counting",
+      "body": "Every stat updates instantly as you type — no submit button needed. Words, characters, sentences, and paragraphs."
+    },
+    "time": {
+      "title": "Reading & Speaking Time",
+      "body": "Estimated reading time (200 wpm) and speaking time (130 wpm) are calculated automatically."
+    },
+    "keywords": {
+      "title": "Top Keywords",
+      "body": "The most frequent non-trivial words are shown with proportional frequency bars — useful for checking keyword density."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "writers": "Writers checking they meet or stay under a word limit for submissions",
+      "students": "Students verifying essay length requirements before submitting",
+      "speakers": "Podcasters or speakers estimating how long their script will take",
+      "seo": "SEO writers checking keyword frequency and density",
+      "editors": "Editors reviewing content length and reading complexity at a glance"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "blog": "Average blog posts read in 7–10 minutes — aim for 1,400–2,000 words for that range.",
+      "keywords": "Check the top keywords list to spot over-repetition before your editor does.",
+      "speaking": "Speaking time assumes 130 wpm — adjust if you speak faster or slower in practice.",
+      "noSpaces": "Use character count (no spaces) when working with platforms that count differently."
+    }
+  },
+  "toasts": {
+    "copiedTitle": "Copied!",
+    "copiedDescription": "Text copied to clipboard"
+  },
+  "faq": {
+    "free": {
+      "question": "Is the word counter free?",
+      "answer": "Yes, completely free. It uses no tokens and does not require an account or sign-in."
+    },
+    "privacy": {
+      "question": "Is my text sent anywhere?",
+      "answer": "No. All counting happens locally in your browser — your text never leaves your device and is not stored on our servers."
+    },
+    "counts": {
+      "question": "What does it count?",
+      "answer": "Words, characters (with and without spaces), sentences, and paragraphs, plus estimated reading and speaking time and your most frequent keywords."
+    },
+    "timing": {
+      "question": "How are reading and speaking time calculated?",
+      "answer": "Reading time assumes about 200 words per minute and speaking time about 130 words per minute, which are common average paces. Your actual pace may differ."
+    },
+    "stopwords": {
+      "question": "Why do common words not appear in the keyword list?",
+      "answer": "Frequent function words like \"the\", \"and\", and \"of\" are filtered out so the keyword list reflects the words that actually characterize your text."
+    }
+  }
+}

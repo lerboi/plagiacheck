@@ -1,1 +1,131 @@
-{}
+{
+  "header": {
+    "title": "AI 内容检测",
+    "description": "分析任意文本，判断它是由 AI 生成还是人工撰写。获取置信度分数和逐句分析。",
+    "category": "AI 检测"
+  },
+  "input": {
+    "ariaLabel": "待分析的文本",
+    "placeholder": "粘贴要分析的文本...",
+    "chars": "{count} 个字符",
+    "needTokens": "需要 {count} 积分。<link>升级</link>",
+    "analyzing": "分析中...",
+    "detect": "检测",
+    "detectWithCost": "检测（{count} 积分）",
+    "progress": "正在分析文本..."
+  },
+  "emptyResults": "分析结果将显示在这里",
+  "result": {
+    "likelyAi": "很可能是 AI 生成",
+    "possiblyAi": "可能有 AI 辅助",
+    "likelyHuman": "很可能是人工撰写",
+    "humanPercent": "{value}% 人工",
+    "copied": "已复制",
+    "copy": "复制",
+    "sentenceBreakdown": "逐句分析",
+    "analysisComplete": "分析完成。"
+  },
+  "verdicts": {
+    "likelyHuman": "很可能是人工撰写",
+    "possiblyAi": "可能是 AI 生成",
+    "likelyAi": "很可能是 AI 生成",
+    "unknown": "未知"
+  },
+  "sentenceTypes": {
+    "human": "人工",
+    "mixed": "混合",
+    "ai": "AI"
+  },
+  "toasts": {
+    "tooShortTitle": "文本太短",
+    "tooShortDescription": "请至少输入 50 个字符，以便得到有意义的分析结果。",
+    "completeTitle": "分析完成",
+    "completeDescription": "文本分析结果：{verdict}",
+    "errorTitle": "错误",
+    "reportTitle": "报告已生成",
+    "reportDescription": "你的 PDF 报告已可下载",
+    "popupTitle": "弹出窗口被拦截",
+    "popupDescription": "请允许本网站弹出窗口，以便下载 PDF 报告。",
+    "copiedTitle": "已复制！",
+    "analysisCopied": "分析结果已复制到剪贴板",
+    "textCopied": "文本已复制到剪贴板",
+    "copyFailedTitle": "复制失败",
+    "copyFailedDescription": "浏览器阻止了剪贴板访问。"
+  },
+  "errors": {
+    "analyzeFailed": "文本分析失败",
+    "analyzeFailedShort": "分析失败"
+  },
+  "copyText": {
+    "title": "AI 检测结果",
+    "verdict": "结论：{verdict}",
+    "probability": "AI 生成概率：{score}%",
+    "summary": "摘要：",
+    "breakdown": "逐句分析：",
+    "sentence": "{index}. [{type} — {score}%] {text}",
+    "types": {
+      "human": "人工",
+      "mixed": "混合",
+      "ai": "AI"
+    }
+  },
+  "features": {
+    "sentence": {
+      "title": "逐句分析",
+      "description": "每个句子单独评分，并用颜色标注为人工、混合或 AI，而不只是给出一个总分。"
+    },
+    "confidence": {
+      "title": "置信度分数",
+      "description": "0–100 的百分比分数显示文本由 AI 生成的可能性，并配有直观的人工与 AI 对比条。"
+    },
+    "pdf": {
+      "title": "导出 PDF 报告",
+      "description": "下载包含完整分析的格式化报告，适用于文档存档、审核或学术诚信记录。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "teachers": "教师核查学生提交的作业是否由 AI 撰写",
+      "editors": "编辑检查自由撰稿人交付的内容是否原创",
+      "students": "学生在提交前自查借助 AI 完成的草稿",
+      "publishers": "出版方在发布前筛查内容中由 AI 撰写的段落",
+      "researchers": "研究人员研究 AI 生成文本与人工撰写文本的差异"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "length": "至少粘贴 200 个词以获得可靠结果，文本太短会导致分数难以判断。",
+      "midRange": "40–60% 的分数通常表示有 AI 辅助，而非完全由 AI 生成。",
+      "humanize": "先对 AI 草稿进行人性化处理，再重新检测；目标是低于 30%，这样更稳妥。",
+      "highlights": "逐句高亮会显示是哪些句子拉高了分数，优先修改这些句子。"
+    }
+  },
+  "faq": {
+    "accuracy": {
+      "question": "AI 检测的准确率如何？",
+      "answer": "没有任何 AI 检测工具能做到 100% 准确，本工具也不例外。请把分数当作值得进一步核实的信号，而不是证据：非常正式或套路化的人工写作可能被误判，而经过编辑的 AI 文本也可能漏检。"
+    },
+    "breakdown": {
+      "question": "逐句分析显示了什么？",
+      "answer": "每个句子都会单独评分，并标记为人工、混合或 AI。这样你就能准确看到是哪些段落决定了总分，而不必对整篇文档一概而论。"
+    },
+    "interpret": {
+      "question": "如何理解总分？",
+      "answer": "它是一个可能性估计，而不是定论。分数低说明文本主要呈现人工写作的特征，分数高说明它与 AI 输出高度相似，中间分数通常意味着混合或经过编辑的文本。"
+    },
+    "export": {
+      "question": "可以导出结果吗？",
+      "answer": "可以。你可以下载一份 PDF 报告，其中包含总体结论和逐句分析，便于分享或存档。"
+    },
+    "cost": {
+      "question": "每次检测消耗多少积分？",
+      "answer": "积分消耗与文本长度成正比，大约每 6 个字符消耗 1 文本积分。每次检测后，剩余余额会显示在导航栏中。"
+    },
+    "falsePositives": {
+      "question": "人工撰写的文本会被误判为 AI 吗？",
+      "answer": "会。风格统一、高度润色或模板化的写作有时会被误判。切勿仅凭检测分数就认定某人使用了 AI。"
+    }
+  }
+}

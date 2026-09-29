@@ -1,1 +1,131 @@
-{}
+{
+  "header": {
+    "title": "AI Detector",
+    "description": "Analyze any text to determine if it was written by AI or a human. Get a confidence score and a sentence-by-sentence breakdown.",
+    "category": "AI Detection"
+  },
+  "input": {
+    "ariaLabel": "Text to analyze",
+    "placeholder": "Paste text to analyze...",
+    "chars": "{count} chars",
+    "needTokens": "Need {count} tokens. <link>Upgrade</link>",
+    "analyzing": "Analyzing...",
+    "detect": "Detect",
+    "detectWithCost": "Detect ({count} tokens)",
+    "progress": "Analyzing text..."
+  },
+  "emptyResults": "Analysis appears here",
+  "result": {
+    "likelyAi": "Likely AI-generated",
+    "possiblyAi": "Possibly AI-assisted",
+    "likelyHuman": "Likely human-written",
+    "humanPercent": "{value}% human",
+    "copied": "Copied",
+    "copy": "Copy",
+    "sentenceBreakdown": "Sentence Breakdown",
+    "analysisComplete": "Analysis complete."
+  },
+  "verdicts": {
+    "likelyHuman": "Likely Human",
+    "possiblyAi": "Possibly AI",
+    "likelyAi": "Likely AI",
+    "unknown": "Unknown"
+  },
+  "sentenceTypes": {
+    "human": "Human",
+    "mixed": "Mixed",
+    "ai": "AI"
+  },
+  "toasts": {
+    "tooShortTitle": "Text too short",
+    "tooShortDescription": "Add at least 50 characters for a meaningful analysis.",
+    "completeTitle": "Analysis Complete",
+    "completeDescription": "Text analyzed: {verdict}",
+    "errorTitle": "Error",
+    "reportTitle": "Report Generated",
+    "reportDescription": "Your PDF report is ready to download",
+    "popupTitle": "Popup blocked",
+    "popupDescription": "Allow popups for this site to download the PDF report.",
+    "copiedTitle": "Copied!",
+    "analysisCopied": "Analysis copied to clipboard",
+    "textCopied": "Text copied to clipboard",
+    "copyFailedTitle": "Copy failed",
+    "copyFailedDescription": "Clipboard access was blocked by the browser."
+  },
+  "errors": {
+    "analyzeFailed": "Failed to analyze text",
+    "analyzeFailedShort": "Failed to analyze"
+  },
+  "copyText": {
+    "title": "AI Detection Result",
+    "verdict": "Verdict: {verdict}",
+    "probability": "AI Probability: {score}%",
+    "summary": "Summary:",
+    "breakdown": "Sentence-by-sentence breakdown:",
+    "sentence": "{index}. [{type} — {score}%] {text}",
+    "types": {
+      "human": "HUMAN",
+      "mixed": "MIXED",
+      "ai": "AI"
+    }
+  },
+  "features": {
+    "sentence": {
+      "title": "Sentence-Level Analysis",
+      "description": "Every sentence is scored individually and colour-coded as Human, Mixed, or AI — not just an overall number."
+    },
+    "confidence": {
+      "title": "Confidence Score",
+      "description": "A percentage score from 0–100 shows how likely the text is AI-generated, with a visual human-vs-AI bar."
+    },
+    "pdf": {
+      "title": "PDF Report Export",
+      "description": "Download a formatted report with the full analysis — useful for documentation, reviews, or academic integrity records."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "teachers": "Teachers verifying whether student submissions were written by AI",
+      "editors": "Editors checking if freelancer-delivered content is original",
+      "students": "Students self-checking their AI-assisted drafts before submitting",
+      "publishers": "Publishers screening content for AI-written passages before publication",
+      "researchers": "Researchers studying patterns in AI-generated vs human-written text"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "length": "Paste at least 200 words for a reliable result — very short text produces inconclusive scores.",
+      "midRange": "A score of 40–60% usually means AI-assisted rather than fully AI-generated.",
+      "humanize": "Humanize your AI drafts first, then re-check — target under 30% for a safe result.",
+      "highlights": "Sentence-level highlights show which specific sentences raised the score — edit those first."
+    }
+  },
+  "faq": {
+    "accuracy": {
+      "question": "How accurate is the AI detector?",
+      "answer": "No AI detector is 100% accurate, including this one. Treat the score as a signal worth investigating rather than proof — very formal or formulaic human writing can be flagged, and edited AI text can slip through."
+    },
+    "breakdown": {
+      "question": "What does the sentence-by-sentence breakdown show?",
+      "answer": "Every sentence is scored individually and labeled human, mixed, or AI. This lets you see exactly which passages drive the overall score instead of judging the whole document at once."
+    },
+    "interpret": {
+      "question": "How should I interpret the overall score?",
+      "answer": "It is a likelihood estimate, not a verdict. A low score means the writing shows mostly human-like patterns, a high score means it strongly resembles AI output, and mid-range scores usually indicate mixed or edited text."
+    },
+    "export": {
+      "question": "Can I export the results?",
+      "answer": "Yes. You can download a PDF report that includes the overall verdict and the per-sentence analysis, which is useful for sharing or record-keeping."
+    },
+    "cost": {
+      "question": "How much does a check cost?",
+      "answer": "Token cost scales with text length at roughly 1 text token per 6 characters. Your remaining balance is shown in the navbar after each run."
+    },
+    "falsePositives": {
+      "question": "Can human writing be falsely flagged as AI?",
+      "answer": "Yes. Uniform, highly polished, or template-like writing sometimes triggers false positives. Never rely on a detector score alone as evidence that someone used AI."
+    }
+  }
+}

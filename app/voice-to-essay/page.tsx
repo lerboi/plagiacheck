@@ -16,34 +16,13 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useLocale, useTranslations } from "next-intl"
+import { localeTags } from "@/i18n/config"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
-const FAQ_ITEMS = [
-  {
-    question: "How does my speech become an essay?",
-    answer:
-      "Your browser transcribes your voice live as you speak. When you stop, the AI restructures the raw transcript into an organized essay with a title, coherent paragraphs, and cleaned-up phrasing.",
-  },
-  {
-    question: "Which browsers work?",
-    answer:
-      "Chrome, Edge, and Safari — the tool relies on the browser's Web Speech API for dictation, which Firefox does not support. You will also need to grant microphone permission.",
-  },
-  {
-    question: "Can I edit the transcript before generating the essay?",
-    answer:
-      "Yes, and you should. Fix any mis-heard words or add missing points in the transcript box first — a cleaner transcript produces a much better essay.",
-  },
-  {
-    question: "Do I have to dictate everything in one go?",
-    answer:
-      "No. You can stop and resume recording, and new speech is appended to the existing transcript. Speak in whatever order ideas come — the AI handles the structure.",
-  },
-  {
-    question: "What does it cost?",
-    answer:
-      "The dictation itself is free since it runs in your browser. Generating the essay costs text tokens based on transcript length, roughly 1 token per 6 characters.",
-  },
-]
+const FAQ_KEYS = ["how", "browsers", "edit", "oneGo", "cost"] as const
+const USE_CASE_KEYS = ["verbalThinkers", "writersBlock", "commuting", "brainstorms", "nonNative"] as const
+const TIP_KEYS = ["completeThoughts", "audience", "outline", "polish"] as const
 
 export default function VoiceToEssay() {
   const [isRecording, setIsRecording] = useState(false)
@@ -61,6 +40,9 @@ export default function VoiceToEssay() {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations("VoiceToEssay")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
 
   const recognitionRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -91,7 +73,7 @@ export default function VoiceToEssay() {
     const recognition = new SpeechRecognition()
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = "en-US"
+    recognition.lang = localeTags[locale]
 
     // Capture whatever is currently in the textarea (including manual edits)
     // as the finalized base for this recording session.
@@ -130,13 +112,13 @@ export default function VoiceToEssay() {
         setIsRecording(false)
         setError(
           event.error === "not-allowed"
-            ? "Microphone access was denied. Please allow microphone access in your browser and try again."
+            ? t("errors.micDenied")
             : event.error === "audio-capture"
-              ? "No microphone was found. Please check your audio input device and try again."
-              : "Speech recognition is not available in this browser. Please try Chrome or Edge."
+              ? t("errors.noMic")
+              : t("errors.unavailable")
         )
       } else {
-        setError(`Speech recognition error: ${event.error}`)
+        setError(t("errors.recognition", { error: String(event.error) }))
       }
     }
 
@@ -155,7 +137,7 @@ export default function VoiceToEssay() {
     timerRef.current = setInterval(() => {
       setDuration(Math.floor((Date.now() - startTime) / 1000))
     }, 1000)
-  }, [])
+  }, [locale, t])
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
@@ -185,8 +167,8 @@ export default function VoiceToEssay() {
     const requiredTokens = calculateRequiredTokens(rawTranscript)
     if (requiredTokens > remainingWords) {
       toast({
-        title: "Not enough tokens",
-        description: `Converting this needs ${requiredTokens} tokens but you have ${remainingWords}. Redirecting to pricing.`,
+        title: t("toasts.notEnoughTokens"),
+        description: t("toasts.needTokensRedirect", { required: requiredTokens, remaining: remainingWords }),
         variant: "destructive",
       })
       await syncWordBalance()
@@ -212,8 +194,8 @@ export default function VoiceToEssay() {
       if (response.status === 401) { router.push("/signin?next=/voice-to-essay"); return }
       if (response.status === 402) {
         toast({
-          title: "Not enough tokens",
-          description: "You have run out of tokens for this conversion. Redirecting to pricing.",
+          title: t("toasts.notEnoughTokens"),
+          description: t("toasts.outOfTokens"),
           variant: "destructive",
         })
         await syncWordBalance()
@@ -222,22 +204,26 @@ export default function VoiceToEssay() {
       }
       const data = await response.json()
       if (requestId !== requestIdRef.current) return
-      if (!response.ok) throw new Error(data.error || "Failed to convert to essay")
+      if (!response.ok) throw new Error(data.error || t("errors.convertFailed"))
 
       setEssay(data.result.essay || rawTranscript)
       setEssayTitle(data.result.title || "")
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Essay Generated",
-        description: `"${data.result.title}" — ${data.result.wordCount || 0} words, ${data.result.paragraphCount || 0} paragraphs`,
+        title: t("toasts.generated"),
+        description: t("toasts.generatedDescription", {
+          title: String(data.result.title),
+          words: String(data.result.wordCount || 0),
+          paragraphs: String(data.result.paragraphCount || 0),
+        }),
         variant: "success",
       })
     } catch (err) {
       if (requestId !== requestIdRef.current) return
-      const msg = err instanceof Error ? err.message : "Failed to convert"
+      const msg = apiError(err, t("errors.convertFallback"))
       setError(msg)
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: t("toasts.error"), description: msg, variant: "destructive" })
     } finally {
       if (requestId === requestIdRef.current) setIsProcessing(false)
     }
@@ -248,10 +234,10 @@ export default function VoiceToEssay() {
     try {
       await navigator.clipboard.writeText(fullText)
       setCopied(true)
-      toast({ title: "Copied!", description: "Essay copied to clipboard", variant: "success" })
+      toast({ title: t("toasts.copied"), description: t("toasts.copiedDescription"), variant: "success" })
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast({ title: "Copy failed", description: "Could not access the clipboard. Please copy manually.", variant: "destructive" })
+      toast({ title: t("toasts.copyFailed"), description: t("toasts.copyFailedDescription"), variant: "destructive" })
     }
   }
 
@@ -291,9 +277,9 @@ export default function VoiceToEssay() {
       <Nav />
       <ToolPageHeader
         icon={FileEdit}
-        title="Voice to Essay"
-        description="Speak your ideas out loud and let AI turn your voice notes into a well-structured, polished essay with proper paragraphs and transitions."
-        category="Voice Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-sky-500/[0.07]"
         iconColor="text-sky-500"
         iconBg="bg-sky-500/10 border-sky-500/20"
@@ -303,8 +289,8 @@ export default function VoiceToEssay() {
       <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {!isSupported && (
           <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-            <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">Your browser does not support the Web Speech API.</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Please use Chrome, Edge, or Safari.</p>
+            <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">{t("unsupported.title")}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{t("unsupported.hint")}</p>
           </div>
         )}
 
@@ -319,7 +305,7 @@ export default function VoiceToEssay() {
                   ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 focus-visible:ring-red-300"
                   : "bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/30 focus-visible:ring-sky-300"
               } ${!isSupported ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-              aria-label={isRecording ? "Stop recording" : "Start recording"}
+              aria-label={isRecording ? t("recorder.stop") : t("recorder.start")}
             >
               {isRecording ? (
                 <Square className="h-10 w-10 text-white fill-white" />
@@ -339,22 +325,22 @@ export default function VoiceToEssay() {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-red-500 flex items-center gap-2 justify-center">
                     <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    Recording...
+                    {t("recorder.recording")}
                   </p>
                   <p className="text-2xl font-mono font-bold">{formatDuration(duration)}</p>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {rawTranscript ? "Click to record more" : "Speak your essay ideas — the AI will structure it for you"}
+                  {rawTranscript ? t("recorder.recordMore") : t("recorder.idle")}
                 </p>
               )}
             </div>
 
             {rawTranscript && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
+                <span>{t("recorder.wordsTranscribed", { count: rawTranscript.split(/\s+/).filter(Boolean).length })}</span>
                 <Button variant="ghost" size="sm" onClick={clearAll} disabled={isProcessing} className="text-red-500 hover:text-red-600 h-7 text-xs">
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> {t("recorder.clear")}
                 </Button>
               </div>
             )}
@@ -366,22 +352,22 @@ export default function VoiceToEssay() {
           <div className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-sky-500" />
-              Voice Notes
+              {t("notes.title")}
             </h3>
             <Textarea
               className="min-h-[140px] resize-none text-base md:text-sm leading-relaxed"
               value={rawTranscript}
               onChange={(e) => setRawTranscript(e.target.value)}
-              placeholder="Record above or type your voice notes here..."
-              aria-label="Voice notes transcript"
+              placeholder={t("notes.placeholder")}
+              aria-label={t("notes.ariaLabel")}
             />
 
             {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/voice-to-essay" />}
 
             {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Need {calculateRequiredTokens(rawTranscript)} tokens — you have {remainingWords}.{" "}
-                <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+                {t("notes.needTokens", { required: calculateRequiredTokens(rawTranscript), remaining: remainingWords })}{" "}
+                <Link href="/pricing" className="underline font-medium">{t("notes.upgrade")}</Link>
               </p>
             )}
 
@@ -395,9 +381,9 @@ export default function VoiceToEssay() {
               disabled={isProcessing || !rawTranscript.trim() || (!!user && calculateRequiredTokens(rawTranscript) > remainingWords)}
             >
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating Essay...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("notes.converting")}</>
               ) : (
-                <><FileEdit className="mr-2 h-4 w-4" />Convert to Essay{rawTranscript.trim() ? ` (${calculateRequiredTokens(rawTranscript)} tokens)` : ""}</>
+                <><FileEdit className="mr-2 h-4 w-4" />{rawTranscript.trim() ? t("notes.convertWithCost", { count: calculateRequiredTokens(rawTranscript) }) : t("notes.convert")}</>
               )}
             </Button>
           </div>
@@ -409,19 +395,19 @@ export default function VoiceToEssay() {
             {/* Essay header */}
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold">{essayTitle || "Generated Essay"}</h3>
+                <h3 className="text-sm font-semibold">{essayTitle || t("essay.fallbackTitle")}</h3>
                 <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>{essay.split(/\s+/).filter(Boolean).length} words</span>
+                  <span>{t("essay.words", { count: essay.split(/\s+/).filter(Boolean).length })}</span>
                   <span>·</span>
-                  <span>{essay.split("\n").filter(p => p.trim()).length} paragraphs</span>
+                  <span>{t("essay.paragraphs", { count: essay.split("\n").filter(p => p.trim()).length })}</span>
                 </div>
               </div>
               <div className="flex gap-1">
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
-                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                  {copied ? <><Check className="h-3 w-3" />{t("essay.copied")}</> : <><Copy className="h-3 w-3" />{t("essay.copy")}</>}
                 </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload}>
-                  <Download className="h-3 w-3" />Download .txt
+                  <Download className="h-3 w-3" />{t("essay.download")}
                 </Button>
               </div>
             </div>
@@ -433,11 +419,11 @@ export default function VoiceToEssay() {
             </div>
             {/* Quick actions */}
             <div className="px-5 py-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2">Use with:</p>
+              <p className="text-xs text-muted-foreground mb-2">{t("essay.useWith")}</p>
               <div className="flex flex-wrap gap-2">
-                <Link href="/" className="text-xs px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">Plagiarism Check</Link>
-                <Link href="/grammar-checker" className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">Grammar Check</Link>
-                <Link href="/ai-humanizer" className="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors">Humanize</Link>
+                <Link href="/" className="text-xs px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">{t("essay.plagiarism")}</Link>
+                <Link href="/grammar-checker" className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">{t("essay.grammar")}</Link>
+                <Link href="/ai-humanizer" className="text-xs px-3 py-1.5 rounded-full border border-pink-200 dark:border-pink-800 text-pink-600 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-900/20 transition-colors">{t("essay.humanize")}</Link>
               </div>
             </div>
           </div>
@@ -451,72 +437,48 @@ export default function VoiceToEssay() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Mic className="h-4 w-4 text-sky-500" />
-                <h3 className="text-sm font-semibold">Voice-First Input</h3>
+                <h3 className="text-sm font-semibold">{t("features.voiceFirst.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Speak your ideas as you would in conversation — filler words are removed and your thoughts are organised into clear paragraphs.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.voiceFirst.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <FileEdit className="h-4 w-4 text-sky-500" />
-                <h3 className="text-sm font-semibold">Full Essay Structure</h3>
+                <h3 className="text-sm font-semibold">{t("features.structure.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">The AI adds an introduction, body paragraphs with smooth transitions, and a conclusion — not just cleaned-up notes.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.structure.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 text-sky-500" />
-                <h3 className="text-sm font-semibold">Editable Draft</h3>
+                <h3 className="text-sm font-semibold">{t("features.editable.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">The essay is a starting point. Copy it into any editor and adjust the tone, add citations, or expand specific points.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.editable.description")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-                  Students who think better verbally than in writing
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-                  Overcoming writer&apos;s block by speaking ideas aloud first
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-                  Drafting blog posts or newsletters while commuting
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-                  Turning brainstorm sessions into structured first drafts
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-                  Non-native English speakers who speak better than they write
-                </li>
+                {USE_CASE_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
+                    {t(`useCases.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-sky-500 font-bold shrink-0">→</span>
-                  Speak in complete thoughts rather than single keywords — the AI restructures based on your sentence-level ideas.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-sky-500 font-bold shrink-0">→</span>
-                  Mention the intended audience or formality level at the start: &apos;This is for a formal academic essay on...&apos;
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-sky-500 font-bold shrink-0">→</span>
-                  Record a rough outline first, then record each point in more detail for longer essays.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-sky-500 font-bold shrink-0">→</span>
-                  After converting, run the result through the Grammar Checker or AI Humanizer.
-                </li>
+                {TIP_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-sky-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -524,7 +486,7 @@ export default function VoiceToEssay() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={FAQ_KEYS.map((key) => ({ question: t(`faq.${key}.question`), answer: t(`faq.${key}.answer`) }))} />
     </div>
   )
 }

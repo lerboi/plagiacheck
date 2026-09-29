@@ -1,1 +1,111 @@
-{}
+{
+  "header": {
+    "title": "语法检查",
+    "description": "找出并修正语法错误、拼写错误和文风问题。逐条查看每处修改，一键应用修正。",
+    "category": "写作工具"
+  },
+  "input": {
+    "needTokens": "需要 {required} 积分，当前余额 {remaining}。<link>升级</link>",
+    "tooLong": "文本过长：最多 50,000 个字符（当前 {current} 个）。",
+    "ariaLabel": "待检查语法和拼写错误的文本",
+    "placeholder": "在此输入或粘贴文本，检查语法和拼写错误...",
+    "counts": "{words} 个词 · {chars} 个字符",
+    "checking": "检查中...",
+    "checkWithCost": "检查语法（{count} 积分）",
+    "check": "检查语法"
+  },
+  "results": {
+    "noIssues": "未发现问题",
+    "counts": {
+      "error": "<b>{count}</b> 个错误",
+      "warning": "<b>{count}</b> 个警告",
+      "suggestion": "<b>{count}</b> 条建议"
+    },
+    "copied": "已复制",
+    "copyCorrected": "复制修正后文本",
+    "correctedText": "修正后文本",
+    "emptyCorrected": "修正后的文本将显示在这里",
+    "issueCount": "{count, plural, other {{count} 个问题}}",
+    "applyAll": "应用全部修正",
+    "fix": "修正",
+    "issueFallback": "检测到语法问题"
+  },
+  "toasts": {
+    "completeTitle": "检查完成",
+    "issuesFound": "{count, plural, other {在你的文本中发现 {count} 个问题。}}",
+    "noIssues": "未发现问题！你的文本很棒。",
+    "errorTitle": "错误",
+    "copiedTitle": "已复制！",
+    "copiedDescription": "修正后的文本已复制到剪贴板",
+    "copyFailedTitle": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。",
+    "reportTitle": "报告已生成",
+    "reportDescription": "你的 PDF 报告已可下载",
+    "popupTitle": "弹出窗口被拦截",
+    "popupDescription": "请允许本网站弹出窗口，以便下载 PDF 报告。",
+    "fixFailedTitle": "无法应用修正",
+    "fixFailedDescription": "你的输入中已找不到原文内容。请手动编辑或重新检查。",
+    "fixedTitle": "已修正！",
+    "fixedDescription": "已将“{from}”改为“{to}”",
+    "allFixedTitle": "已应用全部修正",
+    "allFixedDescription": "你的文本已替换为修正后的版本。"
+  },
+  "errors": {
+    "checkFailed": "语法检查失败"
+  },
+  "features": {
+    "severity": {
+      "title": "三个严重级别",
+      "description": "问题分为错误（必须修正）、警告（建议复查）和建议（可选改进）三类。"
+    },
+    "oneClick": {
+      "title": "一键修正",
+      "description": "每个问题都会显示修改前 → 修改后的具体变化。可以立即应用，也可以跳过，一切由你掌控。"
+    },
+    "fullText": {
+      "title": "完整修正文本",
+      "description": "在问题列表之外，还会生成一份干净的修正版本，你可以直接复制，无需逐条应用修正。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "emails": "在发送给客户或高管之前润色工作邮件",
+      "essays": "校对论文、求职信和学术投稿",
+      "nonNative": "非英语母语者在发布前检查英文语法",
+      "bloggers": "博主在点击发布前做最后一遍检查",
+      "teams": "团队审阅共享文档，确保一致与正确"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "writeFirst": "先写完，再检查语法。边写边改会打断思路，反而写得更差。",
+      "review": "仔细审阅建议；文风方面的建议未必总符合你想要的语气。",
+      "twice": "检查两次：写完后一次，自己修改后再一次。",
+      "sections": "长文档请分段粘贴，以获得更有针对性、更准确的反馈。"
+    }
+  },
+  "faq": {
+    "kinds": {
+      "question": "它能发现哪些问题？",
+      "answer": "三类：错误（语法和拼写错误）、警告（可能存在的问题，例如搭配不当或标点问题）以及建议（可选的文风和清晰度改进）。"
+    },
+    "apply": {
+      "question": "如何应用修正？",
+      "answer": "每个问题都附有建议的替换内容。你可以逐条审阅，也可以直接复制完整的修正文本，接受哪些修改完全由你决定。"
+    },
+    "location": {
+      "question": "如何知道每个问题在文本中的位置？",
+      "answer": "每个问题都包含准确的字符位置，因此可以在原文中定位并高亮显示，而不只是笼统地列出来。"
+    },
+    "style": {
+      "question": "它会改写我的文风吗？",
+      "answer": "不会。它专注于正确性，即语法、拼写和标点，并提供可选的清晰度建议。如果你想整体改写，请改用改写工具。"
+    },
+    "cost": {
+      "question": "每次检查消耗多少积分？",
+      "answer": "积分消耗与文本长度成正比，大约每 6 个字符消耗 1 文本积分。如果检查失败，积分会自动退还。"
+    }
+  }
+}

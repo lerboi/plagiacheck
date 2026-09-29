@@ -18,41 +18,17 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
-const FAQ_ITEMS = [
-  {
-    question: "What tones can I choose?",
-    answer:
-      "Six presets: casual, professional, academic, creative, friendly, and persuasive. The tone shapes vocabulary and sentence style while keeping your original meaning.",
-  },
-  {
-    question: "What does the humanization level slider do?",
-    answer:
-      "It controls how aggressively the text is rewritten. A low level makes light touch-ups to phrasing; a high level restructures sentences and varies rhythm much more heavily.",
-  },
-  {
-    question: "Will the output pass AI detectors?",
-    answer:
-      "There is no guarantee. Humanizing varies word choice and sentence rhythm, which often lowers detection scores, but detectors differ and evolve — no tool can honestly promise a pass.",
-  },
-  {
-    question: "Should I check the result with an AI detector?",
-    answer:
-      "Yes, that is the recommended workflow. Run the humanized text through our AI Detector to see the sentence-level scores, then re-humanize or hand-edit the passages that still read as AI.",
-  },
-  {
-    question: "Does humanizing change the meaning of my text?",
-    answer:
-      "It aims to preserve meaning while changing expression, but heavier rewrite levels take more liberties. Always proofread the output before using it.",
-  },
-  {
-    question: "How much does it cost?",
-    answer:
-      "Token cost scales with text length at roughly 1 text token per 6 characters. Failed runs are refunded automatically.",
-  },
-]
+const FAQ_KEYS = ["tones", "level", "detectors", "verify", "meaning", "cost"] as const
+
+// Tone values are sent to the API as-is; only their labels are translated.
+const TONE_IDS = ["casual", "professional", "academic", "creative", "friendly", "persuasive"] as const
 
 export default function AIHumanizer() {
+  const t = useTranslations("AiHumanizer")
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [humanizedText, setHumanizedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
@@ -129,23 +105,23 @@ export default function AIHumanizer() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to humanize text")
+        throw new Error(data.error || t("errors.failedText"))
       }
 
       setHumanizedText(data.result.humanizedText || text)
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Humanization Complete",
-        description: "Your text has been successfully humanized.",
+        title: t("toasts.successTitle"),
+        description: t("toasts.successDescription"),
         variant: "success",
       })
     } catch (err) {
       console.error("Error humanizing text:", err)
-      const errorMessage = err instanceof Error ? err.message : "Failed to humanize"
+      const errorMessage = err instanceof Error ? apiError(err, t("errors.failed")) : t("errors.failed")
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: t("toasts.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -160,15 +136,15 @@ export default function AIHumanizer() {
       await navigator.clipboard.writeText(humanizedText)
       setCopied(true)
       toast({
-        title: "Copied!",
-        description: "Humanized text copied to clipboard",
+        title: t("toasts.copiedTitle"),
+        description: t("toasts.copiedDescription"),
         variant: "success",
       })
       setTimeout(() => setCopied(false), 2000)
     } catch {
       toast({
-        title: "Copy failed",
-        description: "Could not access the clipboard. Please copy manually.",
+        title: t("toasts.copyFailedTitle"),
+        description: t("toasts.copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -185,14 +161,16 @@ export default function AIHumanizer() {
     URL.revokeObjectURL(url)
   }
 
-  const tones = [
-    { value: "casual", label: "Casual", desc: "Relaxed and conversational" },
-    { value: "professional", label: "Professional", desc: "Business appropriate" },
-    { value: "academic", label: "Academic", desc: "Scholarly and formal" },
-    { value: "creative", label: "Creative", desc: "Expressive and original" },
-    { value: "friendly", label: "Friendly", desc: "Warm and approachable" },
-    { value: "persuasive", label: "Persuasive", desc: "Compelling and convincing" },
-  ]
+  const tones = TONE_IDS.map((id) => ({
+    value: id,
+    label: t(`tones.${id}.label`),
+    desc: t(`tones.${id}.desc`),
+  }))
+
+  const faqItems = FAQ_KEYS.map((key) => ({
+    question: t(`faq.${key}.question`),
+    answer: t(`faq.${key}.answer`),
+  }))
 
   // Jaccard distance over word multisets — robust to insertions/deletions
   // (the previous positional index diff inflated wildly on length changes).
@@ -234,9 +212,9 @@ export default function AIHumanizer() {
       <Nav />
       <ToolPageHeader
         icon={Wand2}
-        title="AI Humanizer"
-        description="Transform AI-generated text into natural, human-sounding writing. Adjust the humanization level and choose a tone that fits your voice."
-        category="AI Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         iconColor="text-pink-500"
         iconBg="bg-pink-500/10 border-pink-500/20"
         categoryColor="text-pink-600 dark:text-pink-400"
@@ -246,14 +224,17 @@ export default function AIHumanizer() {
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
-            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+            {t.rich("needTokens", {
+              required: calculateRequiredTokens(text),
+              remaining: remainingWords,
+              link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+            })}
           </p>
         )}
 
         {text.length > 50000 && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+            {t("tooLong", { current: text.length.toLocaleString() })}
           </p>
         )}
 
@@ -264,10 +245,10 @@ export default function AIHumanizer() {
         {/* Controls row */}
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <Label className="text-xs text-muted-foreground whitespace-nowrap">Level</Label>
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">{t("controls.level")}</Label>
             <div className="w-28">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                <span>Humanization Level</span>
+                <span>{t("controls.humanizationLevel")}</span>
                 <span className="font-medium tabular-nums">{humanizationLevel}%</span>
               </div>
               <Slider
@@ -280,19 +261,19 @@ export default function AIHumanizer() {
               />
             </div>
             <span className="text-xs text-muted-foreground">
-              {humanizationLevel < 34 ? "Light" : humanizationLevel < 67 ? "Medium" : "Heavy"}
+              {humanizationLevel < 34 ? t("controls.light") : humanizationLevel < 67 ? t("controls.medium") : t("controls.heavy")}
             </span>
           </div>
           <Select value={tone} onValueChange={setTone}>
             <SelectTrigger className="h-8 text-xs w-40">
-              <SelectValue placeholder="Select tone" />
+              <SelectValue placeholder={t("controls.selectTone")} />
             </SelectTrigger>
             <SelectContent>
-              {tones.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
+              {tones.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
                   <div className="flex flex-col">
-                    <span>{t.label}</span>
-                    <span className="text-xs text-muted-foreground">{t.desc}</span>
+                    <span>{option.label}</span>
+                    <span className="text-xs text-muted-foreground">{option.desc}</span>
                   </div>
                 </SelectItem>
               ))}
@@ -307,7 +288,7 @@ export default function AIHumanizer() {
               className="h-7 text-xs px-2"
             >
               <ArrowLeftRight className="h-3 w-3 mr-1" />
-              Side by side
+              {t("controls.sideBySide")}
             </Button>
             <Button
               variant={viewMode === "stacked" ? "default" : "ghost"}
@@ -316,7 +297,7 @@ export default function AIHumanizer() {
               onClick={() => setViewMode("stacked")}
               className="h-7 text-xs px-2"
             >
-              Stacked
+              {t("controls.stacked")}
             </Button>
           </div>
         </div>
@@ -326,28 +307,28 @@ export default function AIHumanizer() {
           <div className="space-y-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-red-500"></span>
-              <span className="text-xs font-medium text-muted-foreground">Original (AI Text)</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("input.label")}</span>
             </div>
             <Textarea
-              aria-label="AI-generated text to humanize"
-              placeholder="Paste your AI-generated text here to humanize it..."
+              aria-label={t("input.ariaLabel")}
+              placeholder={t("input.placeholder")}
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-pink-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{text.length} chars</span>
+              <span className="text-xs text-muted-foreground">{t("input.charCount", { count: text.length })}</span>
               <Button
                 onClick={handleHumanize}
                 disabled={isProcessing || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-pink-600 hover:bg-pink-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
-                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />{t("input.processing")}</>
                 ) : text.trim() ? (
-                  `Humanize (${calculateRequiredTokens(text)} tokens)`
+                  t("input.submitWithCost", { count: calculateRequiredTokens(text) })
                 ) : (
-                  "Humanize"
+                  t("input.submit")
                 )}
               </Button>
             </div>
@@ -357,40 +338,40 @@ export default function AIHumanizer() {
           <div className="space-y-3">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-green-500"></span>
-              <span className="text-xs font-medium text-muted-foreground">Humanized</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("output.label")}</span>
             </div>
             <ResultReveal show={!!humanizedText}>
               <div className="flex items-center gap-4 px-4 py-2.5 rounded-xl border border-border bg-card text-xs flex-wrap gap-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Words changed</span>
+                  <span className="text-muted-foreground">{t("output.wordsChanged")}</span>
                   <span className="font-semibold text-pink-600 dark:text-pink-400">{changes.percentage}%</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Original</span>
-                  <span className="font-semibold tabular-nums">{text.split(/\s+/).filter(Boolean).length} words</span>
+                  <span className="text-muted-foreground">{t("output.original")}</span>
+                  <span className="font-semibold tabular-nums">{t("output.wordCount", { count: text.split(/\s+/).filter(Boolean).length })}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Result</span>
-                  <span className="font-semibold tabular-nums">{humanizedText.split(/\s+/).filter(Boolean).length} words</span>
+                  <span className="text-muted-foreground">{t("output.result")}</span>
+                  <span className="font-semibold tabular-nums">{t("output.wordCount", { count: humanizedText.split(/\s+/).filter(Boolean).length })}</span>
                 </div>
                 <div className="ml-auto flex gap-1.5">
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy} disabled={isProcessing || !humanizedText}>
-                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                    {copied ? <><Check className="h-3 w-3" />{t("output.copied")}</> : <><Copy className="h-3 w-3" />{t("output.copy")}</>}
                   </Button>
                   <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload} disabled={isProcessing || !humanizedText}>
-                    <Download className="h-3 w-3" />Download
+                    <Download className="h-3 w-3" />{t("output.download")}
                   </Button>
                   <Button
                     variant="ghost" size="sm" className="h-7 text-xs"
                     onClick={() => setViewMode(viewMode === "split" ? "stacked" : "split")}
                   >
-                    {viewMode === "split" ? "Stack" : "Split"}
+                    {viewMode === "split" ? t("output.stack") : t("output.split")}
                   </Button>
                 </div>
               </div>
             </ResultReveal>
             <div className="min-h-[320px] max-h-[480px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">
-              {humanizedText || <span className="text-muted-foreground/40">Humanized text appears here</span>}
+              {humanizedText || <span className="text-muted-foreground/40">{t("output.empty")}</span>}
             </div>
           </div>
         </div>
@@ -402,71 +383,71 @@ export default function AIHumanizer() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4 text-pink-500" />
-                <h3 className="text-sm font-semibold">Six Tone Options</h3>
+                <h3 className="text-sm font-semibold">{t("features.tones.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Casual, Professional, Academic, Creative, Friendly, or Persuasive — match the humanized output to the context you&apos;re writing for.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.tones.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Sliders className="h-4 w-4 text-pink-500" />
-                <h3 className="text-sm font-semibold">Humanization Level</h3>
+                <h3 className="text-sm font-semibold">{t("features.level.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">A 0–100 slider controls how aggressively the text is rewritten. Lower levels preserve structure; higher levels fully rephrase.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.level.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <BarChart className="h-4 w-4 text-pink-500" />
-                <h3 className="text-sm font-semibold">Change Percentage</h3>
+                <h3 className="text-sm font-semibold">{t("features.changes.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">See exactly what percentage of words were changed so you can calibrate the output without going too far.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.changes.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
-                  Making AI-drafted emails, proposals, or reports sound natural before sending
+                  {t("useCases.items.emails")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
-                  Students humanising AI-assisted study notes to avoid detection
+                  {t("useCases.items.students")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
-                  Content creators adjusting AI copy to match their personal brand voice
+                  {t("useCases.items.creators")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
-                  Marketers ensuring AI-generated ad copy doesn&apos;t sound robotic
+                  {t("useCases.items.marketers")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
-                  Anyone who used AI to draft something but wants it to sound like them
+                  {t("useCases.items.anyone")}
                 </li>
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-pink-500 font-bold shrink-0">→</span>
-                  Start at level 40–60 — aggressive humanization (80+) can change meaning in unexpected ways.
+                  {t("tips.items.level")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-pink-500 font-bold shrink-0">→</span>
-                  Professional tone pairs well with formal reports; Casual works best for social content.
+                  {t("tips.items.tone")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-pink-500 font-bold shrink-0">→</span>
-                  After humanizing, run the result through the AI Detector to verify the score dropped.
+                  {t("tips.items.detector")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-pink-500 font-bold shrink-0">→</span>
-                  If the result sounds off, try a different tone with the same level rather than increasing the level.
+                  {t("tips.items.retry")}
                 </li>
               </ul>
             </div>
@@ -475,7 +456,7 @@ export default function AIHumanizer() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

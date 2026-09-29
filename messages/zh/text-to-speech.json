@@ -1,1 +1,96 @@
-{}
+{
+  "header": {
+    "category": "语音工具",
+    "title": "文字转语音",
+    "description": "粘贴任意文本，用自然的声音朗读出来，并可调节语速和音调。非常适合用耳朵校对或无障碍阅读。完全免费，无需积分。"
+  },
+  "unsupported": {
+    "title": "你的浏览器不支持 Web Speech Synthesis API。",
+    "hint": "请使用 Chrome、Edge 或 Safari。"
+  },
+  "toasts": {
+    "error": "错误",
+    "synthesisFailed": "语音合成失败"
+  },
+  "editor": {
+    "title": "你的文本",
+    "stats": "{words} 个词 · 约 {minutes} 分钟",
+    "placeholder": "在此粘贴你的论文、文章或任意文本，即可听它朗读出来。非常适合发现眼睛容易忽略的错误...",
+    "ariaLabel": "要朗读的文本",
+    "play": "播放",
+    "resume": "继续",
+    "pause": "暂停",
+    "stop": "停止"
+  },
+  "settings": {
+    "title": "声音设置",
+    "voice": "声音",
+    "speed": "语速：{rate}x",
+    "pitch": "音调：{pitch}",
+    "low": "低",
+    "normal": "正常",
+    "high": "高",
+    "proTipTitle": "小技巧",
+    "proTip": "听别人朗读你的文章，有助于发现拗口的措辞、冗长的句子，以及眼睛容易跳过的错误。"
+  },
+  "voices": {
+    "default": "默认",
+    "male": "男声",
+    "female": "女声"
+  },
+  "features": {
+    "voices": {
+      "title": "多种声音",
+      "description": "可在默认、男声和女声之间选择。浏览器会根据你的偏好选用最合适的系统语音。"
+    },
+    "controls": {
+      "title": "语速与音调控制",
+      "description": "播放速度可在 0.5× 到 2× 之间调节，音调可由低到高调整，找到最舒适的收听体验。"
+    },
+    "free": {
+      "title": "免费，无需账号",
+      "description": "文字转语音完全免费，无需登录。不消耗积分，也不限制文本长度。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "proofreading": "通过听回朗读来校对你的文字——耳朵能发现眼睛遗漏的错误",
+      "accessibility": "让有阅读障碍的人也能获取书面内容",
+      "scripts": "在正式录制前试听脚本或旁白的效果",
+      "multitasking": "一边做其他事情，一边收听文章或笔记",
+      "pronunciation": "语言学习者检查单词和短语的发音"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "slowDown": "校对技术性或较复杂的内容时，将语速放慢到 0.75×，更容易发现错误。",
+      "firstParagraph": "先以正常语速听第一段，检查行文是否流畅，再快速过一遍其余部分。",
+      "sections": "对于长文本，每次只粘贴一个部分，让播放更有针对性。",
+      "browser": "如果声音听起来很机械，可以换一个浏览器试试——Chrome 的声音通常最好。"
+    }
+  },
+  "faq": {
+    "free": {
+      "question": "文字转语音是免费的吗？",
+      "answer": "是的，完全免费。它使用浏览器内置的 SpeechSynthesis 引擎，因此不消耗积分，也无需账号。"
+    },
+    "devices": {
+      "question": "为什么手机和笔记本电脑上的声音听起来不一样？",
+      "answer": "声音来自你的设备和操作系统，而不是我们的服务器。Windows、macOS、Android 和 iOS 各自内置不同的语音，因此音质和可选声音会因设备而异。"
+    },
+    "controls": {
+      "question": "语速和音调控制有什么作用？",
+      "answer": "语速控制朗读的快慢，音调让声音变高或变低。两项设置都会在你下次点击播放时生效。"
+    },
+    "long": {
+      "question": "可以朗读长文档吗？",
+      "answer": "可以。由于部分浏览器在朗读到一定长度后会中断，长文本会在后台被拆分成多个片段，播放会在片段之间无缝衔接。"
+    },
+    "browsers": {
+      "question": "支持哪些浏览器？",
+      "answer": "Chrome、Edge 和 Safari 都能很好地支持语音合成。如果听不到声音，请检查系统音量，并尝试从列表中选择其他声音。"
+    }
+  }
+}

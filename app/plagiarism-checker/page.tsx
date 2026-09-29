@@ -1,18 +1,20 @@
 import type { Metadata } from "next"
+import { getTranslations } from "next-intl/server"
 import PlagiarismCheckerContent from "./content"
 
-export const metadata: Metadata = {
-  title: "Plagiarism Checker — Plagiacheck",
-  description:
-    "AI-powered plagiarism detection with sentence-level highlighting. Paste your text or upload a .txt/.md file and get a similarity report in seconds.",
-  alternates: { canonical: "/plagiarism-checker" },
-  openGraph: {
-    title: "Plagiarism Checker — Plagiacheck",
-    description:
-      "AI-powered plagiarism detection with sentence-level highlighting. Paste your text or upload a file to get a similarity report in seconds.",
-    type: "website",
-    url: "/plagiarism-checker",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("PlagiarismChecker.metadata")
+  return {
+    title: t("title"),
+    description: t("description"),
+    alternates: { canonical: "/plagiarism-checker" },
+    openGraph: {
+      title: t("ogTitle"),
+      description: t("ogDescription"),
+      type: "website",
+      url: "/plagiarism-checker",
+    },
+  }
 }
 
 export default function PlagiarismCheckerPage() {

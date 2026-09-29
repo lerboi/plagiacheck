@@ -1,1 +1,117 @@
-{}
+{
+  "header": {
+    "category": "语音工具",
+    "title": "语音成文",
+    "description": "把你的想法说出来，让 AI 将语音笔记整理成结构清晰、行文流畅的文章，段落分明、过渡自然。"
+  },
+  "unsupported": {
+    "title": "你的浏览器不支持 Web Speech API。",
+    "hint": "请使用 Chrome、Edge 或 Safari。"
+  },
+  "recorder": {
+    "start": "开始录音",
+    "stop": "停止录音",
+    "recording": "正在录音...",
+    "recordMore": "点击继续录音",
+    "idle": "说出你的文章构思，AI 会帮你组织结构",
+    "wordsTranscribed": "已转写 {count} 个词",
+    "clear": "清空"
+  },
+  "errors": {
+    "micDenied": "麦克风访问被拒绝。请在浏览器中允许使用麦克风后重试。",
+    "noMic": "未检测到麦克风。请检查音频输入设备后重试。",
+    "unavailable": "此浏览器不支持语音识别。请尝试使用 Chrome 或 Edge。",
+    "recognition": "语音识别出错：{error}",
+    "convertFailed": "转换为文章失败",
+    "convertFallback": "转换失败"
+  },
+  "toasts": {
+    "error": "错误",
+    "notEnoughTokens": "积分不足",
+    "needTokensRedirect": "本次转换需要 {required} 积分，你当前只有 {remaining} 积分。正在跳转到价格页面。",
+    "outOfTokens": "你的积分不足以完成本次转换。正在跳转到价格页面。",
+    "generated": "文章已生成",
+    "generatedDescription": "“{title}”：{words} 个词，{paragraphs} 个段落",
+    "copied": "已复制！",
+    "copiedDescription": "文章已复制到剪贴板",
+    "copyFailed": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。"
+  },
+  "notes": {
+    "title": "语音笔记",
+    "placeholder": "在上方录音，或在此输入你的语音笔记...",
+    "ariaLabel": "语音笔记转写文本",
+    "needTokens": "需要 {required} 积分，你当前有 {remaining} 积分。",
+    "upgrade": "升级",
+    "converting": "正在生成文章...",
+    "convert": "转换为文章",
+    "convertWithCost": "转换为文章（{count} 积分）"
+  },
+  "essay": {
+    "fallbackTitle": "生成的文章",
+    "words": "{count} 个词",
+    "paragraphs": "{count} 个段落",
+    "copy": "复制",
+    "copied": "已复制",
+    "download": "下载 .txt",
+    "useWith": "继续使用：",
+    "plagiarism": "抄袭检测",
+    "grammar": "语法检查",
+    "humanize": "AI 文本人性化"
+  },
+  "features": {
+    "voiceFirst": {
+      "title": "语音优先输入",
+      "description": "像平时聊天一样说出你的想法——口头禅会被去除，你的思路会被整理成清晰的段落。"
+    },
+    "structure": {
+      "title": "完整的文章结构",
+      "description": "AI 会补充引言、过渡自然的正文段落和结论，而不只是整理一下笔记。"
+    },
+    "editable": {
+      "title": "可编辑的草稿",
+      "description": "生成的文章只是一个起点。你可以将它复制到任意编辑器中，调整语气、添加引用或展开具体观点。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "verbalThinkers": "善于口头表达、不擅长书面写作的学生",
+      "writersBlock": "先把想法说出来，突破写作瓶颈",
+      "commuting": "通勤途中起草博客文章或新闻简报",
+      "brainstorms": "将头脑风暴的内容整理成结构化的初稿",
+      "nonNative": "英语口语好于写作的非母语人士"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "completeThoughts": "用完整的句子表达想法，而不是只说关键词——AI 会根据你每句话的意思重新组织结构。",
+      "audience": "在开头说明目标读者或正式程度，例如：“这是一篇关于……的正式学术论文”",
+      "outline": "撰写较长的文章时，先录一个粗略的提纲，再逐点详细录制。",
+      "polish": "转换完成后，可以再用语法检查或 AI 文本人性化工具处理结果。"
+    }
+  },
+  "faq": {
+    "how": {
+      "question": "我的语音是如何变成文章的？",
+      "answer": "浏览器会在你说话时实时转写你的语音。停止录音后，AI 会将原始转写文本重新组织成一篇有标题、段落连贯、措辞通顺的文章。"
+    },
+    "browsers": {
+      "question": "哪些浏览器可以使用？",
+      "answer": "Chrome、Edge 和 Safari。本工具依赖浏览器的 Web Speech API 进行听写，而 Firefox 不支持该 API。你还需要授予麦克风权限。"
+    },
+    "edit": {
+      "question": "生成文章前可以编辑转写文本吗？",
+      "answer": "可以，而且建议这样做。先在转写文本框中修正听错的词或补充遗漏的要点——转写文本越干净，生成的文章就越好。"
+    },
+    "oneGo": {
+      "question": "必须一次性口述完所有内容吗？",
+      "answer": "不必。你可以停止后再继续录音，新的语音会追加到现有转写文本的后面。想到什么就说什么，结构交给 AI 处理。"
+    },
+    "cost": {
+      "question": "费用是多少？",
+      "answer": "听写本身在浏览器中运行，因此免费。生成文章会根据转写文本长度消耗文本积分，大约每 6 个字符消耗 1 积分。"
+    }
+  }
+}

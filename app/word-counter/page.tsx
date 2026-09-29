@@ -8,41 +8,17 @@ import { FAQ } from "@/components/FAQ"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { ToolPageHeader } from "@/components/tool-page-header"
+import { useTranslations } from "next-intl"
 
 const STOPWORDS = new Set(["the","a","an","and","or","but","in","on","at","to","for","of","with","by","is","are","was","were","it","i","you","he","she","we","they","this","that"])
 
 const READING_WPM = 200
 const SPEAKING_WPM = 130
 
-const FAQ_ITEMS = [
-  {
-    question: "Is the word counter free?",
-    answer:
-      "Yes, completely free. It uses no tokens and does not require an account or sign-in.",
-  },
-  {
-    question: "Is my text sent anywhere?",
-    answer:
-      "No. All counting happens locally in your browser — your text never leaves your device and is not stored on our servers.",
-  },
-  {
-    question: "What does it count?",
-    answer:
-      "Words, characters (with and without spaces), sentences, and paragraphs, plus estimated reading and speaking time and your most frequent keywords.",
-  },
-  {
-    question: "How are reading and speaking time calculated?",
-    answer:
-      "Reading time assumes about 200 words per minute and speaking time about 130 words per minute, which are common average paces. Your actual pace may differ.",
-  },
-  {
-    question: "Why do common words not appear in the keyword list?",
-    answer:
-      "Frequent function words like \"the\", \"and\", and \"of\" are filtered out so the keyword list reflects the words that actually characterize your text.",
-  },
-]
+const FAQ_KEYS = ["free", "privacy", "counts", "timing", "stopwords"] as const
 
 export default function WordCounter() {
+  const t = useTranslations("WordCounter")
   const [text, setText] = useState("")
   const [previousText, setPreviousText] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -90,8 +66,8 @@ export default function WordCounter() {
     return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([word, count]) => ({ word, count }))
   }, [text])
 
-  const readingTime = stats.words === 0 ? "—" : stats.words < READING_WPM ? "< 1 min" : Math.ceil(stats.words / READING_WPM) + " min"
-  const speakingTime = stats.words === 0 ? "—" : stats.words < SPEAKING_WPM ? "< 1 min" : Math.ceil(stats.words / SPEAKING_WPM) + " min"
+  const readingTime = stats.words === 0 ? "—" : stats.words < READING_WPM ? t("time.underOneMinute") : t("time.minutes", { count: Math.ceil(stats.words / READING_WPM) })
+  const speakingTime = stats.words === 0 ? "—" : stats.words < SPEAKING_WPM ? t("time.underOneMinute") : t("time.minutes", { count: Math.ceil(stats.words / SPEAKING_WPM) })
 
   // Case transforms are destructive — keep one level of undo.
   const applyTransform = (transform: (value: string) => string) => {
@@ -118,21 +94,26 @@ export default function WordCounter() {
     await navigator.clipboard.writeText(text)
     setCopied(true)
     toast({
-      title: "Copied!",
-      description: "Text copied to clipboard",
+      title: t("toasts.copiedTitle"),
+      description: t("toasts.copiedDescription"),
       variant: "success",
     })
     setTimeout(() => setCopied(false), 2000)
   }
+
+  const faqItems = FAQ_KEYS.map((key) => ({
+    question: t(`faq.${key}.question`),
+    answer: t(`faq.${key}.answer`),
+  }))
 
   return (
     <div className="min-h-screen bg-background">
       <Nav />
       <ToolPageHeader
         icon={Hash}
-        title="Word Counter"
-        description="Instant word, character, sentence, and paragraph counts for any text. See reading time, top keywords, and unique word frequency — all free."
-        category="Utility"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         iconColor="text-orange-500"
         iconBg="bg-orange-500/10 border-orange-500/20"
         categoryColor="text-orange-600 dark:text-orange-400"
@@ -142,8 +123,8 @@ export default function WordCounter() {
           {/* LEFT — textarea */}
           <div className="space-y-3">
             <Textarea
-              aria-label="Text to count words and characters"
-              placeholder="Start typing or paste your text here to see word count and other statistics..."
+              aria-label={t("input.ariaLabel")}
+              placeholder={t("input.placeholder")}
               className="min-h-[420px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-orange-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -157,9 +138,9 @@ export default function WordCounter() {
                 className="h-7 text-xs"
               >
                 {copied ? (
-                  <><Check className="h-3 w-3 mr-1 text-green-500" />Copied</>
+                  <><Check className="h-3 w-3 mr-1 text-green-500" />{t("actions.copied")}</>
                 ) : (
-                  <><Copy className="h-3 w-3 mr-1" />Copy</>
+                  <><Copy className="h-3 w-3 mr-1" />{t("actions.copy")}</>
                 )}
               </Button>
               <Button
@@ -169,7 +150,7 @@ export default function WordCounter() {
                 disabled={!text}
                 className="h-7 text-xs"
               >
-                Clear
+                {t("actions.clear")}
               </Button>
               <Button
                 variant="ghost"
@@ -178,7 +159,7 @@ export default function WordCounter() {
                 disabled={!text}
                 className="h-7 text-xs"
               >
-                lowercase
+                {t("actions.lowercase")}
               </Button>
               <Button
                 variant="ghost"
@@ -187,7 +168,7 @@ export default function WordCounter() {
                 disabled={!text}
                 className="h-7 text-xs"
               >
-                UPPERCASE
+                {t("actions.uppercase")}
               </Button>
               <Button
                 variant="ghost"
@@ -196,7 +177,7 @@ export default function WordCounter() {
                 disabled={!text}
                 className="h-7 text-xs"
               >
-                Title Case
+                {t("actions.titleCase")}
               </Button>
               {previousText !== null && (
                 <Button
@@ -205,7 +186,7 @@ export default function WordCounter() {
                   onClick={handleUndo}
                   className="h-7 text-xs"
                 >
-                  Undo
+                  {t("actions.undo")}
                 </Button>
               )}
             </div>
@@ -216,10 +197,10 @@ export default function WordCounter() {
             {/* Primary stats — 2x2 grid with large numbers */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: "Words", value: stats.words, color: "text-orange-500" },
-                { label: "Characters", value: stats.characters, color: "text-blue-500" },
-                { label: "Sentences", value: stats.sentences, color: "text-purple-500" },
-                { label: "Paragraphs", value: stats.paragraphs, color: "text-green-500" },
+                { label: t("stats.words"), value: stats.words, color: "text-orange-500" },
+                { label: t("stats.characters"), value: stats.characters, color: "text-blue-500" },
+                { label: t("stats.sentences"), value: stats.sentences, color: "text-purple-500" },
+                { label: t("stats.paragraphs"), value: stats.paragraphs, color: "text-green-500" },
               ].map(({ label, value, color }) => (
                 <div key={label} className="rounded-xl border border-border bg-card px-4 py-3">
                   <div className={`text-2xl font-bold tabular-nums ${color}`}>{value.toLocaleString()}</div>
@@ -231,10 +212,10 @@ export default function WordCounter() {
             {/* Secondary stats */}
             <div className="rounded-xl border border-border bg-card divide-y divide-border/60">
               {[
-                { label: "Reading time", value: readingTime },
-                { label: "Speaking time", value: speakingTime },
-                { label: "Chars (no spaces)", value: stats.charactersNoSpaces.toLocaleString() },
-                { label: "Unique words", value: stats.uniqueWords.toLocaleString() },
+                { label: t("stats.readingTime"), value: readingTime },
+                { label: t("stats.speakingTime"), value: speakingTime },
+                { label: t("stats.charsNoSpaces"), value: stats.charactersNoSpaces.toLocaleString() },
+                { label: t("stats.uniqueWords"), value: stats.uniqueWords.toLocaleString() },
               ].map(({ label, value }) => (
                 <div key={label} className="flex items-center justify-between px-4 py-2.5">
                   <span className="text-xs text-muted-foreground">{label}</span>
@@ -247,7 +228,7 @@ export default function WordCounter() {
             {stats.words > 0 && (
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-border">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Top Words</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("stats.topWords")}</span>
                 </div>
                 <div className="p-3 space-y-1.5">
                   {topWords.map(({ word, count: wc }) => (
@@ -276,71 +257,71 @@ export default function WordCounter() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Hash className="h-4 w-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Real-Time Counting</h3>
+                <h3 className="text-sm font-semibold">{t("features.realtime.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Every stat updates instantly as you type — no submit button needed. Words, characters, sentences, and paragraphs.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.realtime.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Reading &amp; Speaking Time</h3>
+                <h3 className="text-sm font-semibold">{t("features.time.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Estimated reading time (200 wpm) and speaking time (130 wpm) are calculated automatically.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.time.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Top Keywords</h3>
+                <h3 className="text-sm font-semibold">{t("features.keywords.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">The most frequent non-trivial words are shown with proportional frequency bars — useful for checking keyword density.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.keywords.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Writers checking they meet or stay under a word limit for submissions
+                  {t("useCases.items.writers")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Students verifying essay length requirements before submitting
+                  {t("useCases.items.students")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Podcasters or speakers estimating how long their script will take
+                  {t("useCases.items.speakers")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  SEO writers checking keyword frequency and density
+                  {t("useCases.items.seo")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Editors reviewing content length and reading complexity at a glance
+                  {t("useCases.items.editors")}
                 </li>
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-orange-500 font-bold shrink-0">→</span>
-                  Average blog posts read in 7–10 minutes — aim for 1,400–2,000 words for that range.
+                  {t("tips.items.blog")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-orange-500 font-bold shrink-0">→</span>
-                  Check the top keywords list to spot over-repetition before your editor does.
+                  {t("tips.items.keywords")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-orange-500 font-bold shrink-0">→</span>
-                  Speaking time assumes 130 wpm — adjust if you speak faster or slower in practice.
+                  {t("tips.items.speaking")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-orange-500 font-bold shrink-0">→</span>
-                  Use character count (no spaces) when working with platforms that count differently.
+                  {t("tips.items.noSpaces")}
                 </li>
               </ul>
             </div>
@@ -349,7 +330,7 @@ export default function WordCounter() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

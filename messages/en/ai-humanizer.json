@@ -1,1 +1,139 @@
-{}
+{
+  "header": {
+    "category": "AI Tools",
+    "title": "AI Humanizer",
+    "description": "Transform AI-generated text into natural, human-sounding writing. Adjust the humanization level and choose a tone that fits your voice."
+  },
+  "needTokens": "Need {required} tokens — you have {remaining}. <link>Upgrade</link>",
+  "tooLong": "Text is too long — the maximum is 50,000 characters (currently {current}).",
+  "controls": {
+    "level": "Level",
+    "humanizationLevel": "Humanization Level",
+    "light": "Light",
+    "medium": "Medium",
+    "heavy": "Heavy",
+    "selectTone": "Select tone",
+    "sideBySide": "Side by side",
+    "stacked": "Stacked"
+  },
+  "tones": {
+    "casual": {
+      "label": "Casual",
+      "desc": "Relaxed and conversational"
+    },
+    "professional": {
+      "label": "Professional",
+      "desc": "Business appropriate"
+    },
+    "academic": {
+      "label": "Academic",
+      "desc": "Scholarly and formal"
+    },
+    "creative": {
+      "label": "Creative",
+      "desc": "Expressive and original"
+    },
+    "friendly": {
+      "label": "Friendly",
+      "desc": "Warm and approachable"
+    },
+    "persuasive": {
+      "label": "Persuasive",
+      "desc": "Compelling and convincing"
+    }
+  },
+  "input": {
+    "label": "Original (AI Text)",
+    "ariaLabel": "AI-generated text to humanize",
+    "placeholder": "Paste your AI-generated text here to humanize it...",
+    "charCount": "{count} chars",
+    "processing": "Processing...",
+    "submitWithCost": "Humanize ({count} tokens)",
+    "submit": "Humanize"
+  },
+  "output": {
+    "label": "Humanized",
+    "wordsChanged": "Words changed",
+    "original": "Original",
+    "result": "Result",
+    "wordCount": "{count} words",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "stack": "Stack",
+    "split": "Split",
+    "empty": "Humanized text appears here"
+  },
+  "features": {
+    "tones": {
+      "title": "Six Tone Options",
+      "body": "Casual, Professional, Academic, Creative, Friendly, or Persuasive — match the humanized output to the context you're writing for."
+    },
+    "level": {
+      "title": "Humanization Level",
+      "body": "A 0–100 slider controls how aggressively the text is rewritten. Lower levels preserve structure; higher levels fully rephrase."
+    },
+    "changes": {
+      "title": "Change Percentage",
+      "body": "See exactly what percentage of words were changed so you can calibrate the output without going too far."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "emails": "Making AI-drafted emails, proposals, or reports sound natural before sending",
+      "students": "Students humanising AI-assisted study notes to avoid detection",
+      "creators": "Content creators adjusting AI copy to match their personal brand voice",
+      "marketers": "Marketers ensuring AI-generated ad copy doesn't sound robotic",
+      "anyone": "Anyone who used AI to draft something but wants it to sound like them"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "level": "Start at level 40–60 — aggressive humanization (80+) can change meaning in unexpected ways.",
+      "tone": "Professional tone pairs well with formal reports; Casual works best for social content.",
+      "detector": "After humanizing, run the result through the AI Detector to verify the score dropped.",
+      "retry": "If the result sounds off, try a different tone with the same level rather than increasing the level."
+    }
+  },
+  "toasts": {
+    "successTitle": "Humanization Complete",
+    "successDescription": "Your text has been successfully humanized.",
+    "errorTitle": "Error",
+    "copiedTitle": "Copied!",
+    "copiedDescription": "Humanized text copied to clipboard",
+    "copyFailedTitle": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually."
+  },
+  "errors": {
+    "failedText": "Failed to humanize text",
+    "failed": "Failed to humanize"
+  },
+  "faq": {
+    "tones": {
+      "question": "What tones can I choose?",
+      "answer": "Six presets: casual, professional, academic, creative, friendly, and persuasive. The tone shapes vocabulary and sentence style while keeping your original meaning."
+    },
+    "level": {
+      "question": "What does the humanization level slider do?",
+      "answer": "It controls how aggressively the text is rewritten. A low level makes light touch-ups to phrasing; a high level restructures sentences and varies rhythm much more heavily."
+    },
+    "detectors": {
+      "question": "Will the output pass AI detectors?",
+      "answer": "There is no guarantee. Humanizing varies word choice and sentence rhythm, which often lowers detection scores, but detectors differ and evolve — no tool can honestly promise a pass."
+    },
+    "verify": {
+      "question": "Should I check the result with an AI detector?",
+      "answer": "Yes, that is the recommended workflow. Run the humanized text through our AI Detector to see the sentence-level scores, then re-humanize or hand-edit the passages that still read as AI."
+    },
+    "meaning": {
+      "question": "Does humanizing change the meaning of my text?",
+      "answer": "It aims to preserve meaning while changing expression, but heavier rewrite levels take more liberties. Always proofread the output before using it."
+    },
+    "cost": {
+      "question": "How much does it cost?",
+      "answer": "Token cost scales with text length at roughly 1 text token per 6 characters. Failed runs are refunded automatically."
+    }
+  }
+}

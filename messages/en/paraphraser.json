@@ -1,1 +1,109 @@
-{}
+{
+  "header": {
+    "category": "Writing Tools",
+    "title": "Paraphraser",
+    "description": "Rewrite any text in a different style while keeping the original meaning. Choose from Standard, Fluency, Formal, Simple, Creative, or Academic modes."
+  },
+  "needTokens": "Need {required} tokens — you have {remaining}. <link>Upgrade</link>",
+  "tooLong": "Text is too long — the maximum is 50,000 characters (currently {current}).",
+  "modes": {
+    "standard": "Standard",
+    "fluency": "Fluency",
+    "formal": "Formal",
+    "simple": "Simple",
+    "creative": "Creative",
+    "academic": "Academic"
+  },
+  "modeBadge": {
+    "standard": "standard",
+    "fluency": "fluency",
+    "formal": "formal",
+    "simple": "simple",
+    "creative": "creative",
+    "academic": "academic"
+  },
+  "input": {
+    "ariaLabel": "Text to paraphrase",
+    "placeholder": "Enter or paste your text here to paraphrase...",
+    "charCount": "{count} chars",
+    "processing": "Processing...",
+    "submitWithCost": "Paraphrase ({count} tokens)",
+    "submit": "Paraphrase"
+  },
+  "output": {
+    "wordChange": "<num>{before}</num> → <num>{after}</num> words",
+    "copy": "Copy",
+    "copied": "Copied",
+    "save": "Save",
+    "rewriting": "Rewriting...",
+    "empty": "Paraphrased text appears here"
+  },
+  "features": {
+    "modes": {
+      "title": "Six Writing Modes",
+      "body": "Standard, Fluency, Formal, Simple, Creative, and Academic — each mode rewrites with a distinct voice and purpose."
+    },
+    "meaning": {
+      "title": "Meaning Preserved",
+      "body": "The core ideas and facts stay intact. Only phrasing, structure, and vocabulary are changed."
+    },
+    "instant": {
+      "title": "Instant Results",
+      "body": "No waiting. Results appear in seconds so you can iterate and compare modes quickly."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "students": "Students avoiding unintentional self-plagiarism between drafts",
+      "marketers": "Content marketers creating SEO variations of existing articles",
+      "nonNative": "Non-native English speakers polishing their writing",
+      "academics": "Academics translating informal notes into formal prose",
+      "bloggers": "Bloggers refreshing older posts without rewriting from scratch"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "academic": "Use Academic mode for thesis papers and formal reports — it elevates vocabulary and sentence complexity.",
+      "creative": "Creative mode works best for social media captions and casual blog posts.",
+      "compare": "Run the same text through multiple modes to find the version that fits your voice.",
+      "short": "Shorter inputs (under 300 words) tend to produce the cleanest rewrites."
+    }
+  },
+  "toasts": {
+    "successTitle": "Paraphrasing Complete",
+    "successDescription": "Your text has been successfully paraphrased.",
+    "errorTitle": "Error",
+    "copiedTitle": "Copied!",
+    "copiedDescription": "Text copied to clipboard",
+    "copyFailedTitle": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually."
+  },
+  "errors": {
+    "failedText": "Failed to paraphrase text",
+    "failed": "Failed to paraphrase"
+  },
+  "faq": {
+    "modes": {
+      "question": "What do the six modes do?",
+      "answer": "Standard rewrites naturally, Fluency smooths awkward phrasing, Formal raises the register, Simple uses plainer words and shorter sentences, Creative takes more stylistic liberties, and Academic targets scholarly tone and precision."
+    },
+    "meaning": {
+      "question": "Will the paraphrase keep my original meaning?",
+      "answer": "That is the goal in every mode, though Creative mode takes the most liberties with expression. Always read the result — you are responsible for the final text."
+    },
+    "languages": {
+      "question": "Which languages are supported?",
+      "answer": "English is the best-supported language. Major European languages generally work too, but quality can vary — review non-English output carefully."
+    },
+    "repeat": {
+      "question": "Can I paraphrase the same text more than once?",
+      "answer": "Yes. Re-running the same input produces a different variant each time, and you can also switch modes to get a different style. Each run costs tokens."
+    },
+    "cost": {
+      "question": "How much does it cost?",
+      "answer": "Token cost scales with text length at roughly 1 text token per 6 characters. If a run fails, the tokens are refunded automatically."
+    }
+  }
+}

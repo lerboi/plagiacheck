@@ -1,1 +1,139 @@
-{}
+{
+  "header": {
+    "category": "AI 工具",
+    "title": "AI 文本人性化",
+    "description": "将 AI 生成的文本改写成自然、像真人写出的文字。可调整人性化程度，并选择贴合你个人风格的语气。"
+  },
+  "needTokens": "需要 {required} 积分，你当前有 {remaining} 积分。<link>升级</link>",
+  "tooLong": "文本过长：最多 50,000 个字符（当前 {current} 个）。",
+  "controls": {
+    "level": "程度",
+    "humanizationLevel": "人性化程度",
+    "light": "轻度",
+    "medium": "中度",
+    "heavy": "深度",
+    "selectTone": "选择语气",
+    "sideBySide": "并排显示",
+    "stacked": "上下排列"
+  },
+  "tones": {
+    "casual": {
+      "label": "轻松",
+      "desc": "随和自然，口语化"
+    },
+    "professional": {
+      "label": "专业",
+      "desc": "适合商务场合"
+    },
+    "academic": {
+      "label": "学术",
+      "desc": "严谨正式，书面化"
+    },
+    "creative": {
+      "label": "创意",
+      "desc": "富有表现力，别出心裁"
+    },
+    "friendly": {
+      "label": "友好",
+      "desc": "亲切温暖，平易近人"
+    },
+    "persuasive": {
+      "label": "有说服力",
+      "desc": "有力动人，令人信服"
+    }
+  },
+  "input": {
+    "label": "原文（AI 文本）",
+    "ariaLabel": "需要人性化处理的 AI 生成文本",
+    "placeholder": "在此粘贴 AI 生成的文本，进行人性化改写…",
+    "charCount": "{count} 个字符",
+    "processing": "处理中…",
+    "submitWithCost": "人性化改写（{count} 积分）",
+    "submit": "人性化改写"
+  },
+  "output": {
+    "label": "人性化结果",
+    "wordsChanged": "词语改动率",
+    "original": "原文",
+    "result": "结果",
+    "wordCount": "{count} 个词",
+    "copy": "复制",
+    "copied": "已复制",
+    "download": "下载",
+    "stack": "上下",
+    "split": "并排",
+    "empty": "人性化后的文本将显示在这里"
+  },
+  "features": {
+    "tones": {
+      "title": "六种语气可选",
+      "body": "轻松、专业、学术、创意、友好或有说服力——让改写结果贴合你的写作场景。"
+    },
+    "level": {
+      "title": "人性化程度",
+      "body": "用 0–100 的滑块控制改写力度。程度越低越保留原有结构，程度越高则越彻底地重新表述。"
+    },
+    "changes": {
+      "title": "改动比例",
+      "body": "清楚显示有多大比例的词被改动，方便你把握分寸，避免改写过度。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "emails": "在发送前，让 AI 起草的邮件、提案或报告读起来更自然",
+      "students": "学生对 AI 辅助整理的学习笔记进行人性化处理，以避免被检测出来",
+      "creators": "内容创作者调整 AI 文案，使其符合个人品牌风格",
+      "marketers": "营销人员确保 AI 生成的广告文案不显得生硬机械",
+      "anyone": "用 AI 打了草稿、但希望读起来像自己写的任何人"
+    }
+  },
+  "tips": {
+    "title": "使用技巧",
+    "items": {
+      "level": "建议从 40–60 的程度开始——程度过高（80 以上）可能会意外改变原意。",
+      "tone": "“专业”语气适合正式报告；“轻松”语气最适合社交媒体内容。",
+      "detector": "完成人性化后，用 AI 内容检测工具检查结果，确认分数已经降低。",
+      "retry": "如果结果读起来不对劲，可以保持程度不变、换一种语气，而不是一味提高程度。"
+    }
+  },
+  "toasts": {
+    "successTitle": "人性化完成",
+    "successDescription": "你的文本已成功完成人性化处理。",
+    "errorTitle": "错误",
+    "copiedTitle": "已复制！",
+    "copiedDescription": "人性化文本已复制到剪贴板",
+    "copyFailedTitle": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。"
+  },
+  "errors": {
+    "failedText": "文本人性化处理失败",
+    "failed": "人性化处理失败"
+  },
+  "faq": {
+    "tones": {
+      "question": "可以选择哪些语气？",
+      "answer": "共有六种预设：轻松、专业、学术、创意、友好和有说服力。语气会影响用词和句式，同时保留你的原意。"
+    },
+    "level": {
+      "question": "人性化程度滑块有什么作用？",
+      "answer": "它控制改写的力度。程度较低时只对措辞做轻微润色；程度较高时会重组句子，并大幅调整行文节奏。"
+    },
+    "detectors": {
+      "question": "改写结果能通过 AI 检测吗？",
+      "answer": "无法保证。人性化处理会改变用词和句子节奏，通常能降低检测分数，但各种检测工具标准不一，而且在不断更新——没有任何工具能诚实地承诺一定通过。"
+    },
+    "verify": {
+      "question": "需要用 AI 检测工具检查结果吗？",
+      "answer": "需要，这是推荐的流程。用我们的 AI 内容检测工具检查人性化后的文本，查看逐句评分，然后对仍像 AI 写的段落重新处理或手动修改。"
+    },
+    "meaning": {
+      "question": "人性化处理会改变文本的意思吗？",
+      "answer": "它的目标是在改变表达方式的同时保留原意，但改写程度越高，发挥的空间就越大。使用前请务必校对结果。"
+    },
+    "cost": {
+      "question": "费用是多少？",
+      "answer": "积分消耗随文本长度增加，大约每 6 个字符消耗 1 文本积分。处理失败时会自动退还积分。"
+    }
+  }
+}

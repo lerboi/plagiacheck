@@ -15,36 +15,18 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
-const FAQ_ITEMS = [
-  {
-    question: "What do the six modes do?",
-    answer:
-      "Standard rewrites naturally, Fluency smooths awkward phrasing, Formal raises the register, Simple uses plainer words and shorter sentences, Creative takes more stylistic liberties, and Academic targets scholarly tone and precision.",
-  },
-  {
-    question: "Will the paraphrase keep my original meaning?",
-    answer:
-      "That is the goal in every mode, though Creative mode takes the most liberties with expression. Always read the result — you are responsible for the final text.",
-  },
-  {
-    question: "Which languages are supported?",
-    answer:
-      "English is the best-supported language. Major European languages generally work too, but quality can vary — review non-English output carefully.",
-  },
-  {
-    question: "Can I paraphrase the same text more than once?",
-    answer:
-      "Yes. Re-running the same input produces a different variant each time, and you can also switch modes to get a different style. Each run costs tokens.",
-  },
-  {
-    question: "How much does it cost?",
-    answer:
-      "Token cost scales with text length at roughly 1 text token per 6 characters. If a run fails, the tokens are refunded automatically.",
-  },
-]
+const FAQ_KEYS = ["modes", "meaning", "languages", "repeat", "cost"] as const
+
+// Mode values are sent to the API as-is; only their labels are translated.
+const MODES = ["standard", "fluency", "formal", "simple", "creative", "academic"] as const
+type ParaphraseMode = (typeof MODES)[number]
 
 export default function Paraphraser() {
+  const t = useTranslations("Paraphraser")
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [paraphrasedText, setParaphrasedText] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
@@ -52,7 +34,7 @@ export default function Paraphraser() {
   const { remainingWords, syncWordBalance } = useTokenStore()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
-  const [mode, setMode] = useState("standard")
+  const [mode, setMode] = useState<ParaphraseMode>("standard")
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
   const supabase = createClientComponentClient()
@@ -119,23 +101,23 @@ export default function Paraphraser() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to paraphrase text")
+        throw new Error(data.error || t("errors.failedText"))
       }
 
       setParaphrasedText(data.result.paraphrasedText || text)
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Paraphrasing Complete",
-        description: "Your text has been successfully paraphrased.",
+        title: t("toasts.successTitle"),
+        description: t("toasts.successDescription"),
         variant: "success",
       })
     } catch (err) {
       console.error("Error paraphrasing text:", err)
-      const errorMessage = err instanceof Error ? err.message : "Failed to paraphrase"
+      const errorMessage = err instanceof Error ? apiError(err, t("errors.failed")) : t("errors.failed")
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: t("toasts.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -150,15 +132,15 @@ export default function Paraphraser() {
       await navigator.clipboard.writeText(paraphrasedText)
       setCopied(true)
       toast({
-        title: "Copied!",
-        description: "Text copied to clipboard",
+        title: t("toasts.copiedTitle"),
+        description: t("toasts.copiedDescription"),
         variant: "success",
       })
       setTimeout(() => setCopied(false), 2000)
     } catch {
       toast({
-        title: "Copy failed",
-        description: "Could not access the clipboard. Please copy manually.",
+        title: t("toasts.copyFailedTitle"),
+        description: t("toasts.copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -175,14 +157,19 @@ export default function Paraphraser() {
     URL.revokeObjectURL(url)
   }
 
+  const faqItems = FAQ_KEYS.map((key) => ({
+    question: t(`faq.${key}.question`),
+    answer: t(`faq.${key}.answer`),
+  }))
+
   return (
     <div className="min-h-screen bg-background">
       <Nav />
       <ToolPageHeader
         icon={RefreshCw}
-        title="Paraphraser"
-        description="Rewrite any text in a different style while keeping the original meaning. Choose from Standard, Fluency, Formal, Simple, Creative, or Academic modes."
-        category="Writing Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         iconColor="text-cyan-500"
         iconBg="bg-cyan-500/10 border-cyan-500/20"
         categoryColor="text-cyan-600 dark:text-cyan-400"
@@ -192,14 +179,17 @@ export default function Paraphraser() {
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
-            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+            {t.rich("needTokens", {
+              required: calculateRequiredTokens(text),
+              remaining: remainingWords,
+              link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+            })}
           </p>
         )}
 
         {text.length > 50000 && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+            {t("tooLong", { current: text.length.toLocaleString() })}
           </p>
         )}
 
@@ -211,49 +201,42 @@ export default function Paraphraser() {
           {/* LEFT — input */}
           <div className="space-y-3">
             <div className="flex flex-wrap gap-1.5">
-              {[
-                { value: "standard", label: "Standard" },
-                { value: "fluency", label: "Fluency" },
-                { value: "formal", label: "Formal" },
-                { value: "simple", label: "Simple" },
-                { value: "creative", label: "Creative" },
-                { value: "academic", label: "Academic" },
-              ].map((m) => (
+              {MODES.map((value) => (
                 <button
-                  key={m.value}
+                  key={value}
                   type="button"
-                  aria-pressed={mode === m.value}
-                  onClick={() => setMode(m.value)}
+                  aria-pressed={mode === value}
+                  onClick={() => setMode(value)}
                   className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                    mode === m.value
+                    mode === value
                       ? "bg-cyan-500/15 border-cyan-500/50 text-cyan-600 dark:text-cyan-400 font-medium"
                       : "border-border text-muted-foreground hover:border-cyan-400/40 hover:text-foreground"
                   }`}
                 >
-                  {m.label}
+                  {t(`modes.${value}`)}
                 </button>
               ))}
             </div>
             <Textarea
-              aria-label="Text to paraphrase"
-              placeholder="Enter or paste your text here to paraphrase..."
+              aria-label={t("input.ariaLabel")}
+              placeholder={t("input.placeholder")}
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-cyan-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{text.length} chars</span>
+              <span className="text-xs text-muted-foreground">{t("input.charCount", { count: text.length })}</span>
               <Button
                 onClick={handleParaphrase}
                 disabled={isProcessing || !text.trim() || text.length > 50000 || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-cyan-600 hover:bg-cyan-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
-                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />{t("input.processing")}</>
                 ) : text.trim() ? (
-                  `Paraphrase (${calculateRequiredTokens(text)} tokens)`
+                  t("input.submitWithCost", { count: calculateRequiredTokens(text) })
                 ) : (
-                  "Paraphrase"
+                  t("input.submit")
                 )}
               </Button>
             </div>
@@ -263,20 +246,21 @@ export default function Paraphraser() {
           <div className="space-y-3">
             <ResultReveal show={!!paraphrasedText}>
               <div className="flex items-center gap-4 px-3.5 py-2 rounded-lg border border-border bg-card text-xs flex-wrap">
-                <span className="text-muted-foreground capitalize font-medium text-cyan-600 dark:text-cyan-400">{mode}</span>
+                <span className="text-muted-foreground capitalize font-medium text-cyan-600 dark:text-cyan-400">{t(`modeBadge.${mode}`)}</span>
                 <span className="text-muted-foreground">·</span>
                 <span className="text-muted-foreground">
-                  <span className="font-medium text-foreground tabular-nums">{text.split(/\s+/).filter(Boolean).length}</span>{" "}
-                  →{" "}
-                  <span className="font-medium text-foreground tabular-nums">{paraphrasedText.split(/\s+/).filter(Boolean).length}</span>{" "}
-                  words
+                  {t.rich("output.wordChange", {
+                    before: text.split(/\s+/).filter(Boolean).length,
+                    after: paraphrasedText.split(/\s+/).filter(Boolean).length,
+                    num: (chunks) => <span className="font-medium text-foreground tabular-nums">{chunks}</span>,
+                  })}
                 </span>
                 <div className="ml-auto flex gap-1">
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopy} disabled={isProcessing || !paraphrasedText}>
-                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                    {copied ? <><Check className="h-3 w-3" />{t("output.copied")}</> : <><Copy className="h-3 w-3" />{t("output.copy")}</>}
                   </Button>
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload} disabled={isProcessing || !paraphrasedText}>
-                    <Download className="h-3 w-3" />Save
+                    <Download className="h-3 w-3" />{t("output.save")}
                   </Button>
                 </div>
               </div>
@@ -284,7 +268,7 @@ export default function Paraphraser() {
             <div className="min-h-[360px] max-h-[520px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-[1.75] whitespace-pre-wrap relative">
               {paraphrasedText || (
                 <span className="absolute inset-0 flex items-center justify-center text-muted-foreground/40 text-sm">
-                  {isProcessing ? "Rewriting..." : "Paraphrased text appears here"}
+                  {isProcessing ? t("output.rewriting") : t("output.empty")}
                 </span>
               )}
             </div>
@@ -298,71 +282,71 @@ export default function Paraphraser() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4 text-cyan-500" />
-                <h3 className="text-sm font-semibold">Six Writing Modes</h3>
+                <h3 className="text-sm font-semibold">{t("features.modes.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Standard, Fluency, Formal, Simple, Creative, and Academic — each mode rewrites with a distinct voice and purpose.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.modes.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-cyan-500" />
-                <h3 className="text-sm font-semibold">Meaning Preserved</h3>
+                <h3 className="text-sm font-semibold">{t("features.meaning.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">The core ideas and facts stay intact. Only phrasing, structure, and vocabulary are changed.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.meaning.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-cyan-500" />
-                <h3 className="text-sm font-semibold">Instant Results</h3>
+                <h3 className="text-sm font-semibold">{t("features.instant.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">No waiting. Results appear in seconds so you can iterate and compare modes quickly.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.instant.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  Students avoiding unintentional self-plagiarism between drafts
+                  {t("useCases.items.students")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  Content marketers creating SEO variations of existing articles
+                  {t("useCases.items.marketers")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  Non-native English speakers polishing their writing
+                  {t("useCases.items.nonNative")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  Academics translating informal notes into formal prose
+                  {t("useCases.items.academics")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0" />
-                  Bloggers refreshing older posts without rewriting from scratch
+                  {t("useCases.items.bloggers")}
                 </li>
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-cyan-500 font-bold shrink-0">→</span>
-                  Use Academic mode for thesis papers and formal reports — it elevates vocabulary and sentence complexity.
+                  {t("tips.items.academic")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-cyan-500 font-bold shrink-0">→</span>
-                  Creative mode works best for social media captions and casual blog posts.
+                  {t("tips.items.creative")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-cyan-500 font-bold shrink-0">→</span>
-                  Run the same text through multiple modes to find the version that fits your voice.
+                  {t("tips.items.compare")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-cyan-500 font-bold shrink-0">→</span>
-                  Shorter inputs (under 300 words) tend to produce the cleanest rewrites.
+                  {t("tips.items.short")}
                 </li>
               </ul>
             </div>
@@ -371,7 +355,7 @@ export default function Paraphraser() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

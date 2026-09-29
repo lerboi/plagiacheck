@@ -17,6 +17,8 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
 interface SummaryResult {
   format: "paragraph" | "bullets"
@@ -24,35 +26,11 @@ interface SummaryResult {
   bulletPoints: string[]
 }
 
-const FAQ_ITEMS = [
-  {
-    question: "How does the length slider work?",
-    answer:
-      "It sets the target summary length as a percentage of your original text. A lower percentage gives a tighter summary; a higher one keeps more detail.",
-  },
-  {
-    question: "Should I choose paragraph or bullet points?",
-    answer:
-      "Paragraph format reads as flowing prose, good for abstracts and overviews. Bullets break the content into discrete key points, better for notes and quick scanning.",
-  },
-  {
-    question: "What information does the summary keep?",
-    answer:
-      "It prioritizes main ideas, key facts, and conclusions. Repetition, examples, and side details are dropped first as the target length shrinks — verify that nothing critical to you was cut.",
-  },
-  {
-    question: "How long can the input text be?",
-    answer:
-      "There is no hard limit, but very long documents cost more tokens and can take longer. For book-length material, summarize chapter by chapter for better results.",
-  },
-  {
-    question: "How much does a summary cost?",
-    answer:
-      "Token cost scales with the length of the input at roughly 1 text token per 6 characters. Failed runs are refunded automatically.",
-  },
-]
+const FAQ_KEYS = ["length", "format", "keeps", "limit", "cost"] as const
 
 export default function Summarizer() {
+  const t = useTranslations("Summarizer")
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [result, setResult] = useState<SummaryResult | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -131,7 +109,7 @@ export default function Summarizer() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to summarize text")
+        throw new Error(data.error || t("errors.failedText"))
       }
 
       if (requestedFormat === "paragraph") {
@@ -150,16 +128,16 @@ export default function Summarizer() {
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Summary Complete",
-        description: "Your text has been successfully summarized.",
+        title: t("toasts.successTitle"),
+        description: t("toasts.successDescription"),
         variant: "success",
       })
     } catch (err) {
       console.error("Error summarizing text:", err)
-      const errorMessage = err instanceof Error ? err.message : "Failed to summarize"
+      const errorMessage = err instanceof Error ? apiError(err, t("errors.failed")) : t("errors.failed")
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: t("toasts.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -182,15 +160,15 @@ export default function Summarizer() {
       await navigator.clipboard.writeText(textToCopy)
       setCopied(true)
       toast({
-        title: "Copied!",
-        description: "Summary copied to clipboard",
+        title: t("toasts.copiedTitle"),
+        description: t("toasts.copiedDescription"),
         variant: "success",
       })
       setTimeout(() => setCopied(false), 2000)
     } catch {
       toast({
-        title: "Copy failed",
-        description: "Could not access the clipboard. Please copy manually.",
+        title: t("toasts.copyFailedTitle"),
+        description: t("toasts.copyFailedDescription"),
         variant: "destructive",
       })
     }
@@ -213,14 +191,19 @@ export default function Summarizer() {
   const wordCount = text.split(/\s+/).filter(Boolean).length
   const overCharLimit = text.length > 50000
 
+  const faqItems = FAQ_KEYS.map((key) => ({
+    question: t(`faq.${key}.question`),
+    answer: t(`faq.${key}.answer`),
+  }))
+
   return (
     <div className="min-h-screen bg-background">
       <Nav />
       <ToolPageHeader
         icon={FileText}
-        title="Summarizer"
-        description="Turn long articles, essays, or documents into concise summaries or structured bullet points. Control the output length with a slider."
-        category="Writing Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         iconColor="text-green-500"
         iconBg="bg-green-500/10 border-green-500/20"
         categoryColor="text-green-600 dark:text-green-400"
@@ -230,14 +213,17 @@ export default function Summarizer() {
 
         {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Need {calculateRequiredTokens(text)} tokens — you have {remainingWords}.{" "}
-            <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+            {t.rich("needTokens", {
+              required: calculateRequiredTokens(text),
+              remaining: remainingWords,
+              link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+            })}
           </p>
         )}
 
         {overCharLimit && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
-            Text is too long — the maximum is 50,000 characters (currently {text.length.toLocaleString()}).
+            {t("tooLong", { current: text.length.toLocaleString() })}
           </p>
         )}
 
@@ -253,7 +239,7 @@ export default function Summarizer() {
               <div className="flex items-center gap-2">
                 <div className="w-28">
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-                    <span>Length</span>
+                    <span>{t("controls.length")}</span>
                     <span className="font-medium tabular-nums">{summaryLength}%</span>
                   </div>
                   <Slider
@@ -270,35 +256,35 @@ export default function Summarizer() {
                 <TabsList className="h-8">
                   <TabsTrigger value="paragraph" className="text-xs h-7 px-2">
                     <AlignLeft className="h-3 w-3 mr-1" />
-                    Paragraph
+                    {t("controls.paragraph")}
                   </TabsTrigger>
                   <TabsTrigger value="bullets" className="text-xs h-7 px-2">
                     <ListOrdered className="h-3 w-3 mr-1" />
-                    Bullets
+                    {t("controls.bullets")}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
             <Textarea
-              aria-label="Text to summarize"
-              placeholder="Paste your long text, article, or document here to summarize..."
+              aria-label={t("input.ariaLabel")}
+              placeholder={t("input.placeholder")}
               className="min-h-[360px] resize-none rounded-xl border-border bg-background text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-green-500/30 focus-visible:ring-offset-0"
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">{wordCount} words · {text.length} chars</span>
+              <span className="text-xs text-muted-foreground">{t("input.counts", { words: wordCount, chars: text.length })}</span>
               <Button
                 onClick={handleSummarize}
                 disabled={isProcessing || !text.trim() || overCharLimit || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium shadow-none"
               >
                 {isProcessing ? (
-                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Processing...</>
+                  <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />{t("input.processing")}</>
                 ) : text.trim() ? (
-                  `Summarize (${calculateRequiredTokens(text)} tokens)`
+                  t("input.submitWithCost", { count: calculateRequiredTokens(text) })
                 ) : (
-                  "Summarize"
+                  t("input.submit")
                 )}
               </Button>
             </div>
@@ -311,32 +297,32 @@ export default function Summarizer() {
                 {result && text.trim() && (
                   <>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-muted-foreground">Compressed to</span>
-                      <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">
-                        {Math.round(
+                      {t.rich("output.compressed", {
+                        percent: Math.round(
                           ((result.format === "bullets"
                             ? result.bulletPoints.join(" ").length
                             : result.summary.length) /
                             Math.max(text.length, 1)) *
                             100
-                        )}%
-                      </span>
-                      <span className="text-muted-foreground">of original</span>
+                        ),
+                        label: (chunks) => <span className="text-muted-foreground">{chunks}</span>,
+                        value: (chunks) => <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">{chunks}</span>,
+                      })}
                     </div>
                     <span className="text-border">·</span>
                     <div className="flex items-center gap-1.5">
                       <span className="text-muted-foreground">
-                        {result.format === "bullets" ? result.bulletPoints.length + " points" : result.summary.split(/\s+/).filter(Boolean).length + " words"}
+                        {result.format === "bullets" ? t("output.pointCount", { count: result.bulletPoints.length }) : t("output.wordCount", { count: result.summary.split(/\s+/).filter(Boolean).length })}
                       </span>
                     </div>
                   </>
                 )}
                 <div className="ml-auto flex gap-1">
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopy} disabled={isProcessing || !hasOutput}>
-                    {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                    {copied ? <><Check className="h-3 w-3" />{t("output.copied")}</> : <><Copy className="h-3 w-3" />{t("output.copy")}</>}
                   </Button>
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload} disabled={isProcessing || !hasOutput}>
-                    <Download className="h-3 w-3" />Save
+                    <Download className="h-3 w-3" />{t("output.save")}
                   </Button>
                 </div>
               </div>
@@ -358,7 +344,7 @@ export default function Summarizer() {
               </div>
             ) : (
               <div className="min-h-[360px] rounded-xl border border-border bg-muted/30 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground/40">{isProcessing ? "Summarizing..." : "Summary appears here"}</p>
+                <p className="text-xs text-muted-foreground/40">{isProcessing ? t("output.summarizing") : t("output.empty")}</p>
               </div>
             )}
           </div>
@@ -371,71 +357,71 @@ export default function Summarizer() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-green-500" />
-                <h3 className="text-sm font-semibold">Paragraph or Bullets</h3>
+                <h3 className="text-sm font-semibold">{t("features.format.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Choose between a flowing paragraph summary or structured bullet points — whichever suits your workflow.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.format.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Sliders className="h-4 w-4 text-green-500" />
-                <h3 className="text-sm font-semibold">Adjustable Length</h3>
+                <h3 className="text-sm font-semibold">{t("features.length.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">A slider controls how much of the original content is retained, from a brief overview to a detailed summary.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.length.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-green-500" />
-                <h3 className="text-sm font-semibold">Reading Time Estimate</h3>
+                <h3 className="text-sm font-semibold">{t("features.reading.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">See the compression ratio and word count so you know exactly how much the text has been condensed.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.reading.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                  Researchers quickly digesting academic papers and literature reviews
+                  {t("useCases.items.researchers")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                  Professionals summarising meeting transcripts and long email chains
+                  {t("useCases.items.professionals")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                  Students condensing textbook chapters into revision notes
+                  {t("useCases.items.students")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                  Journalists getting the key facts from lengthy press releases
+                  {t("useCases.items.journalists")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                  Anyone saving time on long articles, reports, or documentation
+                  {t("useCases.items.anyone")}
                 </li>
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-green-500 font-bold shrink-0">→</span>
-                  Use bullet mode for technical documents and how-to content — the structure makes scanning faster.
+                  {t("tips.items.bullets")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-green-500 font-bold shrink-0">→</span>
-                  Set length to 20–30% for a tight executive summary; 50–60% to retain more nuance.
+                  {t("tips.items.length")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-green-500 font-bold shrink-0">→</span>
-                  Paste the full text including headings — the AI uses them to better identify key sections.
+                  {t("tips.items.headings")}
                 </li>
                 <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
                   <span className="text-green-500 font-bold shrink-0">→</span>
-                  Run the output through the Paraphraser if you need to match a specific writing style.
+                  {t("tips.items.paraphraser")}
                 </li>
               </ul>
             </div>
@@ -444,7 +430,7 @@ export default function Summarizer() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

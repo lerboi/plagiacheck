@@ -1,1 +1,43 @@
-{}
+{
+  "common": {
+    "generatedOn": "生成时间：{date}",
+    "words": "词数",
+    "characters": "字符数",
+    "analyzedText": "已分析文本"
+  },
+  "plagiarism": {
+    "documentTitle": "抄袭检测报告 - Plagiacheck",
+    "reportTitle": "抄袭检测报告",
+    "scoreLabel": "抄袭比例",
+    "matchesFound": "匹配数",
+    "potentialMatches": "疑似匹配（{count}）",
+    "matchSimilarity": "相似度 {similarity}%",
+    "footer": "本报告由 Plagiacheck 生成 - AI 驱动的抄袭检测"
+  },
+  "aiDetector": {
+    "documentTitle": "AI 检测报告 - Plagiacheck",
+    "reportTitle": "AI 内容检测报告",
+    "scoreLabel": "AI 生成概率",
+    "verdict": "结论",
+    "analysisSummary": "分析摘要",
+    "sentenceBreakdown": "逐句分析",
+    "sentenceTypes": {
+      "human": "人工",
+      "mixed": "混合",
+      "ai": "AI"
+    },
+    "sentenceScore": "AI 分数：{score}%",
+    "footer": "本报告由 Plagiacheck 生成 - AI 驱动的内容检测"
+  },
+  "grammar": {
+    "documentTitle": "语法检查报告 - Plagiacheck",
+    "reportTitle": "语法检查报告",
+    "issuesFound": "发现的问题",
+    "errors": "错误",
+    "warnings": "警告",
+    "suggestions": "建议",
+    "originalText": "原文",
+    "correctedText": "修正后文本",
+    "footer": "本报告由 Plagiacheck 生成 - AI 驱动的语法检查"
+  }
+}

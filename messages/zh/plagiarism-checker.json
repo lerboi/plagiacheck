@@ -1,1 +1,81 @@
-{}
+{
+  "metadata": {
+    "title": "抄袭检测 — Plagiacheck",
+    "description": "AI 驱动的抄袭检测，逐句高亮标注。粘贴文本或上传 .txt/.md 文件，几秒钟即可获得相似度报告。",
+    "ogTitle": "抄袭检测 — Plagiacheck",
+    "ogDescription": "AI 驱动的抄袭检测，逐句高亮标注。粘贴文本或上传文件，几秒钟即可获得相似度报告。"
+  },
+  "header": {
+    "title": "抄袭检测",
+    "description": "逐句高亮标注，找出被复制或重复使用的文本。粘贴文本或上传 .txt/.md 文件即可。",
+    "category": "原创性检测"
+  },
+  "input": {
+    "heading": "检测你的文本",
+    "subheading": "粘贴文本或上传文件进行扫描",
+    "wordCount": "<b>{count}</b> 个词",
+    "charCount": "<b>{count}</b> 个字符",
+    "ariaLabel": "待检测抄袭的文本",
+    "placeholder": "在此粘贴要检测抄袭的文本。也可以使用下方按钮上传 .txt 或 .md 文件……",
+    "copyTitle": "复制文本",
+    "uploadTitle": "上传文件",
+    "uploadSrOnly": "上传 .txt 或 .md 文件",
+    "uploadButton": "上传文件",
+    "notEnoughTokens": "积分不足。需要 {required} 积分，当前余额 {remaining}。<link>升级套餐</link>",
+    "tooLong": "文本过长：最多 50,000 个字符（当前 {current} 个）。"
+  },
+  "button": {
+    "analyzing": "分析中... {progress}%",
+    "check": "检测抄袭",
+    "cost": "（{count} 积分）"
+  },
+  "emptyResults": "结果将显示在这里",
+  "toasts": {
+    "errorTitle": "错误",
+    "completeTitle": "检测完成",
+    "completeDescription": "抄袭比例：{score}%",
+    "unsupportedTitle": "不支持的文件格式",
+    "unsupportedDescription": "目前仅支持纯文本（.txt、.md）。{ext} 文件请直接复制粘贴其中的文本。",
+    "readFailedTitle": "读取文件失败",
+    "readFailedDescription": "请重试，或直接粘贴文本。",
+    "copiedTitle": "已复制！",
+    "copiedDescription": "文本已复制到剪贴板"
+  },
+  "errors": {
+    "checkFailed": "抄袭检测失败",
+    "noStream": "未收到响应数据流",
+    "checkFailedRetry": "抄袭检测失败，请重试。"
+  },
+  "results": {
+    "checkingTitle": "正在检测抄袭...",
+    "title": "抄袭检测结果",
+    "progress": "已完成 {progress}%",
+    "scoreLabel": "抄袭比例",
+    "analyzedText": "已分析文本",
+    "clickHint": "点击高亮文本查看详情",
+    "detectedMatches": "检测到的匹配（{count}）",
+    "noMatches": "在已分析文本中未检测到抄袭匹配。",
+    "matchAria": "匹配 {index}：相似度 {similarity}%",
+    "copied": "已复制",
+    "copyReport": "复制报告",
+    "downloadTxt": "下载 .txt",
+    "pdfReport": "PDF 报告",
+    "pdfBlocked": "PDF 会在新窗口中打开。请允许本网站弹出窗口后重试。"
+  },
+  "verdicts": {
+    "high": "检测到高相似度",
+    "moderate": "中等相似度",
+    "original": "原创性良好"
+  },
+  "textReport": {
+    "title": "抄袭检测报告",
+    "score": "抄袭比例：{score}%",
+    "verdict": "结论：{verdict}",
+    "noMatches": "未检测到抄袭匹配。",
+    "matchesDetected": "检测到的匹配数：{count}",
+    "match": "匹配 {index} — 相似度：{similarity}%",
+    "reason": "原因：{reason}",
+    "text": "文本：{text}",
+    "analyzedText": "已分析文本："
+  }
+}

@@ -1,1 +1,117 @@
-{}
+{
+  "header": {
+    "category": "Voice Tools",
+    "title": "Voice to Essay",
+    "description": "Speak your ideas out loud and let AI turn your voice notes into a well-structured, polished essay with proper paragraphs and transitions."
+  },
+  "unsupported": {
+    "title": "Your browser does not support the Web Speech API.",
+    "hint": "Please use Chrome, Edge, or Safari."
+  },
+  "recorder": {
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "recording": "Recording...",
+    "recordMore": "Click to record more",
+    "idle": "Speak your essay ideas — the AI will structure it for you",
+    "wordsTranscribed": "{count} words transcribed",
+    "clear": "Clear"
+  },
+  "errors": {
+    "micDenied": "Microphone access was denied. Please allow microphone access in your browser and try again.",
+    "noMic": "No microphone was found. Please check your audio input device and try again.",
+    "unavailable": "Speech recognition is not available in this browser. Please try Chrome or Edge.",
+    "recognition": "Speech recognition error: {error}",
+    "convertFailed": "Failed to convert to essay",
+    "convertFallback": "Failed to convert"
+  },
+  "toasts": {
+    "error": "Error",
+    "notEnoughTokens": "Not enough tokens",
+    "needTokensRedirect": "Converting this needs {required} tokens but you have {remaining}. Redirecting to pricing.",
+    "outOfTokens": "You have run out of tokens for this conversion. Redirecting to pricing.",
+    "generated": "Essay Generated",
+    "generatedDescription": "\"{title}\" — {words} words, {paragraphs} paragraphs",
+    "copied": "Copied!",
+    "copiedDescription": "Essay copied to clipboard",
+    "copyFailed": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually."
+  },
+  "notes": {
+    "title": "Voice Notes",
+    "placeholder": "Record above or type your voice notes here...",
+    "ariaLabel": "Voice notes transcript",
+    "needTokens": "Need {required} tokens — you have {remaining}.",
+    "upgrade": "Upgrade",
+    "converting": "Generating Essay...",
+    "convert": "Convert to Essay",
+    "convertWithCost": "Convert to Essay ({count} tokens)"
+  },
+  "essay": {
+    "fallbackTitle": "Generated Essay",
+    "words": "{count} words",
+    "paragraphs": "{count} paragraphs",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download .txt",
+    "useWith": "Use with:",
+    "plagiarism": "Plagiarism Check",
+    "grammar": "Grammar Check",
+    "humanize": "Humanize"
+  },
+  "features": {
+    "voiceFirst": {
+      "title": "Voice-First Input",
+      "description": "Speak your ideas as you would in conversation — filler words are removed and your thoughts are organised into clear paragraphs."
+    },
+    "structure": {
+      "title": "Full Essay Structure",
+      "description": "The AI adds an introduction, body paragraphs with smooth transitions, and a conclusion — not just cleaned-up notes."
+    },
+    "editable": {
+      "title": "Editable Draft",
+      "description": "The essay is a starting point. Copy it into any editor and adjust the tone, add citations, or expand specific points."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "verbalThinkers": "Students who think better verbally than in writing",
+      "writersBlock": "Overcoming writer's block by speaking ideas aloud first",
+      "commuting": "Drafting blog posts or newsletters while commuting",
+      "brainstorms": "Turning brainstorm sessions into structured first drafts",
+      "nonNative": "Non-native English speakers who speak better than they write"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "completeThoughts": "Speak in complete thoughts rather than single keywords — the AI restructures based on your sentence-level ideas.",
+      "audience": "Mention the intended audience or formality level at the start: 'This is for a formal academic essay on...'",
+      "outline": "Record a rough outline first, then record each point in more detail for longer essays.",
+      "polish": "After converting, run the result through the Grammar Checker or AI Humanizer."
+    }
+  },
+  "faq": {
+    "how": {
+      "question": "How does my speech become an essay?",
+      "answer": "Your browser transcribes your voice live as you speak. When you stop, the AI restructures the raw transcript into an organized essay with a title, coherent paragraphs, and cleaned-up phrasing."
+    },
+    "browsers": {
+      "question": "Which browsers work?",
+      "answer": "Chrome, Edge, and Safari — the tool relies on the browser's Web Speech API for dictation, which Firefox does not support. You will also need to grant microphone permission."
+    },
+    "edit": {
+      "question": "Can I edit the transcript before generating the essay?",
+      "answer": "Yes, and you should. Fix any mis-heard words or add missing points in the transcript box first — a cleaner transcript produces a much better essay."
+    },
+    "oneGo": {
+      "question": "Do I have to dictate everything in one go?",
+      "answer": "No. You can stop and resume recording, and new speech is appended to the existing transcript. Speak in whatever order ideas come — the AI handles the structure."
+    },
+    "cost": {
+      "question": "What does it cost?",
+      "answer": "The dictation itself is free since it runs in your browser. Generating the essay costs text tokens based on transcript length, roughly 1 token per 6 characters."
+    }
+  }
+}

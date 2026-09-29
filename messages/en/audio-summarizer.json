@@ -1,1 +1,122 @@
-{}
+{
+  "header": {
+    "category": "Voice Tools",
+    "title": "Audio Summarizer",
+    "description": "Record meetings, lectures, or podcasts and get a structured summary with key points, content type detection, and action items."
+  },
+  "unsupported": {
+    "title": "Your browser does not support the Web Speech API.",
+    "hint": "Please use Chrome, Edge, or Safari."
+  },
+  "recorder": {
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "recording": "Recording...",
+    "recordMore": "Click to record more",
+    "idle": "Record a lecture, meeting, or podcast to summarize",
+    "wordsTranscribed": "{count} words transcribed",
+    "clear": "Clear"
+  },
+  "errors": {
+    "micDenied": "Microphone access was denied. Please allow microphone access in your browser and try again.",
+    "noMic": "No microphone was found. Please check your audio input device and try again.",
+    "unavailable": "Speech recognition is not available in this browser. Please try Chrome or Edge.",
+    "recognition": "Speech recognition error: {error}",
+    "summarizeFailed": "Failed to summarize"
+  },
+  "toasts": {
+    "error": "Error",
+    "notEnoughTokens": "Not enough tokens",
+    "needTokensRedirect": "Summarizing this needs {required} tokens but you have {remaining}. Redirecting to pricing.",
+    "outOfTokens": "You have run out of tokens for this summary. Redirecting to pricing.",
+    "summarized": "Audio Summarized",
+    "summarizedDescription": "{type} summarized with {count} key points",
+    "contentFallback": "Content",
+    "copied": "Copied!",
+    "copiedDescription": "Summary copied to clipboard",
+    "copyFailed": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually."
+  },
+  "transcript": {
+    "title": "Transcript",
+    "placeholder": "Record audio above or paste a transcript here...",
+    "ariaLabel": "Audio transcript",
+    "needTokens": "Need {required} tokens — you have {remaining}.",
+    "upgrade": "Upgrade",
+    "summarizing": "Summarizing...",
+    "summarize": "Summarize",
+    "summarizeWithCost": "Summarize ({count} tokens)"
+  },
+  "result": {
+    "fallbackTitle": "Summary",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download .txt",
+    "keyPoints": "Key Points",
+    "detailedSummary": "Detailed Summary",
+    "actionItems": "Action Items"
+  },
+  "contentTypes": {
+    "lecture": "lecture",
+    "interview": "interview",
+    "meeting": "meeting",
+    "podcast": "podcast",
+    "speech": "speech",
+    "other": "other"
+  },
+  "features": {
+    "livePaste": {
+      "title": "Live Recording + Paste",
+      "description": "Record directly from your microphone or paste an existing transcript from any source — meeting notes, podcast apps, or video captions."
+    },
+    "structured": {
+      "title": "Structured Output",
+      "description": "Results are broken into a title, overview, numbered key points, a detailed summary, and a checklist of action items."
+    },
+    "contentType": {
+      "title": "Content Type Detection",
+      "description": "Automatically identifies whether the audio was a lecture, interview, meeting, podcast, or speech and tailors the summary accordingly."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "meetings": "Weekly team meetings and standups",
+      "lectures": "University lectures and class recordings",
+      "podcasts": "Podcast episodes and long-form interviews",
+      "calls": "Customer calls and sales demos",
+      "conferences": "Conference talks and webinar recordings"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "clarity": "Speak clearly and at normal pace — the browser speech API performs best in quiet environments.",
+      "speakers": "For pasted transcripts, include speaker names if available — the AI uses them to structure the summary better.",
+      "actionItems": "The action items section works best when the recording includes explicit decisions or assignments.",
+      "length": "Summarise recordings under 30 minutes for the most focused output."
+    }
+  },
+  "faq": {
+    "purpose": {
+      "question": "What is the audio summarizer for?",
+      "answer": "Recording lectures, meetings, or spoken notes and getting a structured summary instead of a wall of transcript. It is useful whenever listening back to a recording would take too long."
+    },
+    "includes": {
+      "question": "What does the summary include?",
+      "answer": "An overview, the key points, and any action items detected in the conversation, plus a guess at the content type (lecture, meeting, and so on)."
+    },
+    "browsers": {
+      "question": "Which browsers are supported?",
+      "answer": "Chrome, Edge, and Safari. Transcription uses the browser's Web Speech API, which Firefox does not support, and you must grant microphone permission."
+    },
+    "existingFile": {
+      "question": "Can I summarize an existing audio file?",
+      "answer": "Not directly — the tool transcribes live microphone audio. Playing a recording out loud near your mic can work, but expect lower transcription accuracy."
+    },
+    "cost": {
+      "question": "What does it cost?",
+      "answer": "Recording and transcription are free since they happen in your browser. The AI summary costs text tokens based on transcript length, roughly 1 token per 6 characters."
+    }
+  }
+}

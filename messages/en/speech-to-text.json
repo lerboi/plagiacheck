@@ -1,1 +1,119 @@
-{}
+{
+  "header": {
+    "category": "Voice Tools",
+    "title": "Speech to Text",
+    "description": "Record your voice and get a real-time transcript. Use AI cleanup to remove filler words, fix punctuation, and format into clean readable text."
+  },
+  "unsupported": {
+    "title": "Your browser does not support the Web Speech API.",
+    "hint": "Please use Chrome, Edge, or Safari for speech recognition."
+  },
+  "recorder": {
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "recording": "Recording...",
+    "recordMore": "Click to record more",
+    "idle": "Click the microphone to start recording",
+    "wordsTranscribed": "{count} words transcribed",
+    "clear": "Clear"
+  },
+  "errors": {
+    "micDenied": "Microphone access was denied. Please allow microphone access in your browser and try again.",
+    "noMic": "No microphone was found. Please check your audio input device and try again.",
+    "unavailable": "Speech recognition is not available in this browser. Please try Chrome or Edge.",
+    "recognition": "Speech recognition error: {error}",
+    "cleanFailed": "Failed to clean transcript"
+  },
+  "toasts": {
+    "error": "Error",
+    "notEnoughTokens": "Not enough tokens",
+    "needTokensRedirect": "AI cleanup needs {required} tokens but you have {remaining}. Redirecting to pricing.",
+    "outOfTokens": "You have run out of tokens for this cleanup. Redirecting to pricing.",
+    "cleaned": "Transcript Cleaned",
+    "correctionsMade": "{count} corrections made",
+    "copied": "Copied!",
+    "copiedDescription": "Text copied to clipboard",
+    "copyFailed": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually."
+  },
+  "raw": {
+    "title": "Raw Transcript",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "download": "Download .txt",
+    "placeholder": "Transcript appears here as you speak...",
+    "ariaLabel": "Raw transcript",
+    "needTokens": "Need {required} tokens — you have {remaining}.",
+    "upgrade": "Upgrade",
+    "cleaning": "Cleaning Up...",
+    "clean": "AI Clean Up",
+    "cleanWithCost": "AI Clean Up ({count} tokens)"
+  },
+  "cleaned": {
+    "raw": "Raw:",
+    "cleaned": "Cleaned:",
+    "words": "{count} words",
+    "copy": "Copy cleaned",
+    "download": "Download .txt",
+    "title": "Cleaned Transcript",
+    "useWith": "Use transcript with:",
+    "plagiarism": "Plagiarism Check",
+    "aiDetector": "AI Detector",
+    "summarize": "Summarize"
+  },
+  "features": {
+    "realtime": {
+      "title": "Real-Time Transcription",
+      "description": "The browser transcribes your voice word by word as you speak — no upload, no waiting."
+    },
+    "cleanup": {
+      "title": "AI Cleanup",
+      "description": "A single click removes filler words (um, uh, like), fixes punctuation, capitalisation, and breaks the transcript into proper paragraphs."
+    },
+    "export": {
+      "title": "Instant Export",
+      "description": "Copy the raw or cleaned transcript and paste it directly into any tool — the Summarizer, Grammar Checker, or AI Detector."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "dictation": "Dictating emails, messages, or documents hands-free",
+      "interviews": "Transcribing interview recordings by playing audio aloud near the microphone",
+      "memos": "Converting voice memos into editable text",
+      "accessibility": "Students with accessibility needs who prefer speaking over typing",
+      "meetings": "Capturing meeting notes in real time without a separate transcription service"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "browser": "Use Chrome or Edge for the most accurate Web Speech API transcription.",
+      "pace": "Speak at a moderate pace — rushing causes the transcription to merge words incorrectly.",
+      "cleanup": "The AI cleanup costs tokens but produces significantly cleaner output for long recordings.",
+      "speakers": "For interviews, pause between speakers so the transcript doesn't run together."
+    }
+  },
+  "faq": {
+    "browsers": {
+      "question": "Which browsers are supported?",
+      "answer": "Transcription uses the browser's Web Speech API, which works in Chrome, Edge, and Safari. Firefox does not support it, so the tool will not work there."
+    },
+    "microphone": {
+      "question": "Why is the microphone not working?",
+      "answer": "Your browser needs permission to use the mic — look for the permission prompt or the mic icon in the address bar. Also check that no other app is holding the microphone."
+    },
+    "free": {
+      "question": "Is transcription free?",
+      "answer": "Yes, the raw transcription itself is free because it happens entirely in your browser. Only the optional AI cleanup step costs tokens."
+    },
+    "cleanup": {
+      "question": "What does the AI cleanup do and what does it cost?",
+      "answer": "It fixes punctuation, capitalization, and obvious mis-hearings in the raw transcript. Cost scales with transcript length at roughly 1 text token per 6 characters."
+    },
+    "upload": {
+      "question": "Can I upload an audio file instead of speaking live?",
+      "answer": "Not currently — the tool transcribes live microphone input only. For recorded audio, play it near your mic as a workaround, though accuracy will be lower."
+    }
+  }
+}

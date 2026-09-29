@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Copy, Download, Check, AlertTriangle, ShieldCheck, FileText } from "lucide-react";
 import React, { useState } from "react";
 import { generatePlagiarismReport } from "@/lib/pdf-generator";
+import { useLocale, useTranslations } from "next-intl";
+import { localeTags } from "@/i18n/config";
 
 interface PlagiarismMatch {
   text: string;
@@ -35,11 +37,12 @@ const getScoreColor = (percentage: number | undefined | null): string => {
   return "text-green-500";
 };
 
+// `key` names the verdict label in the PlagiarismChecker.verdicts messages.
 const getScoreVerdict = (percentage: number | undefined | null) => {
   const score = typeof percentage === "number" ? percentage : 0;
-  if (score > 50) return { label: "High similarity detected", icon: AlertTriangle, color: "text-red-500" };
-  if (score > 20) return { label: "Moderate similarity", icon: AlertTriangle, color: "text-orange-500" };
-  return { label: "Looks original", icon: ShieldCheck, color: "text-green-500" };
+  if (score > 50) return { key: "high", icon: AlertTriangle, color: "text-red-500" } as const;
+  if (score > 20) return { key: "moderate", icon: AlertTriangle, color: "text-orange-500" } as const;
+  return { key: "original", icon: ShieldCheck, color: "text-green-500" } as const;
 };
 
 function hasValidSpan(match: PlagiarismMatch): boolean {
@@ -56,6 +59,9 @@ export function PlagiarismResults({
   result,
   originalText,
 }: PlagiarismResultsProps) {
+  const t = useTranslations("PlagiarismChecker");
+  const tPdf = useTranslations("PdfReport");
+  const locale = useLocale();
   const [copied, setCopied] = useState(false);
   const [activeMatchIndex, setActiveMatchIndex] = useState<number | null>(null);
   const [pdfBlocked, setPdfBlocked] = useState(false);
@@ -99,7 +105,7 @@ export function PlagiarismResults({
           type="button"
           key={`highlight-${index}`}
           onClick={() => setActiveMatchIndex(isActive ? null : index)}
-          aria-label={`Match ${index + 1}: ${formatNumber(match.similarity)}% similarity`}
+          aria-label={t("results.matchAria", { index: index + 1, similarity: formatNumber(match.similarity) })}
           className={`inline px-1 py-0.5 rounded transition-colors text-left ${
             isActive
               ? "bg-red-300 dark:bg-red-800/60 ring-2 ring-red-500"
@@ -123,26 +129,26 @@ export function PlagiarismResults({
   const buildReportText = (): string => {
     if (!result) return "";
     const lines: string[] = [];
-    lines.push("Plagiarism Check Report");
+    lines.push(t("textReport.title"));
     lines.push("=======================");
     lines.push("");
-    lines.push(`Plagiarism Score: ${formatNumber(result.plagiarismPercentage)}%`);
-    lines.push(`Verdict: ${getScoreVerdict(result.plagiarismPercentage).label}`);
+    lines.push(t("textReport.score", { score: formatNumber(result.plagiarismPercentage) }));
+    lines.push(t("textReport.verdict", { verdict: t(`verdicts.${getScoreVerdict(result.plagiarismPercentage).key}`) }));
     lines.push("");
     if (result.matches.length === 0) {
-      lines.push("No plagiarism matches detected.");
+      lines.push(t("textReport.noMatches"));
     } else {
-      lines.push(`Matches detected: ${result.matches.length}`);
+      lines.push(t("textReport.matchesDetected", { count: result.matches.length }));
       lines.push("");
       result.matches.forEach((match, i) => {
-        lines.push(`Match ${i + 1} — Similarity: ${formatNumber(match.similarity)}%`);
-        if (match.reason) lines.push(`Reason: ${match.reason}`);
-        lines.push(`Text: ${match.text}`);
+        lines.push(t("textReport.match", { index: i + 1, similarity: formatNumber(match.similarity) }));
+        if (match.reason) lines.push(t("textReport.reason", { reason: String(match.reason) }));
+        lines.push(t("textReport.text", { text: String(match.text) }));
         lines.push("");
       });
     }
     if (originalText) {
-      lines.push("Analyzed Text:");
+      lines.push(t("textReport.analyzedText"));
       lines.push("--------------");
       lines.push(originalText);
     }
@@ -173,15 +179,33 @@ export function PlagiarismResults({
 
   const handleDownloadPdf = () => {
     if (!result) return;
-    const opened = generatePlagiarismReport({
-      text: originalText || "",
-      plagiarismPercentage: Math.round(result.plagiarismPercentage),
-      matches: (result.matches || []).map((m) => ({
-        text: m.text,
-        similarity: Math.round(m.similarity),
-      })),
-      date: new Date(),
-    });
+    const opened = generatePlagiarismReport(
+      {
+        text: originalText || "",
+        plagiarismPercentage: Math.round(result.plagiarismPercentage),
+        matches: (result.matches || []).map((m) => ({
+          text: m.text,
+          similarity: Math.round(m.similarity),
+        })),
+        date: new Date(),
+      },
+      {
+        localeTag: localeTags[locale],
+        labels: {
+          documentTitle: tPdf("plagiarism.documentTitle"),
+          reportTitle: tPdf("plagiarism.reportTitle"),
+          generatedOn: (date) => tPdf("common.generatedOn", { date }),
+          scoreLabel: tPdf("plagiarism.scoreLabel"),
+          words: tPdf("common.words"),
+          characters: tPdf("common.characters"),
+          matchesFound: tPdf("plagiarism.matchesFound"),
+          analyzedText: tPdf("common.analyzedText"),
+          potentialMatches: (count) => tPdf("plagiarism.potentialMatches", { count }),
+          matchSimilarity: (similarity) => tPdf("plagiarism.matchSimilarity", { similarity }),
+          footer: tPdf("plagiarism.footer"),
+        },
+      }
+    );
     setPdfBlocked(!opened);
   };
 
@@ -192,7 +216,7 @@ export function PlagiarismResults({
     <Card className="mt-4">
       <CardHeader>
         <CardTitle>
-          {isChecking ? "Checking for plagiarism..." : "Plagiarism Check Results"}
+          {isChecking ? t("results.checkingTitle") : t("results.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -200,7 +224,7 @@ export function PlagiarismResults({
           <div className="space-y-2">
             <Progress value={progress} className="w-full" />
             <p className="text-sm text-muted-foreground text-center">
-              {formatNumber(progress)}% complete
+              {t("results.progress", { progress: formatNumber(progress) })}
             </p>
           </div>
         ) : (
@@ -212,7 +236,7 @@ export function PlagiarismResults({
                     <VerdictIcon className={`h-6 w-6 ${verdict.color}`} />
                   )}
                   <div>
-                    <p className="text-sm text-muted-foreground">Plagiarism Score</p>
+                    <p className="text-sm text-muted-foreground">{t("results.scoreLabel")}</p>
                     <p
                       className={`text-3xl font-bold ${getScoreColor(
                         result.plagiarismPercentage
@@ -223,17 +247,17 @@ export function PlagiarismResults({
                   </div>
                 </div>
                 {verdict && (
-                  <p className={`text-sm font-medium ${verdict.color}`}>{verdict.label}</p>
+                  <p className={`text-sm font-medium ${verdict.color}`}>{t(`verdicts.${verdict.key}`)}</p>
                 )}
               </div>
 
               {originalText && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Analyzed Text</h4>
+                    <h4 className="font-medium text-sm">{t("results.analyzedText")}</h4>
                     {result.matches.filter(hasValidSpan).length > 0 && (
                       <p className="text-xs text-muted-foreground">
-                        Click highlighted text to see details
+                        {t("results.clickHint")}
                       </p>
                     )}
                   </div>
@@ -246,7 +270,7 @@ export function PlagiarismResults({
               {result.matches.length > 0 ? (
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm">
-                    Detected Matches ({result.matches.length})
+                    {t("results.detectedMatches", { count: result.matches.length })}
                   </h4>
                   <ul className="space-y-2">
                     {result.matches.map((match, i) => {
@@ -296,7 +320,7 @@ export function PlagiarismResults({
               ) : (
                 <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                   <p className="text-sm text-green-800 dark:text-green-300">
-                    No plagiarism matches detected in the analyzed text.
+                    {t("results.noMatches")}
                   </p>
                 </div>
               )}
@@ -311,12 +335,12 @@ export function PlagiarismResults({
                   {copied ? (
                     <>
                       <Check className="h-4 w-4 mr-2 text-green-500" />
-                      Copied
+                      {t("results.copied")}
                     </>
                   ) : (
                     <>
                       <Copy className="h-4 w-4 mr-2" />
-                      Copy Report
+                      {t("results.copyReport")}
                     </>
                   )}
                 </Button>
@@ -327,7 +351,7 @@ export function PlagiarismResults({
                   className="flex-1"
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Download .txt
+                  {t("results.downloadTxt")}
                 </Button>
                 <Button
                   variant="outline"
@@ -336,12 +360,12 @@ export function PlagiarismResults({
                   className="flex-1"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  PDF Report
+                  {t("results.pdfReport")}
                 </Button>
               </div>
               {pdfBlocked && (
                 <p role="alert" className="text-xs text-amber-600 dark:text-amber-400">
-                  The PDF opens in a new window — allow popups for this site and try again.
+                  {t("results.pdfBlocked")}
                 </p>
               )}
             </div>

@@ -16,34 +16,20 @@ import type { User } from "@supabase/auth-helpers-nextjs"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useLocale, useTranslations } from "next-intl"
+import { localeTags } from "@/i18n/config"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
-const FAQ_ITEMS = [
-  {
-    question: "What is the audio summarizer for?",
-    answer:
-      "Recording lectures, meetings, or spoken notes and getting a structured summary instead of a wall of transcript. It is useful whenever listening back to a recording would take too long.",
-  },
-  {
-    question: "What does the summary include?",
-    answer:
-      "An overview, the key points, and any action items detected in the conversation, plus a guess at the content type (lecture, meeting, and so on).",
-  },
-  {
-    question: "Which browsers are supported?",
-    answer:
-      "Chrome, Edge, and Safari. Transcription uses the browser's Web Speech API, which Firefox does not support, and you must grant microphone permission.",
-  },
-  {
-    question: "Can I summarize an existing audio file?",
-    answer:
-      "Not directly — the tool transcribes live microphone audio. Playing a recording out loud near your mic can work, but expect lower transcription accuracy.",
-  },
-  {
-    question: "What does it cost?",
-    answer:
-      "Recording and transcription are free since they happen in your browser. The AI summary costs text tokens based on transcript length, roughly 1 token per 6 characters.",
-  },
-]
+const FAQ_KEYS = ["purpose", "includes", "browsers", "existingFile", "cost"] as const
+const USE_CASE_KEYS = ["meetings", "lectures", "podcasts", "calls", "conferences"] as const
+const TIP_KEYS = ["clarity", "speakers", "actionItems", "length"] as const
+
+// The contentType values /api/voice-tools asks the model for. Only the label shown is translated;
+// the English labels equal these ids, so English output is unchanged.
+const CONTENT_TYPE_IDS = ["lecture", "interview", "meeting", "podcast", "speech", "other"] as const
+type ContentTypeId = (typeof CONTENT_TYPE_IDS)[number]
+const isContentTypeId = (value: string): value is ContentTypeId =>
+  (CONTENT_TYPE_IDS as readonly string[]).includes(value)
 
 export default function AudioSummarizer() {
   const [isRecording, setIsRecording] = useState(false)
@@ -67,6 +53,10 @@ export default function AudioSummarizer() {
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations("AudioSummarizer")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
+  const contentTypeLabel = (value: string) => (isContentTypeId(value) ? t(`contentTypes.${value}`) : value)
 
   const recognitionRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -97,7 +87,7 @@ export default function AudioSummarizer() {
     const recognition = new SpeechRecognition()
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = "en-US"
+    recognition.lang = localeTags[locale]
 
     // Capture whatever is currently in the textarea (including manual edits)
     // as the finalized base for this recording session.
@@ -136,13 +126,13 @@ export default function AudioSummarizer() {
         setIsRecording(false)
         setError(
           event.error === "not-allowed"
-            ? "Microphone access was denied. Please allow microphone access in your browser and try again."
+            ? t("errors.micDenied")
             : event.error === "audio-capture"
-              ? "No microphone was found. Please check your audio input device and try again."
-              : "Speech recognition is not available in this browser. Please try Chrome or Edge."
+              ? t("errors.noMic")
+              : t("errors.unavailable")
         )
       } else {
-        setError(`Speech recognition error: ${event.error}`)
+        setError(t("errors.recognition", { error: String(event.error) }))
       }
     }
 
@@ -161,7 +151,7 @@ export default function AudioSummarizer() {
     timerRef.current = setInterval(() => {
       setDuration(Math.floor((Date.now() - startTime) / 1000))
     }, 1000)
-  }, [])
+  }, [locale, t])
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
@@ -191,8 +181,8 @@ export default function AudioSummarizer() {
     const requiredTokens = calculateRequiredTokens(rawTranscript)
     if (requiredTokens > remainingWords) {
       toast({
-        title: "Not enough tokens",
-        description: `Summarizing this needs ${requiredTokens} tokens but you have ${remainingWords}. Redirecting to pricing.`,
+        title: t("toasts.notEnoughTokens"),
+        description: t("toasts.needTokensRedirect", { required: requiredTokens, remaining: remainingWords }),
         variant: "destructive",
       })
       await syncWordBalance()
@@ -217,8 +207,8 @@ export default function AudioSummarizer() {
       if (response.status === 401) { router.push("/signin?next=/audio-summarizer"); return }
       if (response.status === 402) {
         toast({
-          title: "Not enough tokens",
-          description: "You have run out of tokens for this summary. Redirecting to pricing.",
+          title: t("toasts.notEnoughTokens"),
+          description: t("toasts.outOfTokens"),
           variant: "destructive",
         })
         await syncWordBalance()
@@ -227,21 +217,24 @@ export default function AudioSummarizer() {
       }
       const data = await response.json()
       if (requestId !== requestIdRef.current) return
-      if (!response.ok) throw new Error(data.error || "Failed to summarize")
+      if (!response.ok) throw new Error(data.error || t("errors.summarizeFailed"))
 
       setSummary(data.result)
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Audio Summarized",
-        description: `${data.result.contentType || "Content"} summarized with ${data.result.keyPoints?.length || 0} key points`,
+        title: t("toasts.summarized"),
+        description: t("toasts.summarizedDescription", {
+          type: data.result.contentType ? contentTypeLabel(String(data.result.contentType)) : t("toasts.contentFallback"),
+          count: String(data.result.keyPoints?.length || 0),
+        }),
         variant: "success",
       })
     } catch (err) {
       if (requestId !== requestIdRef.current) return
-      const msg = err instanceof Error ? err.message : "Failed to summarize"
+      const msg = apiError(err, t("errors.summarizeFailed"))
       setError(msg)
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: t("toasts.error"), description: msg, variant: "destructive" })
     } finally {
       if (requestId === requestIdRef.current) setIsProcessing(false)
     }
@@ -252,9 +245,9 @@ export default function AudioSummarizer() {
     return [
       summary.title && `# ${summary.title}`,
       summary.overview && `\n${summary.overview}`,
-      summary.keyPoints?.length && `\n## Key Points\n${summary.keyPoints.map((p, i) => `${i + 1}. ${p}`).join("\n")}`,
-      summary.detailedSummary && `\n## Detailed Summary\n${summary.detailedSummary}`,
-      summary.actionItems?.length && `\n## Action Items\n${summary.actionItems.map((a) => `- ${a}`).join("\n")}`,
+      summary.keyPoints?.length && `\n## ${t("result.keyPoints")}\n${summary.keyPoints.map((p, i) => `${i + 1}. ${p}`).join("\n")}`,
+      summary.detailedSummary && `\n## ${t("result.detailedSummary")}\n${summary.detailedSummary}`,
+      summary.actionItems?.length && `\n## ${t("result.actionItems")}\n${summary.actionItems.map((a) => `- ${a}`).join("\n")}`,
     ].filter(Boolean).join("\n")
   }
 
@@ -263,10 +256,10 @@ export default function AudioSummarizer() {
     try {
       await navigator.clipboard.writeText(buildSummaryText())
       setCopied(true)
-      toast({ title: "Copied!", description: "Summary copied to clipboard", variant: "success" })
+      toast({ title: t("toasts.copied"), description: t("toasts.copiedDescription"), variant: "success" })
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast({ title: "Copy failed", description: "Could not access the clipboard. Please copy manually.", variant: "destructive" })
+      toast({ title: t("toasts.copyFailed"), description: t("toasts.copyFailedDescription"), variant: "destructive" })
     }
   }
 
@@ -305,9 +298,9 @@ export default function AudioSummarizer() {
       <Nav />
       <ToolPageHeader
         icon={FileAudio}
-        title="Audio Summarizer"
-        description="Record meetings, lectures, or podcasts and get a structured summary with key points, content type detection, and action items."
-        category="Voice Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-orange-500/[0.07]"
         iconColor="text-orange-500"
         iconBg="bg-orange-500/10 border-orange-500/20"
@@ -316,8 +309,8 @@ export default function AudioSummarizer() {
       <section className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
         {!isSupported && (
           <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-            <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">Your browser does not support the Web Speech API.</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Please use Chrome, Edge, or Safari.</p>
+            <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">{t("unsupported.title")}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{t("unsupported.hint")}</p>
           </div>
         )}
 
@@ -332,7 +325,7 @@ export default function AudioSummarizer() {
                   ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 focus-visible:ring-red-300"
                   : "bg-orange-600 hover:bg-orange-700 shadow-lg shadow-orange-600/30 focus-visible:ring-orange-300"
               } ${!isSupported ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-              aria-label={isRecording ? "Stop recording" : "Start recording"}
+              aria-label={isRecording ? t("recorder.stop") : t("recorder.start")}
             >
               {isRecording ? <Square className="h-10 w-10 text-white fill-white" /> : <Mic className="h-10 w-10 text-white" />}
               {isRecording && (
@@ -348,22 +341,22 @@ export default function AudioSummarizer() {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-red-500 flex items-center gap-2 justify-center">
                     <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    Recording...
+                    {t("recorder.recording")}
                   </p>
                   <p className="text-2xl font-mono font-bold">{formatDuration(duration)}</p>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {rawTranscript ? "Click to record more" : "Record a lecture, meeting, or podcast to summarize"}
+                  {rawTranscript ? t("recorder.recordMore") : t("recorder.idle")}
                 </p>
               )}
             </div>
 
             {rawTranscript && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
+                <span>{t("recorder.wordsTranscribed", { count: rawTranscript.split(/\s+/).filter(Boolean).length })}</span>
                 <Button variant="ghost" size="sm" onClick={clearAll} disabled={isProcessing} className="text-red-500 hover:text-red-600 h-7 text-xs">
-                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> {t("recorder.clear")}
                 </Button>
               </div>
             )}
@@ -375,22 +368,22 @@ export default function AudioSummarizer() {
           <div className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-              Transcript
+              {t("transcript.title")}
             </h3>
             <Textarea
               className="min-h-[140px] resize-none text-base md:text-sm leading-relaxed"
               value={rawTranscript}
               onChange={(e) => setRawTranscript(e.target.value)}
-              placeholder="Record audio above or paste a transcript here..."
-              aria-label="Audio transcript"
+              placeholder={t("transcript.placeholder")}
+              aria-label={t("transcript.ariaLabel")}
             />
 
             {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/audio-summarizer" />}
 
             {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Need {calculateRequiredTokens(rawTranscript)} tokens — you have {remainingWords}.{" "}
-                <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+                {t("transcript.needTokens", { required: calculateRequiredTokens(rawTranscript), remaining: remainingWords })}{" "}
+                <Link href="/pricing" className="underline font-medium">{t("transcript.upgrade")}</Link>
               </p>
             )}
 
@@ -404,9 +397,9 @@ export default function AudioSummarizer() {
               disabled={isProcessing || !rawTranscript.trim() || (!!user && calculateRequiredTokens(rawTranscript) > remainingWords)}
             >
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Summarizing...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("transcript.summarizing")}</>
               ) : (
-                <><FileAudio className="mr-2 h-4 w-4" />Summarize{rawTranscript.trim() ? ` (${calculateRequiredTokens(rawTranscript)} tokens)` : ""}</>
+                <><FileAudio className="mr-2 h-4 w-4" />{rawTranscript.trim() ? t("transcript.summarizeWithCost", { count: calculateRequiredTokens(rawTranscript) }) : t("transcript.summarize")}</>
               )}
             </Button>
           </div>
@@ -419,19 +412,19 @@ export default function AudioSummarizer() {
             {/* Header */}
             <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-4">
               <div className="space-y-1">
-                <h3 className="text-base font-semibold leading-tight">{summary.title || "Summary"}</h3>
+                <h3 className="text-base font-semibold leading-tight">{summary.title || t("result.fallbackTitle")}</h3>
                 {summary.contentType && (
                   <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 dark:text-orange-400 font-medium capitalize">
-                    {summary.contentType}
+                    {contentTypeLabel(summary.contentType)}
                   </span>
                 )}
               </div>
               <div className="flex gap-1 shrink-0">
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
-                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                  {copied ? <><Check className="h-3 w-3" />{t("result.copied")}</> : <><Copy className="h-3 w-3" />{t("result.copy")}</>}
                 </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleDownload}>
-                  <Download className="h-3 w-3" />Download .txt
+                  <Download className="h-3 w-3" />{t("result.download")}
                 </Button>
               </div>
             </div>
@@ -446,7 +439,7 @@ export default function AudioSummarizer() {
             {/* Key Points */}
             {summary.keyPoints && summary.keyPoints.length > 0 && (
               <div className="px-5 py-4 border-b border-border/60">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Key Points</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{t("result.keyPoints")}</p>
                 <ul className="space-y-2">
                   {summary.keyPoints.map((point, i) => (
                     <li key={i} className="flex items-start gap-2.5">
@@ -461,7 +454,7 @@ export default function AudioSummarizer() {
             {/* Detailed Summary */}
             {summary.detailedSummary && (
               <div className="px-5 py-4 border-b border-border/60">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Detailed Summary</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">{t("result.detailedSummary")}</p>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{summary.detailedSummary}</p>
               </div>
             )}
@@ -469,7 +462,7 @@ export default function AudioSummarizer() {
             {/* Action Items */}
             {summary.actionItems && summary.actionItems.length > 0 && (
               <div className="px-5 py-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Action Items</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">{t("result.actionItems")}</p>
                 <ul className="space-y-2">
                   {summary.actionItems.map((item, i) => (
                     <li key={i} className="flex items-start gap-2.5">
@@ -492,72 +485,48 @@ export default function AudioSummarizer() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <FileAudio className="h-4 w-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Live Recording + Paste</h3>
+                <h3 className="text-sm font-semibold">{t("features.livePaste.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Record directly from your microphone or paste an existing transcript from any source — meeting notes, podcast apps, or video captions.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.livePaste.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Structured Output</h3>
+                <h3 className="text-sm font-semibold">{t("features.structured.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Results are broken into a title, overview, numbered key points, a detailed summary, and a checklist of action items.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.structured.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-orange-500" />
-                <h3 className="text-sm font-semibold">Content Type Detection</h3>
+                <h3 className="text-sm font-semibold">{t("features.contentType.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Automatically identifies whether the audio was a lecture, interview, meeting, podcast, or speech and tailors the summary accordingly.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.contentType.description")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Weekly team meetings and standups
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  University lectures and class recordings
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Podcast episodes and long-form interviews
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Customer calls and sales demos
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
-                  Conference talks and webinar recordings
-                </li>
+                {USE_CASE_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+                    {t(`useCases.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-orange-500 font-bold shrink-0">→</span>
-                  Speak clearly and at normal pace — the browser speech API performs best in quiet environments.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-orange-500 font-bold shrink-0">→</span>
-                  For pasted transcripts, include speaker names if available — the AI uses them to structure the summary better.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-orange-500 font-bold shrink-0">→</span>
-                  The action items section works best when the recording includes explicit decisions or assignments.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-orange-500 font-bold shrink-0">→</span>
-                  Summarise recordings under 30 minutes for the most focused output.
-                </li>
+                {TIP_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-orange-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -565,7 +534,7 @@ export default function AudioSummarizer() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={FAQ_KEYS.map((key) => ({ question: t(`faq.${key}.question`), answer: t(`faq.${key}.answer`) }))} />
     </div>
   )
 }

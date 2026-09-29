@@ -1,1 +1,100 @@
-{}
+{
+  "header": {
+    "category": "写作工具",
+    "title": "摘要生成",
+    "description": "将长篇文章、论文或文档浓缩为简洁的摘要或条理清晰的要点，并可通过滑块控制输出长度。"
+  },
+  "needTokens": "需要 {required} 积分，你当前有 {remaining} 积分。<link>升级</link>",
+  "tooLong": "文本过长：最多 50,000 个字符（当前 {current} 个）。",
+  "controls": {
+    "length": "长度",
+    "paragraph": "段落",
+    "bullets": "要点"
+  },
+  "input": {
+    "ariaLabel": "需要摘要的文本",
+    "placeholder": "在此粘贴需要摘要的长文本、文章或文档…",
+    "counts": "{words} 个词 · {chars} 个字符",
+    "processing": "处理中…",
+    "submitWithCost": "生成摘要（{count} 积分）",
+    "submit": "生成摘要"
+  },
+  "output": {
+    "compressed": "<label>压缩至原文的</label><value>{percent}%</value>",
+    "pointCount": "{count} 个要点",
+    "wordCount": "{count} 个词",
+    "copy": "复制",
+    "copied": "已复制",
+    "save": "保存",
+    "summarizing": "正在生成摘要…",
+    "empty": "摘要将显示在这里"
+  },
+  "features": {
+    "format": {
+      "title": "段落或要点",
+      "body": "可选择连贯的段落摘要，或结构清晰的要点列表——怎么顺手怎么来。"
+    },
+    "length": {
+      "title": "长度可调",
+      "body": "通过滑块控制保留多少原文内容，从简短概述到详细摘要都可以。"
+    },
+    "reading": {
+      "title": "阅读时间估算",
+      "body": "查看压缩比例和词数，清楚了解文本被浓缩了多少。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "researchers": "研究人员快速消化学术论文和文献综述",
+      "professionals": "职场人士总结会议记录和冗长的邮件往来",
+      "students": "学生将教材章节浓缩为复习笔记",
+      "journalists": "记者从冗长的新闻稿中提取关键事实",
+      "anyone": "任何想在长文章、报告或文档上节省时间的人"
+    }
+  },
+  "tips": {
+    "title": "使用技巧",
+    "items": {
+      "bullets": "技术文档和操作指南适合使用要点模式——结构清晰，浏览更快。",
+      "length": "长度设为 20–30% 可得到精炼的执行摘要；设为 50–60% 可保留更多细节。",
+      "headings": "粘贴包含标题在内的全文——AI 会借助标题更准确地识别关键部分。",
+      "paraphraser": "如果需要匹配特定的写作风格，可以再用改写工具处理输出结果。"
+    }
+  },
+  "toasts": {
+    "successTitle": "摘要完成",
+    "successDescription": "你的文本已成功生成摘要。",
+    "errorTitle": "错误",
+    "copiedTitle": "已复制！",
+    "copiedDescription": "摘要已复制到剪贴板",
+    "copyFailedTitle": "复制失败",
+    "copyFailedDescription": "无法访问剪贴板，请手动复制。"
+  },
+  "errors": {
+    "failedText": "文本摘要生成失败",
+    "failed": "摘要生成失败"
+  },
+  "faq": {
+    "length": {
+      "question": "长度滑块如何使用？",
+      "answer": "它以原文长度的百分比来设定摘要的目标长度。百分比越低，摘要越精炼；越高则保留的细节越多。"
+    },
+    "format": {
+      "question": "应该选择段落还是要点？",
+      "answer": "段落格式读起来是连贯的文字，适合用作摘要和概述。要点格式把内容拆分为独立的关键点，更适合做笔记和快速浏览。"
+    },
+    "keeps": {
+      "question": "摘要会保留哪些信息？",
+      "answer": "它会优先保留主要观点、关键事实和结论。目标长度越短，重复内容、示例和次要细节会最先被删去——请确认没有删掉对你重要的内容。"
+    },
+    "limit": {
+      "question": "输入文本最长可以多长？",
+      "answer": "没有硬性限制，但文档越长，消耗的积分越多，耗时也可能更长。对于整本书篇幅的材料，按章节分别摘要效果更好。"
+    },
+    "cost": {
+      "question": "生成摘要需要多少费用？",
+      "answer": "积分消耗随输入长度增加，大约每 6 个字符消耗 1 文本积分。处理失败时会自动退还积分。"
+    }
+  }
+}

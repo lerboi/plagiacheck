@@ -1,1 +1,96 @@
-{}
+{
+  "header": {
+    "category": "Voice Tools",
+    "title": "Text to Speech",
+    "description": "Paste any text and hear it read aloud with natural voices. Adjust speed and pitch. Great for proofreading by ear or accessibility. Free — no tokens needed."
+  },
+  "unsupported": {
+    "title": "Your browser does not support the Web Speech Synthesis API.",
+    "hint": "Please use Chrome, Edge, or Safari."
+  },
+  "toasts": {
+    "error": "Error",
+    "synthesisFailed": "Speech synthesis failed"
+  },
+  "editor": {
+    "title": "Your Text",
+    "stats": "{words} words · ~{minutes} min",
+    "placeholder": "Paste your essay, article, or any text here to hear it read aloud. Great for catching errors your eyes might miss...",
+    "ariaLabel": "Text to read aloud",
+    "play": "Play",
+    "resume": "Resume",
+    "pause": "Pause",
+    "stop": "Stop"
+  },
+  "settings": {
+    "title": "Voice Settings",
+    "voice": "Voice",
+    "speed": "Speed: {rate}x",
+    "pitch": "Pitch: {pitch}",
+    "low": "Low",
+    "normal": "Normal",
+    "high": "High",
+    "proTipTitle": "Pro Tip",
+    "proTip": "Listening to your essay read aloud helps catch awkward phrasing, run-on sentences, and errors your eyes skip over."
+  },
+  "voices": {
+    "default": "Default",
+    "male": "Male",
+    "female": "Female"
+  },
+  "features": {
+    "voices": {
+      "title": "Multiple Voices",
+      "description": "Choose from Default, Male, or Female voice profiles. The browser selects the best available system voice for your chosen preference."
+    },
+    "controls": {
+      "title": "Speed & Pitch Control",
+      "description": "Adjust playback speed from 0.5× to 2× and pitch from low to high to find the most comfortable listening experience."
+    },
+    "free": {
+      "title": "Free — No Account Needed",
+      "description": "Text to speech is completely free and requires no sign-in. No tokens are consumed, no limits on text length."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "proofreading": "Proofreading your writing by hearing it read back — your ears catch mistakes your eyes miss",
+      "accessibility": "Making written content accessible to people with reading difficulties",
+      "scripts": "Previewing how a script or narration sounds before recording",
+      "multitasking": "Listening to articles or notes while doing something else",
+      "pronunciation": "Language learners checking pronunciation of words and phrases"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "slowDown": "Slow the speed to 0.75× when proofreading technical or complex content — it's easier to catch errors.",
+      "firstParagraph": "Listen to the first paragraph at normal speed to check the flow, then scan the rest.",
+      "sections": "For long text, paste one section at a time to keep the playback focused.",
+      "browser": "If a voice sounds robotic, try a different browser — Chrome typically has the best voices."
+    }
+  },
+  "faq": {
+    "free": {
+      "question": "Is text to speech free?",
+      "answer": "Yes, completely free. It uses your browser's built-in SpeechSynthesis engine, so no tokens are consumed and no account is required."
+    },
+    "devices": {
+      "question": "Why do the voices sound different on my phone versus my laptop?",
+      "answer": "Voices come from your device and operating system, not from our servers. Windows, macOS, Android, and iOS each ship different voices, so quality and selection vary by device."
+    },
+    "controls": {
+      "question": "What do the rate and pitch controls do?",
+      "answer": "Rate controls how fast the text is read and pitch shifts the voice higher or lower. Both apply the next time you press play."
+    },
+    "long": {
+      "question": "Can it read long documents?",
+      "answer": "Yes. Long text is split into chunks behind the scenes, because some browsers cut off speech after a certain length. Playback continues seamlessly across chunks."
+    },
+    "browsers": {
+      "question": "Which browsers are supported?",
+      "answer": "Chrome, Edge, and Safari all support speech synthesis well. If you hear nothing, check your system volume and try a different voice from the list."
+    }
+  }
+}

@@ -1,1 +1,100 @@
-{}
+{
+  "header": {
+    "category": "Writing Tools",
+    "title": "Summarizer",
+    "description": "Turn long articles, essays, or documents into concise summaries or structured bullet points. Control the output length with a slider."
+  },
+  "needTokens": "Need {required} tokens — you have {remaining}. <link>Upgrade</link>",
+  "tooLong": "Text is too long — the maximum is 50,000 characters (currently {current}).",
+  "controls": {
+    "length": "Length",
+    "paragraph": "Paragraph",
+    "bullets": "Bullets"
+  },
+  "input": {
+    "ariaLabel": "Text to summarize",
+    "placeholder": "Paste your long text, article, or document here to summarize...",
+    "counts": "{words} words · {chars} chars",
+    "processing": "Processing...",
+    "submitWithCost": "Summarize ({count} tokens)",
+    "submit": "Summarize"
+  },
+  "output": {
+    "compressed": "<label>Compressed to</label><value>{percent}%</value><label>of original</label>",
+    "pointCount": "{count} points",
+    "wordCount": "{count} words",
+    "copy": "Copy",
+    "copied": "Copied",
+    "save": "Save",
+    "summarizing": "Summarizing...",
+    "empty": "Summary appears here"
+  },
+  "features": {
+    "format": {
+      "title": "Paragraph or Bullets",
+      "body": "Choose between a flowing paragraph summary or structured bullet points — whichever suits your workflow."
+    },
+    "length": {
+      "title": "Adjustable Length",
+      "body": "A slider controls how much of the original content is retained, from a brief overview to a detailed summary."
+    },
+    "reading": {
+      "title": "Reading Time Estimate",
+      "body": "See the compression ratio and word count so you know exactly how much the text has been condensed."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "researchers": "Researchers quickly digesting academic papers and literature reviews",
+      "professionals": "Professionals summarising meeting transcripts and long email chains",
+      "students": "Students condensing textbook chapters into revision notes",
+      "journalists": "Journalists getting the key facts from lengthy press releases",
+      "anyone": "Anyone saving time on long articles, reports, or documentation"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "bullets": "Use bullet mode for technical documents and how-to content — the structure makes scanning faster.",
+      "length": "Set length to 20–30% for a tight executive summary; 50–60% to retain more nuance.",
+      "headings": "Paste the full text including headings — the AI uses them to better identify key sections.",
+      "paraphraser": "Run the output through the Paraphraser if you need to match a specific writing style."
+    }
+  },
+  "toasts": {
+    "successTitle": "Summary Complete",
+    "successDescription": "Your text has been successfully summarized.",
+    "errorTitle": "Error",
+    "copiedTitle": "Copied!",
+    "copiedDescription": "Summary copied to clipboard",
+    "copyFailedTitle": "Copy failed",
+    "copyFailedDescription": "Could not access the clipboard. Please copy manually."
+  },
+  "errors": {
+    "failedText": "Failed to summarize text",
+    "failed": "Failed to summarize"
+  },
+  "faq": {
+    "length": {
+      "question": "How does the length slider work?",
+      "answer": "It sets the target summary length as a percentage of your original text. A lower percentage gives a tighter summary; a higher one keeps more detail."
+    },
+    "format": {
+      "question": "Should I choose paragraph or bullet points?",
+      "answer": "Paragraph format reads as flowing prose, good for abstracts and overviews. Bullets break the content into discrete key points, better for notes and quick scanning."
+    },
+    "keeps": {
+      "question": "What information does the summary keep?",
+      "answer": "It prioritizes main ideas, key facts, and conclusions. Repetition, examples, and side details are dropped first as the target length shrinks — verify that nothing critical to you was cut."
+    },
+    "limit": {
+      "question": "How long can the input text be?",
+      "answer": "There is no hard limit, but very long documents cost more tokens and can take longer. For book-length material, summarize chapter by chapter for better results."
+    },
+    "cost": {
+      "question": "How much does a summary cost?",
+      "answer": "Token cost scales with the length of the input at roughly 1 text token per 6 characters. Failed runs are refunded automatically."
+    }
+  }
+}

@@ -1,1 +1,81 @@
-{}
+{
+  "metadata": {
+    "title": "Plagiarism Checker — Plagiacheck",
+    "description": "AI-powered plagiarism detection with sentence-level highlighting. Paste your text or upload a .txt/.md file and get a similarity report in seconds.",
+    "ogTitle": "Plagiarism Checker — Plagiacheck",
+    "ogDescription": "AI-powered plagiarism detection with sentence-level highlighting. Paste your text or upload a file to get a similarity report in seconds."
+  },
+  "header": {
+    "title": "Plagiarism Checker",
+    "description": "Detect copied or reused text with sentence-level highlighting. Paste your text or upload a .txt/.md file.",
+    "category": "Originality Detection"
+  },
+  "input": {
+    "heading": "Check Your Text",
+    "subheading": "Paste text or upload a file to scan",
+    "wordCount": "<b>{count}</b> words",
+    "charCount": "<b>{count}</b> chars",
+    "ariaLabel": "Text to check for plagiarism",
+    "placeholder": "Paste your text here to check for plagiarism. You can also upload a .txt or .md file using the button below...",
+    "copyTitle": "Copy text",
+    "uploadTitle": "Upload file",
+    "uploadSrOnly": "Upload a .txt or .md file",
+    "uploadButton": "Upload File",
+    "notEnoughTokens": "Not enough tokens. You need {required} but have {remaining}. <link>Upgrade your plan</link>",
+    "tooLong": "Text is too long — the maximum is 50,000 characters (currently {current})."
+  },
+  "button": {
+    "analyzing": "Analyzing... {progress}%",
+    "check": "Check for Plagiarism",
+    "cost": "({count} tokens)"
+  },
+  "emptyResults": "Results appear here",
+  "toasts": {
+    "errorTitle": "Error",
+    "completeTitle": "Check Complete",
+    "completeDescription": "Plagiarism score: {score}%",
+    "unsupportedTitle": "Unsupported file format",
+    "unsupportedDescription": "Only plain text (.txt, .md) is currently supported. For {ext} files, copy and paste the text directly.",
+    "readFailedTitle": "Failed to read file",
+    "readFailedDescription": "Please try again or paste the text directly.",
+    "copiedTitle": "Copied!",
+    "copiedDescription": "Text copied to clipboard"
+  },
+  "errors": {
+    "checkFailed": "Failed to check plagiarism",
+    "noStream": "No response stream available",
+    "checkFailedRetry": "Failed to check plagiarism. Please try again."
+  },
+  "results": {
+    "checkingTitle": "Checking for plagiarism...",
+    "title": "Plagiarism Check Results",
+    "progress": "{progress}% complete",
+    "scoreLabel": "Plagiarism Score",
+    "analyzedText": "Analyzed Text",
+    "clickHint": "Click highlighted text to see details",
+    "detectedMatches": "Detected Matches ({count})",
+    "noMatches": "No plagiarism matches detected in the analyzed text.",
+    "matchAria": "Match {index}: {similarity}% similarity",
+    "copied": "Copied",
+    "copyReport": "Copy Report",
+    "downloadTxt": "Download .txt",
+    "pdfReport": "PDF Report",
+    "pdfBlocked": "The PDF opens in a new window — allow popups for this site and try again."
+  },
+  "verdicts": {
+    "high": "High similarity detected",
+    "moderate": "Moderate similarity",
+    "original": "Looks original"
+  },
+  "textReport": {
+    "title": "Plagiarism Check Report",
+    "score": "Plagiarism Score: {score}%",
+    "verdict": "Verdict: {verdict}",
+    "noMatches": "No plagiarism matches detected.",
+    "matchesDetected": "Matches detected: {count}",
+    "match": "Match {index} — Similarity: {similarity}%",
+    "reason": "Reason: {reason}",
+    "text": "Text: {text}",
+    "analyzedText": "Analyzed Text:"
+  }
+}

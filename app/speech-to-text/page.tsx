@@ -16,34 +16,13 @@ import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useLocale, useTranslations } from "next-intl"
+import { localeTags } from "@/i18n/config"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
-const FAQ_ITEMS = [
-  {
-    question: "Which browsers are supported?",
-    answer:
-      "Transcription uses the browser's Web Speech API, which works in Chrome, Edge, and Safari. Firefox does not support it, so the tool will not work there.",
-  },
-  {
-    question: "Why is the microphone not working?",
-    answer:
-      "Your browser needs permission to use the mic — look for the permission prompt or the mic icon in the address bar. Also check that no other app is holding the microphone.",
-  },
-  {
-    question: "Is transcription free?",
-    answer:
-      "Yes, the raw transcription itself is free because it happens entirely in your browser. Only the optional AI cleanup step costs tokens.",
-  },
-  {
-    question: "What does the AI cleanup do and what does it cost?",
-    answer:
-      "It fixes punctuation, capitalization, and obvious mis-hearings in the raw transcript. Cost scales with transcript length at roughly 1 text token per 6 characters.",
-  },
-  {
-    question: "Can I upload an audio file instead of speaking live?",
-    answer:
-      "Not currently — the tool transcribes live microphone input only. For recorded audio, play it near your mic as a workaround, though accuracy will be lower.",
-  },
-]
+const FAQ_KEYS = ["browsers", "microphone", "free", "cleanup", "upload"] as const
+const USE_CASE_KEYS = ["dictation", "interviews", "memos", "accessibility", "meetings"] as const
+const TIP_KEYS = ["browser", "pace", "cleanup", "speakers"] as const
 
 export default function SpeechToText() {
   const [isRecording, setIsRecording] = useState(false)
@@ -61,6 +40,9 @@ export default function SpeechToText() {
   const [copied, setCopied] = useState(false)
   const [copiedRaw, setCopiedRaw] = useState(false)
   const { toast } = useToast()
+  const t = useTranslations("SpeechToText")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
 
   const recognitionRef = useRef<any>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -97,7 +79,7 @@ export default function SpeechToText() {
     const recognition = new SpeechRecognition()
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = "en-US"
+    recognition.lang = localeTags[locale]
 
     // Capture whatever is currently in the textarea (including manual edits)
     // as the finalized base for this recording session.
@@ -142,13 +124,13 @@ export default function SpeechToText() {
         setIsRecording(false)
         setError(
           event.error === "not-allowed"
-            ? "Microphone access was denied. Please allow microphone access in your browser and try again."
+            ? t("errors.micDenied")
             : event.error === "audio-capture"
-              ? "No microphone was found. Please check your audio input device and try again."
-              : "Speech recognition is not available in this browser. Please try Chrome or Edge."
+              ? t("errors.noMic")
+              : t("errors.unavailable")
         )
       } else {
-        setError(`Speech recognition error: ${event.error}`)
+        setError(t("errors.recognition", { error: String(event.error) }))
       }
     }
 
@@ -171,7 +153,7 @@ export default function SpeechToText() {
     timerRef.current = setInterval(() => {
       setDuration(Math.floor((Date.now() - startTime) / 1000))
     }, 1000)
-  }, [])
+  }, [locale, t])
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
@@ -214,8 +196,8 @@ export default function SpeechToText() {
     const requiredTokens = calculateRequiredTokens(rawTranscript)
     if (requiredTokens > remainingWords) {
       toast({
-        title: "Not enough tokens",
-        description: `AI cleanup needs ${requiredTokens} tokens but you have ${remainingWords}. Redirecting to pricing.`,
+        title: t("toasts.notEnoughTokens"),
+        description: t("toasts.needTokensRedirect", { required: requiredTokens, remaining: remainingWords }),
         variant: "destructive",
       })
       await syncWordBalance()
@@ -240,8 +222,8 @@ export default function SpeechToText() {
       if (response.status === 401) { router.push("/signin?next=/speech-to-text"); return }
       if (response.status === 402) {
         toast({
-          title: "Not enough tokens",
-          description: "You have run out of tokens for this cleanup. Redirecting to pricing.",
+          title: t("toasts.notEnoughTokens"),
+          description: t("toasts.outOfTokens"),
           variant: "destructive",
         })
         await syncWordBalance()
@@ -252,23 +234,23 @@ export default function SpeechToText() {
       if (requestId !== requestIdRef.current) return
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to clean transcript")
+        throw new Error(data.error || t("errors.cleanFailed"))
       }
 
       setCleanedText(data.result.cleanedText || rawTranscript)
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Transcript Cleaned",
-        description: `${data.result.changes || 0} corrections made`,
+        title: t("toasts.cleaned"),
+        description: t("toasts.correctionsMade", { count: String(data.result.changes || 0) }),
         variant: "success",
       })
     } catch (err) {
       if (requestId !== requestIdRef.current) return
       console.error("Cleanup error:", err)
-      const msg = err instanceof Error ? err.message : "Failed to clean transcript"
+      const msg = apiError(err, t("errors.cleanFailed"))
       setError(msg)
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: t("toasts.error"), description: msg, variant: "destructive" })
     } finally {
       if (requestId === requestIdRef.current) setIsCleaning(false)
     }
@@ -284,9 +266,9 @@ export default function SpeechToText() {
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       }
-      toast({ title: "Copied!", description: "Text copied to clipboard", variant: "success" })
+      toast({ title: t("toasts.copied"), description: t("toasts.copiedDescription"), variant: "success" })
     } catch {
-      toast({ title: "Copy failed", description: "Could not access the clipboard. Please copy manually.", variant: "destructive" })
+      toast({ title: t("toasts.copyFailed"), description: t("toasts.copyFailedDescription"), variant: "destructive" })
     }
   }
 
@@ -324,9 +306,9 @@ export default function SpeechToText() {
       <Nav />
       <ToolPageHeader
         icon={Mic}
-        title="Speech to Text"
-        description="Record your voice and get a real-time transcript. Use AI cleanup to remove filler words, fix punctuation, and format into clean readable text."
-        category="Voice Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-indigo-500/[0.07]"
         iconColor="text-indigo-500"
         iconBg="bg-indigo-500/10 border-indigo-500/20"
@@ -337,10 +319,10 @@ export default function SpeechToText() {
         {!isSupported && (
           <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
             <p className="text-amber-700 dark:text-amber-300 font-medium text-sm">
-              Your browser does not support the Web Speech API.
+              {t("unsupported.title")}
             </p>
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-              Please use Chrome, Edge, or Safari for speech recognition.
+              {t("unsupported.hint")}
             </p>
           </div>
         )}
@@ -356,7 +338,7 @@ export default function SpeechToText() {
                   ? "bg-red-500 hover:bg-red-600 shadow-lg shadow-red-500/30 focus-visible:ring-red-300"
                   : "bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/30 focus-visible:ring-indigo-300"
               } ${!isSupported ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-              aria-label={isRecording ? "Stop recording" : "Start recording"}
+              aria-label={isRecording ? t("recorder.stop") : t("recorder.start")}
             >
               {isRecording ? (
                 <Square className="h-10 w-10 text-white fill-white" />
@@ -376,7 +358,7 @@ export default function SpeechToText() {
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-red-500 flex items-center gap-2 justify-center">
                     <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    Recording...
+                    {t("recorder.recording")}
                   </p>
                   <p className="text-2xl font-mono font-bold">
                     {formatDuration(duration)}
@@ -384,17 +366,17 @@ export default function SpeechToText() {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {rawTranscript ? "Click to record more" : "Click the microphone to start recording"}
+                  {rawTranscript ? t("recorder.recordMore") : t("recorder.idle")}
                 </p>
               )}
             </div>
 
             {rawTranscript && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>{rawTranscript.split(/\s+/).filter(Boolean).length} words transcribed</span>
+                <span>{t("recorder.wordsTranscribed", { count: rawTranscript.split(/\s+/).filter(Boolean).length })}</span>
                 <Button variant="ghost" size="sm" onClick={clearAll} disabled={isCleaning} className="text-red-500 hover:text-red-600 h-7 text-xs">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Clear
+                  {t("recorder.clear")}
                 </Button>
               </div>
             )}
@@ -409,16 +391,16 @@ export default function SpeechToText() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                    Raw Transcript
+                    {t("raw.title")}
                   </h3>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => handleCopy(rawTranscript, "raw")} className="h-8">
                       {copiedRaw ? <Check className="h-4 w-4 mr-1 text-green-500" /> : <Copy className="h-4 w-4 mr-1" />}
-                      {copiedRaw ? "Copied!" : "Copy"}
+                      {copiedRaw ? t("raw.copied") : t("raw.copy")}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDownload(rawTranscript, "raw-transcript.txt")} className="h-8">
                       <Download className="h-4 w-4 mr-1" />
-                      Download .txt
+                      {t("raw.download")}
                     </Button>
                   </div>
                 </div>
@@ -427,16 +409,16 @@ export default function SpeechToText() {
                   className="min-h-[140px] resize-none text-base md:text-sm leading-relaxed"
                   value={rawTranscript}
                   onChange={(e) => setRawTranscript(e.target.value)}
-                  placeholder="Transcript appears here as you speak..."
-                  aria-label="Raw transcript"
+                  placeholder={t("raw.placeholder")}
+                  aria-label={t("raw.ariaLabel")}
                 />
 
                 {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/speech-to-text" />}
 
                 {!!user && rawTranscript.trim() && calculateRequiredTokens(rawTranscript) > remainingWords && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Need {calculateRequiredTokens(rawTranscript)} tokens — you have {remainingWords}.{" "}
-                    <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+                    {t("raw.needTokens", { required: calculateRequiredTokens(rawTranscript), remaining: remainingWords })}{" "}
+                    <Link href="/pricing" className="underline font-medium">{t("raw.upgrade")}</Link>
                   </p>
                 )}
 
@@ -450,9 +432,9 @@ export default function SpeechToText() {
                   disabled={isCleaning || !rawTranscript.trim() || (!!user && calculateRequiredTokens(rawTranscript) > remainingWords)}
                 >
                   {isCleaning ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Cleaning Up...</>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("raw.cleaning")}</>
                   ) : (
-                    <><Sparkles className="mr-2 h-4 w-4" />AI Clean Up{rawTranscript.trim() ? ` (${calculateRequiredTokens(rawTranscript)} tokens)` : ""}</>
+                    <><Sparkles className="mr-2 h-4 w-4" />{rawTranscript.trim() ? t("raw.cleanWithCost", { count: calculateRequiredTokens(rawTranscript) }) : t("raw.clean")}</>
                   )}
                 </Button>
               </div>
@@ -465,18 +447,18 @@ export default function SpeechToText() {
                   {/* Stats bar */}
                   <div className="flex items-center gap-4 px-3.5 py-2 rounded-lg border border-border bg-muted/40 text-xs">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      Raw: <span className="font-medium text-foreground tabular-nums">{rawTranscript.split(/\s+/).filter(Boolean).length} words</span>
+                      {t("cleaned.raw")} <span className="font-medium text-foreground tabular-nums">{t("cleaned.words", { count: rawTranscript.split(/\s+/).filter(Boolean).length })}</span>
                     </span>
                     <span className="text-border">·</span>
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      Cleaned: <span className="font-medium text-foreground tabular-nums">{cleanedText.split(/\s+/).filter(Boolean).length} words</span>
+                      {t("cleaned.cleaned")} <span className="font-medium text-foreground tabular-nums">{t("cleaned.words", { count: cleanedText.split(/\s+/).filter(Boolean).length })}</span>
                     </span>
                     <div className="ml-auto flex gap-1">
                       <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={() => handleCopy(cleanedText, "clean")}>
-                        <Copy className="h-3 w-3" />Copy cleaned
+                        <Copy className="h-3 w-3" />{t("cleaned.copy")}
                       </Button>
                       <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={() => handleDownload(cleanedText, "cleaned-transcript.txt")}>
-                        <Download className="h-3 w-3" />Download .txt
+                        <Download className="h-3 w-3" />{t("cleaned.download")}
                       </Button>
                     </div>
                   </div>
@@ -485,22 +467,22 @@ export default function SpeechToText() {
                   <div className="rounded-xl border border-border bg-card overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-border flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="text-xs font-medium">Cleaned Transcript</span>
+                      <span className="text-xs font-medium">{t("cleaned.title")}</span>
                     </div>
                     <div className="p-4 text-sm leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">{cleanedText}</div>
                   </div>
 
                   <div className="pt-3 border-t border-border">
-                    <p className="text-xs text-muted-foreground mb-2">Use transcript with:</p>
+                    <p className="text-xs text-muted-foreground mb-2">{t("cleaned.useWith")}</p>
                     <div className="flex flex-wrap gap-2">
                       <Link href="/" className="text-xs px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                        Plagiarism Check
+                        {t("cleaned.plagiarism")}
                       </Link>
                       <Link href="/ai-detector" className="text-xs px-3 py-1.5 rounded-full border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
-                        AI Detector
+                        {t("cleaned.aiDetector")}
                       </Link>
                       <Link href="/summarizer" className="text-xs px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">
-                        Summarize
+                        {t("cleaned.summarize")}
                       </Link>
                     </div>
                   </div>
@@ -518,72 +500,48 @@ export default function SpeechToText() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Mic className="h-4 w-4 text-indigo-500" />
-                <h3 className="text-sm font-semibold">Real-Time Transcription</h3>
+                <h3 className="text-sm font-semibold">{t("features.realtime.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">The browser transcribes your voice word by word as you speak — no upload, no waiting.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.realtime.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-indigo-500" />
-                <h3 className="text-sm font-semibold">AI Cleanup</h3>
+                <h3 className="text-sm font-semibold">{t("features.cleanup.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">A single click removes filler words (um, uh, like), fixes punctuation, capitalisation, and breaks the transcript into proper paragraphs.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.cleanup.description")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Copy className="h-4 w-4 text-indigo-500" />
-                <h3 className="text-sm font-semibold">Instant Export</h3>
+                <h3 className="text-sm font-semibold">{t("features.export.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Copy the raw or cleaned transcript and paste it directly into any tool — the Summarizer, Grammar Checker, or AI Detector.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.export.description")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  Dictating emails, messages, or documents hands-free
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  Transcribing interview recordings by playing audio aloud near the microphone
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  Converting voice memos into editable text
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  Students with accessibility needs who prefer speaking over typing
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                  Capturing meeting notes in real time without a separate transcription service
-                </li>
+                {USE_CASE_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                    {t(`useCases.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-indigo-500 font-bold shrink-0">→</span>
-                  Use Chrome or Edge for the most accurate Web Speech API transcription.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-indigo-500 font-bold shrink-0">→</span>
-                  Speak at a moderate pace — rushing causes the transcription to merge words incorrectly.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-indigo-500 font-bold shrink-0">→</span>
-                  The AI cleanup costs tokens but produces significantly cleaner output for long recordings.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-indigo-500 font-bold shrink-0">→</span>
-                  For interviews, pause between speakers so the transcript doesn&apos;t run together.
-                </li>
+                {TIP_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-indigo-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -591,7 +549,7 @@ export default function SpeechToText() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={FAQ_KEYS.map((key) => ({ question: t(`faq.${key}.question`), answer: t(`faq.${key}.answer`) }))} />
     </div>
   )
 }

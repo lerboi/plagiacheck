@@ -16,6 +16,9 @@ import { useToast } from "@/hooks/use-toast"
 import { generateAIDetectorReport } from "@/lib/pdf-generator"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
+import { useLocale, useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
+import { localeTags } from "@/i18n/config"
 
 interface SentenceAnalysis {
   text: string
@@ -23,40 +26,29 @@ interface SentenceAnalysis {
   type: "human" | "mixed" | "ai"
 }
 
-const FAQ_ITEMS = [
-  {
-    question: "How accurate is the AI detector?",
-    answer:
-      "No AI detector is 100% accurate, including this one. Treat the score as a signal worth investigating rather than proof — very formal or formulaic human writing can be flagged, and edited AI text can slip through.",
-  },
-  {
-    question: "What does the sentence-by-sentence breakdown show?",
-    answer:
-      "Every sentence is scored individually and labeled human, mixed, or AI. This lets you see exactly which passages drive the overall score instead of judging the whole document at once.",
-  },
-  {
-    question: "How should I interpret the overall score?",
-    answer:
-      "It is a likelihood estimate, not a verdict. A low score means the writing shows mostly human-like patterns, a high score means it strongly resembles AI output, and mid-range scores usually indicate mixed or edited text.",
-  },
-  {
-    question: "Can I export the results?",
-    answer:
-      "Yes. You can download a PDF report that includes the overall verdict and the per-sentence analysis, which is useful for sharing or record-keeping.",
-  },
-  {
-    question: "How much does a check cost?",
-    answer:
-      "Token cost scales with text length at roughly 1 text token per 6 characters. Your remaining balance is shown in the navbar after each run.",
-  },
-  {
-    question: "Can human writing be falsely flagged as AI?",
-    answer:
-      "Yes. Uniform, highly polished, or template-like writing sometimes triggers false positives. Never rely on a detector score alone as evidence that someone used AI.",
-  },
-]
+const FAQ_KEYS = ["accuracy", "breakdown", "interpret", "export", "cost", "falsePositives"] as const
+const FEATURE_KEYS = ["sentence", "confidence", "pdf"] as const
+const USE_CASE_KEYS = ["teachers", "editors", "students", "publishers", "researchers"] as const
+const TIP_KEYS = ["length", "midRange", "humanize", "highlights"] as const
+const SENTENCE_TYPES = ["human", "mixed", "ai"] as const
+
+// Verdict strings the API returns (plus the page's own "Unknown" sentinel),
+// mapped to their message keys. Other values are shown as-is.
+const VERDICT_KEYS = {
+  "Likely Human": "likelyHuman",
+  "Possibly AI": "possiblyAi",
+  "Likely AI": "likelyAi",
+  Unknown: "unknown",
+} as const
+
+const isSentenceType = (type: string): type is (typeof SENTENCE_TYPES)[number] =>
+  (SENTENCE_TYPES as readonly string[]).includes(type)
 
 export default function AIDetector() {
+  const t = useTranslations("AiDetector")
+  const tPdf = useTranslations("PdfReport")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [needsSignIn, setNeedsSignIn] = useState(false)
@@ -101,6 +93,16 @@ export default function AIDetector() {
     return Math.ceil(text.length / 6)
   }
 
+  const verdictLabel = (verdict: string) =>
+    Object.prototype.hasOwnProperty.call(VERDICT_KEYS, verdict)
+      ? t(`verdicts.${VERDICT_KEYS[verdict as keyof typeof VERDICT_KEYS]}`)
+      : verdict
+
+  const faqItems = FAQ_KEYS.map((key) => ({
+    question: t(`faq.${key}.question`),
+    answer: t(`faq.${key}.answer`),
+  }))
+
   const handleDetect = async () => {
     if (!user) {
       setNeedsSignIn(true)
@@ -112,8 +114,8 @@ export default function AIDetector() {
 
     if (text.trim().length < 50) {
       toast({
-        title: "Text too short",
-        description: "Add at least 50 characters for a meaningful analysis.",
+        title: t("toasts.tooShortTitle"),
+        description: t("toasts.tooShortDescription"),
         variant: "destructive",
       })
       return
@@ -158,7 +160,7 @@ export default function AIDetector() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze text")
+        throw new Error(data.error || t("errors.analyzeFailed"))
       }
 
       setProgress(100)
@@ -173,7 +175,7 @@ export default function AIDetector() {
       setResult({
         score: Math.max(0, Math.min(100, aiResult.overallScore || 0)),
         humanLikelihood: aiResult.verdict || "Unknown",
-        analysis: aiResult.analysis || "Analysis complete.",
+        analysis: aiResult.analysis || t("result.analysisComplete"),
         sentences,
         analyzedText,
       })
@@ -181,16 +183,18 @@ export default function AIDetector() {
       await syncWordBalance(data.remainingTokens)
 
       toast({
-        title: "Analysis Complete",
-        description: `Text analyzed: ${aiResult.verdict}`,
+        title: t("toasts.completeTitle"),
+        description: t("toasts.completeDescription", { verdict: verdictLabel(String(aiResult.verdict)) }),
         variant: "success",
       })
     } catch (err) {
       console.error("Error analyzing text:", err)
-      const errorMessage = err instanceof Error ? err.message : "Failed to analyze"
+      const errorMessage = err instanceof Error
+        ? apiError(err.message, t("errors.analyzeFailed"))
+        : t("errors.analyzeFailedShort")
       setError(errorMessage)
       toast({
-        title: "Error",
+        title: t("toasts.errorTitle"),
         description: errorMessage,
         variant: "destructive",
       })
@@ -205,24 +209,48 @@ export default function AIDetector() {
 
   const handleDownloadReport = () => {
     if (!result) return
-    const opened = generateAIDetectorReport({
-      text: result.analyzedText,
-      aiScore: result.score,
-      humanLikelihood: result.humanLikelihood,
-      analysis: result.analysis,
-      sentences: result.sentences,
-      date: new Date(),
-    })
+    const opened = generateAIDetectorReport(
+      {
+        text: result.analyzedText,
+        aiScore: result.score,
+        humanLikelihood: verdictLabel(result.humanLikelihood),
+        analysis: result.analysis,
+        sentences: result.sentences,
+        date: new Date(),
+      },
+      {
+        localeTag: localeTags[locale],
+        labels: {
+          documentTitle: tPdf("aiDetector.documentTitle"),
+          reportTitle: tPdf("aiDetector.reportTitle"),
+          generatedOn: (date) => tPdf("common.generatedOn", { date }),
+          scoreLabel: tPdf("aiDetector.scoreLabel"),
+          words: tPdf("common.words"),
+          characters: tPdf("common.characters"),
+          verdict: tPdf("aiDetector.verdict"),
+          analysisSummary: tPdf("aiDetector.analysisSummary"),
+          sentenceBreakdown: tPdf("aiDetector.sentenceBreakdown"),
+          sentenceTypes: {
+            human: tPdf("aiDetector.sentenceTypes.human"),
+            mixed: tPdf("aiDetector.sentenceTypes.mixed"),
+            ai: tPdf("aiDetector.sentenceTypes.ai"),
+          },
+          sentenceScore: (score) => tPdf("aiDetector.sentenceScore", { score }),
+          analyzedText: tPdf("common.analyzedText"),
+          footer: tPdf("aiDetector.footer"),
+        },
+      }
+    )
     if (opened) {
       toast({
-        title: "Report Generated",
-        description: "Your PDF report is ready to download",
+        title: t("toasts.reportTitle"),
+        description: t("toasts.reportDescription"),
         variant: "success",
       })
     } else {
       toast({
-        title: "Popup blocked",
-        description: "Allow popups for this site to download the PDF report.",
+        title: t("toasts.popupTitle"),
+        description: t("toasts.popupDescription"),
         variant: "destructive",
       })
     }
@@ -231,19 +259,22 @@ export default function AIDetector() {
   const buildResultText = (): string => {
     if (!result) return text
     const lines: string[] = []
-    lines.push("AI Detection Result")
+    lines.push(t("copyText.title"))
     lines.push("===================")
     lines.push("")
-    lines.push(`Verdict: ${result.humanLikelihood}`)
-    lines.push(`AI Probability: ${result.score}%`)
+    lines.push(t("copyText.verdict", { verdict: verdictLabel(result.humanLikelihood) }))
+    lines.push(t("copyText.probability", { score: String(result.score) }))
     lines.push("")
-    lines.push("Summary:")
+    lines.push(t("copyText.summary"))
     lines.push(result.analysis)
     if (result.sentences.length > 0) {
       lines.push("")
-      lines.push("Sentence-by-sentence breakdown:")
+      lines.push(t("copyText.breakdown"))
       result.sentences.forEach((s, i) => {
-        lines.push(`${i + 1}. [${s.type.toUpperCase()} — ${s.score}%] ${s.text}`)
+        // The API's type is untrusted; unknown values keep the original uppercase form.
+        const rawType: string = s.type
+        const type = isSentenceType(rawType) ? t(`copyText.types.${rawType}`) : rawType.toUpperCase()
+        lines.push(t("copyText.sentence", { index: i + 1, type, score: String(s.score), text: String(s.text) }))
       })
     }
     return lines.join("\n")
@@ -256,13 +287,13 @@ export default function AIDetector() {
       await navigator.clipboard.writeText(payload)
       setCopied(true)
       toast({
-        title: "Copied!",
-        description: result ? "Analysis copied to clipboard" : "Text copied to clipboard",
+        title: t("toasts.copiedTitle"),
+        description: result ? t("toasts.analysisCopied") : t("toasts.textCopied"),
         variant: "success",
       })
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast({ title: "Copy failed", description: "Clipboard access was blocked by the browser.", variant: "destructive" })
+      toast({ title: t("toasts.copyFailedTitle"), description: t("toasts.copyFailedDescription"), variant: "destructive" })
     }
   }
 
@@ -280,11 +311,11 @@ export default function AIDetector() {
   const getSentenceLabel = (type: string) => {
     switch (type) {
       case "ai":
-        return { text: "AI", color: "text-red-600 bg-red-100 dark:bg-red-900/50" }
+        return { text: t("sentenceTypes.ai"), color: "text-red-600 bg-red-100 dark:bg-red-900/50" }
       case "mixed":
-        return { text: "Mixed", color: "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/50" }
+        return { text: t("sentenceTypes.mixed"), color: "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/50" }
       default:
-        return { text: "Human", color: "text-green-600 bg-green-100 dark:bg-green-900/50" }
+        return { text: t("sentenceTypes.human"), color: "text-green-600 bg-green-100 dark:bg-green-900/50" }
     }
   }
 
@@ -293,9 +324,9 @@ export default function AIDetector() {
       <Nav />
       <ToolPageHeader
         icon={Brain}
-        title="AI Detector"
-        description="Analyze any text to determine if it was written by AI or a human. Get a confidence score and a sentence-by-sentence breakdown."
-        category="AI Detection"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-purple-500/[0.07]"
         iconColor="text-purple-500"
         iconBg="bg-purple-500/10 border-purple-500/20"
@@ -306,20 +337,22 @@ export default function AIDetector() {
         {/* LEFT — input area */}
         <div className="space-y-3">
           <Textarea
-            aria-label="Text to analyze"
-            placeholder="Paste text to analyze..."
+            aria-label={t("input.ariaLabel")}
+            placeholder={t("input.placeholder")}
             className="min-h-[200px] resize-none rounded-xl border-border text-base md:text-sm leading-relaxed focus-visible:ring-1 focus-visible:ring-purple-500/30 focus-visible:ring-offset-0"
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
           {needsSignIn && !user && <ToolSignInPrompt href="/signin?next=/ai-detector" />}
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-xs text-muted-foreground">{text.length} chars</span>
+            <span className="text-xs text-muted-foreground">{t("input.chars", { count: text.length })}</span>
             <div className="flex items-center gap-2">
               {!!user && text.trim() && calculateRequiredTokens(text) > remainingWords && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Need {calculateRequiredTokens(text)} tokens.{" "}
-                  <Link href="/pricing" className="underline font-medium">Upgrade</Link>
+                  {t.rich("input.needTokens", {
+                    count: calculateRequiredTokens(text),
+                    link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+                  })}
                 </p>
               )}
               <Button
@@ -327,14 +360,14 @@ export default function AIDetector() {
                 disabled={isAnalyzing || !text.trim() || (!!user && calculateRequiredTokens(text) > remainingWords)}
                 className="h-9 px-5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium"
               >
-                {isAnalyzing ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Analyzing...</> : <>Detect{text.trim() ? ` (${calculateRequiredTokens(text)} tokens)` : ""}</>}
+                {isAnalyzing ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />{t("input.analyzing")}</> : <>{text.trim() ? t("input.detectWithCost", { count: calculateRequiredTokens(text) }) : t("input.detect")}</>}
               </Button>
             </div>
           </div>
           {isAnalyzing && (
             <div className="space-y-1.5" aria-live="polite">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Analyzing text...</span>
+                <span>{t("input.progress")}</span>
                 <span>{Math.round(progress)}%</span>
               </div>
               <Progress value={progress} className="h-1" />
@@ -348,7 +381,7 @@ export default function AIDetector() {
         {!result && (
           <div className="min-h-[280px] rounded-xl border border-border bg-muted/30 flex flex-col items-center justify-center gap-2">
             <Brain className="h-6 w-6 text-purple-500/40" />
-            <p className="text-xs text-muted-foreground/40">Analysis appears here</p>
+            <p className="text-xs text-muted-foreground/40">{t("emptyResults")}</p>
           </div>
         )}
         {/* Score card — shown when result exists */}
@@ -376,14 +409,14 @@ export default function AIDetector() {
                 <div>
                   <p className="text-base font-semibold leading-tight">
                     {result.humanLikelihood !== "Unknown"
-                      ? result.humanLikelihood
-                      : result.score > 70 ? "Likely AI-generated" : result.score > 40 ? "Possibly AI-assisted" : "Likely human-written"}
+                      ? verdictLabel(result.humanLikelihood)
+                      : result.score > 70 ? t("result.likelyAi") : result.score > 40 ? t("result.possiblyAi") : t("result.likelyHuman")}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{result.analysis}</p>
                 </div>
                 {/* Human vs AI bar */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-green-600 dark:text-green-400 font-medium tabular-nums w-16">{100 - result.score}% human</span>
+                  <span className="text-[11px] text-green-600 dark:text-green-400 font-medium tabular-nums w-16">{t("result.humanPercent", { value: 100 - result.score })}</span>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full"
@@ -402,7 +435,7 @@ export default function AIDetector() {
 
               <div className="flex flex-col gap-1.5 shrink-0">
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleCopy} disabled={isAnalyzing}>
-                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                  {copied ? <><Check className="h-3 w-3" />{t("result.copied")}</> : <><Copy className="h-3 w-3" />{t("result.copy")}</>}
                 </Button>
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={handleDownloadReport} disabled={isAnalyzing}>
                   <Download className="h-3 w-3" />PDF
@@ -414,16 +447,16 @@ export default function AIDetector() {
             {result.sentences && result.sentences.length > 0 && (
               <>
                 <div className="border-t border-border px-5 py-2.5 flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Sentence Breakdown</span>
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("result.sentenceBreakdown")}</span>
                   <div className="flex gap-3">
-                    {[
-                      { label: "Human", color: "bg-green-500" },
-                      { label: "Mixed", color: "bg-amber-500" },
-                      { label: "AI", color: "bg-red-500" },
-                    ].map(({ label, color }) => (
-                      <span key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {([
+                      { type: "human", color: "bg-green-500" },
+                      { type: "mixed", color: "bg-amber-500" },
+                      { type: "ai", color: "bg-red-500" },
+                    ] as const).map(({ type, color }) => (
+                      <span key={type} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
-                        {label}
+                        {t(`sentenceTypes.${type}`)}
                       </span>
                     ))}
                   </div>
@@ -464,75 +497,42 @@ export default function AIDetector() {
 
           {/* Features row */}
           <div className="grid sm:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-purple-500" />
-                <h3 className="text-sm font-semibold">Sentence-Level Analysis</h3>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Every sentence is scored individually and colour-coded as Human, Mixed, or AI — not just an overall number.</p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <BarChart className="h-4 w-4 text-purple-500" />
-                <h3 className="text-sm font-semibold">Confidence Score</h3>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">A percentage score from 0–100 shows how likely the text is AI-generated, with a visual human-vs-AI bar.</p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Download className="h-4 w-4 text-purple-500" />
-                <h3 className="text-sm font-semibold">PDF Report Export</h3>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Download a formatted report with the full analysis — useful for documentation, reviews, or academic integrity records.</p>
-            </div>
+            {FEATURE_KEYS.map((key) => {
+              const Icon = key === "sentence" ? Brain : key === "confidence" ? BarChart : Download
+              return (
+                <div key={key} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-purple-500" />
+                    <h3 className="text-sm font-semibold">{t(`features.${key}.title`)}</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{t(`features.${key}.description`)}</p>
+                </div>
+              )
+            })}
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                  Teachers verifying whether student submissions were written by AI
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                  Editors checking if freelancer-delivered content is original
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                  Students self-checking their AI-assisted drafts before submitting
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                  Publishers screening content for AI-written passages before publication
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
-                  Researchers studying patterns in AI-generated vs human-written text
-                </li>
+                {USE_CASE_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                    {t(`useCases.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-purple-500 font-bold shrink-0">→</span>
-                  Paste at least 200 words for a reliable result — very short text produces inconclusive scores.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-purple-500 font-bold shrink-0">→</span>
-                  A score of 40–60% usually means AI-assisted rather than fully AI-generated.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-purple-500 font-bold shrink-0">→</span>
-                  Humanize your AI drafts first, then re-check — target under 30% for a safe result.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-purple-500 font-bold shrink-0">→</span>
-                  Sentence-level highlights show which specific sentences raised the score — edit those first.
-                </li>
+                {TIP_KEYS.map((key) => (
+                  <li key={key} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-purple-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${key}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -540,7 +540,7 @@ export default function AIDetector() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }
