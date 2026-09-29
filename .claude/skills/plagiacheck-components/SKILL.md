@@ -23,6 +23,7 @@ The component tree is split into three layers:
 | `plagiarism-results.tsx` | Used only by the home page — renders the plagiarism score + matches |
 | `theme-provider.tsx` | Wraps `next-themes` provider; default theme is dark |
 | `theme-toggle.tsx` | Light/dark toggle button |
+| `language-toggle.tsx` | English / 简体中文 switcher: `LanguageToggle` (desktop, next to the theme toggle) and `LanguageMenuRow` (mobile sheet). See `plagiacheck-i18n` |
 | `tool-page-header.tsx` | Title + description + icon + category pill at the top of each tool page |
 | `tool-signin-prompt.tsx` | "Sign in to use this tool" inline card shown when an unauthenticated user clicks a tool action |
 

@@ -31,6 +31,7 @@ A Next.js 15 (App Router) writing-tools SaaS at `https://www.plagiacheck.online/
 - `npm run dev` — Start development server
 - `npm run build` — Production build
 - `npm run lint` — Run ESLint
+- `npm run i18n:check` — Check that the English and Chinese messages have the same keys and placeholders
 - `npm start` — Start production server
 
 ---
@@ -76,6 +77,7 @@ When a user question or task lands, identify which slice of the system it touche
 - `plagiacheck-components` — nav mega-menu, ToolPageHeader, FAQ, shadcn/ui inventory
 - `plagiacheck-pages-non-tool` — `/pricing`, `/billing`, `/history`, `/signin`, `/forgot-password`, `/reset-password`, `/privacy`, `/terms`
 - `plagiacheck-env` — every env var, including the `URL2` legacy alias and the `GEMINI_*` keys
+- `plagiacheck-i18n` — English + Simplified Chinese via next-intl: cookie-based locale, `messages/{en,zh}` namespaces, typed keys, the language toggle, API error translation
 
 ---
 
@@ -107,6 +109,7 @@ These come up often enough that they belong in the front door:
 - **Token deduction.** Always deduct via the RPC, refund on every failure path, return `remainingTokens` in the response. Page calls `decrementWords()` (no args — it refetches) on success.
 - **`recordToolUse` is best-effort.** Errors are caught and logged. Don't `await` it inside a try/catch that fails the request.
 - **No emojis in committed code** unless the user asks.
+- **All user-visible text is translated.** Add new strings to both `messages/en` and `messages/zh` and read them with `useTranslations` / `getTranslations`; run `npm run i18n:check`. On payment pages only the text may change. See `plagiacheck-i18n`.
 
 ---
 

@@ -64,6 +64,7 @@ Each topic has its own `plagiacheck-*` skill. Read the skill instead of re-deriv
 - `plagiacheck-components` — `nav.tsx`, `tool-page-header`, `tool-signin-prompt`, shadcn-ui inventory
 - `plagiacheck-pages-non-tool` — `/pricing`, `/billing`, `/signin`, `/history`, `/forgot-password`, `/reset-password`, `/privacy`, `/terms`
 - `plagiacheck-env` — every environment variable the app uses, including the `URL2` legacy alias and the `GEMINI_*` keys
+- `plagiacheck-i18n` — English + Simplified Chinese via next-intl (cookie locale, `messages/{en,zh}`, language toggle, text-only rule on payment pages)
 
 ## Restricted areas (DO NOT MODIFY)
 
