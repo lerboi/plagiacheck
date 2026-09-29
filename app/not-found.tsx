@@ -2,8 +2,10 @@ import Link from "next/link"
 import { FileQuestion, Home, LayoutGrid } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Nav } from "@/components/nav"
+import { getTranslations } from "next-intl/server"
 
-export default function NotFound() {
+export default async function NotFound() {
+  const t = await getTranslations("Shell.notFound")
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Nav />
@@ -13,22 +15,22 @@ export default function NotFound() {
             <FileQuestion className="h-7 w-7 text-blue-500" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold">Page not found</h1>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
             <p className="text-muted-foreground text-sm">
-              We couldn&apos;t find the page you were looking for. It may have moved, or the link could be broken.
+              {t("body")}
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Button asChild>
               <Link href="/">
                 <Home className="h-4 w-4 mr-2" />
-                Back to home
+                {t("home")}
               </Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/all-tools">
                 <LayoutGrid className="h-4 w-4 mr-2" />
-                Browse tools
+                {t("browse")}
               </Link>
             </Button>
           </div>

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
 
 export default {
     darkMode: ["class"],
@@ -9,6 +10,18 @@ export default {
   ],
   theme: {
   	extend: {
+  		// Inter first for Latin text; Chinese falls through to each platform's
+  		// own CJK UI font instead of downloading a multi-megabyte web font.
+  		fontFamily: {
+  			sans: [
+  				'var(--font-inter)',
+  				'PingFang SC',
+  				'Hiragino Sans GB',
+  				'Microsoft YaHei',
+  				'Noto Sans SC',
+  				...defaultTheme.fontFamily.sans
+  			]
+  		},
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

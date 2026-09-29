@@ -1,0 +1,51 @@
+{
+  "tools": "Tools",
+  "onPlagiaAi": "On PlagiaAI",
+  "viewAllTools": "View all tools",
+  "allTools": "All Tools",
+  "pricing": "Pricing",
+  "history": "History",
+  "billing": "Billing",
+  "logIn": "Log in",
+  "getStarted": "Get Started",
+  "signOut": "Sign Out",
+  "toggleMenu": "Toggle menu",
+  "badges": {
+    "new": "NEW",
+    "free": "FREE",
+    "img": "IMG"
+  },
+  "tokens": {
+    "signUp": "Sign up",
+    "signUpTitle": "Sign up free — 1,000 tokens to start",
+    "signUpFreeTitle": "Sign up free",
+    "freeTokensLong": "— 1,000 free tokens",
+    "freeShort": "free",
+    "freeTokens": "1,000 free tokens",
+    "balanceTitle": "{text} text tokens · {image} image tokens",
+    "textAbbr": "tok",
+    "imageAbbr": "img",
+    "imageTitle": "Image tokens — used for visual tools",
+    "textCount": "<num>{count}</num> text",
+    "imageCount": "<num>{count}</num> image"
+  },
+  "profile": {
+    "tokenCount": "{count} tokens",
+    "history": "History",
+    "billing": "Billing",
+    "pricing": "Pricing",
+    "signOut": "Sign out"
+  },
+  "theme": {
+    "label": "Theme",
+    "toggle": "Toggle theme",
+    "change": "Change theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "language": {
+    "label": "Language",
+    "change": "Change language"
+  }
+}

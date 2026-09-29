@@ -1,0 +1,19 @@
+{
+  "copy": "Copy",
+  "copied": "Copied",
+  "copiedToClipboard": "Copied to clipboard",
+  "download": "Download",
+  "clear": "Clear",
+  "upload": "Upload",
+  "cancel": "Cancel",
+  "close": "Close",
+  "retry": "Try again",
+  "loading": "Loading...",
+  "error": "Error",
+  "success": "Success",
+  "signIn": "Sign in",
+  "tokens": "tokens",
+  "free": "Free",
+  "characters": "characters",
+  "words": "words"
+}

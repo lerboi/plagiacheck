@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "title": "Plagiacheck",
+    "description": "Write confidently with Plagiacheck's AI-powered writing assistant"
+  },
+  "footer": {
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "copyright": "© {year} Plagiacheck. All rights reserved."
+  },
+  "signInPrompt": {
+    "title": "Sign in to use this tool",
+    "body": "Your text will be here when you get back.",
+    "action": "Sign In"
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred. You can try again, or head back to the home page.",
+    "errorId": "Error ID: {digest}",
+    "retry": "Try again",
+    "home": "Go home"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "We couldn't find the page you were looking for. It may have moved, or the link could be broken.",
+    "home": "Back to home",
+    "browse": "Browse tools"
+  }
+}

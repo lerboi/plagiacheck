@@ -14,6 +14,7 @@ import {
 import type { User as SupabaseUser } from "@supabase/auth-helpers-nextjs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useTokenStore } from "@/lib/store"
+import { useTranslations } from "next-intl"
 
 interface ProfileDropdownProps {
   user: SupabaseUser
@@ -22,6 +23,7 @@ interface ProfileDropdownProps {
 
 export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
   const { remainingWords } = useTokenStore()
+  const t = useTranslations("Nav.profile")
 
   const getInitials = (email: string) => {
     return email.charAt(0).toUpperCase()
@@ -78,7 +80,7 @@ export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
               <div className="flex items-center space-x-2">
                 <Crown className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                  {remainingWords.toLocaleString()} tokens
+                  {t("tokenCount", { count: remainingWords.toLocaleString() })}
                 </span>
               </div>
             </div>
@@ -88,19 +90,19 @@ export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/history" className="flex items-center w-full">
             <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>History</span>
+            <span>{t("history")}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/billing" className="flex items-center w-full">
             <CreditCard className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>Billing</span>
+            <span>{t("billing")}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/pricing" className="flex items-center w-full">
             <Tag className="mr-2 h-4 w-4 text-muted-foreground" />
-            <span>Pricing</span>
+            <span>{t("pricing")}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -109,7 +111,7 @@ export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
           onClick={handleSignOut}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Sign out</span>
+          <span>{t("signOut")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

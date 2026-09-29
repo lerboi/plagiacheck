@@ -1,0 +1,51 @@
+{
+  "tools": "工具",
+  "onPlagiaAi": "当前在 PlagiaAI",
+  "viewAllTools": "查看全部工具",
+  "allTools": "全部工具",
+  "pricing": "价格",
+  "history": "历史记录",
+  "billing": "账单",
+  "logIn": "登录",
+  "getStarted": "免费开始",
+  "signOut": "退出登录",
+  "toggleMenu": "打开或关闭菜单",
+  "badges": {
+    "new": "新",
+    "free": "免费",
+    "img": "图片"
+  },
+  "tokens": {
+    "signUp": "注册",
+    "signUpTitle": "免费注册，赠送 1,000 积分",
+    "signUpFreeTitle": "免费注册",
+    "freeTokensLong": "— 赠送 1,000 积分",
+    "freeShort": "免费",
+    "freeTokens": "赠送 1,000 积分",
+    "balanceTitle": "文本积分 {text} · 图片积分 {image}",
+    "textAbbr": "文本",
+    "imageAbbr": "图片",
+    "imageTitle": "图片积分 — 用于视觉类工具",
+    "textCount": "文本 <num>{count}</num>",
+    "imageCount": "图片 <num>{count}</num>"
+  },
+  "profile": {
+    "tokenCount": "{count} 积分",
+    "history": "历史记录",
+    "billing": "账单",
+    "pricing": "价格",
+    "signOut": "退出登录"
+  },
+  "theme": {
+    "label": "主题",
+    "toggle": "切换主题",
+    "change": "更改主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统"
+  },
+  "language": {
+    "label": "语言",
+    "change": "切换语言"
+  }
+}

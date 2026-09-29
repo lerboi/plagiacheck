@@ -1,0 +1,19 @@
+{
+  "unauthorized": "Unauthorized",
+  "invalidRequest": "Invalid request",
+  "noImage": "No image provided",
+  "textTooLong": "Text exceeds maximum length of {max, number} characters",
+  "imageTooLarge": "Image too large (max ~8MB)",
+  "aiNotConfigured": "AI service not configured",
+  "insufficientTokens": "Insufficient tokens",
+  "insufficientImageTokens": "Insufficient image tokens",
+  "aiUnavailable": "AI service temporarily unavailable. Please try again.",
+  "aiBadResponse": "Failed to parse AI response",
+  "chartNoData": "Could not extract chart data from your description. Add concrete values or steps and try again — no tokens were charged.",
+  "infographicNoContent": "Could not extract enough content for an infographic. Provide more detail and try again — no tokens were charged.",
+  "imageFailed": "Failed to process image. Please try again.",
+  "transcriptFailed": "Failed to process transcript",
+  "analysisFailedRefunded": "Analysis failed. Tokens have been refunded.",
+  "internal": "Internal server error",
+  "network": "Network error"
+}

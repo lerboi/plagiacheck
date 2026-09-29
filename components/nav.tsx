@@ -17,7 +17,6 @@ import {
   FileText,
   CheckCircle2,
   Hash,
-  History,
   LayoutGrid,
   CreditCard,
   Coins,
@@ -35,11 +34,13 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "framer-motion"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { ThemeToggle, ThemeMenuRow } from "./theme-toggle"
+import { LanguageToggle, LanguageMenuRow } from "./language-toggle"
 import { ProfileDropdown } from "@/components/Profile/ProfileDropdown"
 
 interface Tool {
@@ -72,45 +73,47 @@ export function Nav() {
   const toolsButtonRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
   const onPlagiaAi = pathname === "/" || pathname === "/plagia-ai"
+  const t = useTranslations("Nav")
+  const tc = useTranslations("ToolCatalog")
 
   const toolCategories: ToolCategory[] = [
     {
-      label: "Writing Tools",
+      label: tc("categories.writing"),
       icon: Pen,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
       tools: [
-        { name: "Plagiarism Checker", href: "/plagiarism-checker", icon: Shield, desc: "Check for plagiarism", color: "text-blue-500", bgColor: "bg-blue-500/10" },
-        { name: "AI Detector", href: "/ai-detector", icon: Brain, desc: "Detect AI-written text", color: "text-purple-500", bgColor: "bg-purple-500/10" },
-        { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, desc: "Make AI text human", color: "text-pink-500", bgColor: "bg-pink-500/10" },
-        { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, desc: "Rewrite your text", color: "text-cyan-500", bgColor: "bg-cyan-500/10" },
-        { name: "Summarizer", href: "/summarizer", icon: FileText, desc: "Condense long text", color: "text-green-500", bgColor: "bg-green-500/10" },
-        { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, desc: "Fix grammar errors", color: "text-emerald-500", bgColor: "bg-emerald-500/10" },
-        { name: "Word Counter", href: "/word-counter", icon: Hash, desc: "Count words & chars", color: "text-orange-500", bgColor: "bg-orange-500/10", isFree: true },
+        { name: tc("tools.plagiarismChecker.name"), href: "/plagiarism-checker", icon: Shield, desc: tc("tools.plagiarismChecker.short"), color: "text-blue-500", bgColor: "bg-blue-500/10" },
+        { name: tc("tools.aiDetector.name"), href: "/ai-detector", icon: Brain, desc: tc("tools.aiDetector.short"), color: "text-purple-500", bgColor: "bg-purple-500/10" },
+        { name: tc("tools.aiHumanizer.name"), href: "/ai-humanizer", icon: Wand2, desc: tc("tools.aiHumanizer.short"), color: "text-pink-500", bgColor: "bg-pink-500/10" },
+        { name: tc("tools.paraphraser.name"), href: "/paraphraser", icon: RefreshCw, desc: tc("tools.paraphraser.short"), color: "text-cyan-500", bgColor: "bg-cyan-500/10" },
+        { name: tc("tools.summarizer.name"), href: "/summarizer", icon: FileText, desc: tc("tools.summarizer.short"), color: "text-green-500", bgColor: "bg-green-500/10" },
+        { name: tc("tools.grammarChecker.name"), href: "/grammar-checker", icon: CheckCircle2, desc: tc("tools.grammarChecker.short"), color: "text-emerald-500", bgColor: "bg-emerald-500/10" },
+        { name: tc("tools.wordCounter.name"), href: "/word-counter", icon: Hash, desc: tc("tools.wordCounter.short"), color: "text-orange-500", bgColor: "bg-orange-500/10", isFree: true },
       ],
     },
     {
-      label: "Image & Visual",
+      label: tc("categories.image"),
       icon: ImageIcon,
       color: "text-rose-500",
       bgColor: "bg-rose-500/10",
       tools: [
-        { name: "Image to Text", href: "/image-to-text", icon: Image, desc: "Extract text from images", color: "text-rose-500", bgColor: "bg-rose-500/10", usesImageTokens: true },
-        { name: "Infographic Generator", href: "/infographic-generator", icon: BarChart3, desc: "Text to infographics", color: "text-amber-500", bgColor: "bg-amber-500/10", usesImageTokens: true },
-        { name: "Thumbnail Generator", href: "/thumbnail-generator", icon: ImagePlus, desc: "Create cover images", color: "text-violet-500", bgColor: "bg-violet-500/10", usesImageTokens: true },
-        { name: "Chart Generator", href: "/chart-generator", icon: PieChart, desc: "Data to charts & diagrams", color: "text-teal-500", bgColor: "bg-teal-500/10", usesImageTokens: true },
+        { name: tc("tools.imageToText.name"), href: "/image-to-text", icon: Image, desc: tc("tools.imageToText.short"), color: "text-rose-500", bgColor: "bg-rose-500/10", usesImageTokens: true },
+        { name: tc("tools.infographicGenerator.name"), href: "/infographic-generator", icon: BarChart3, desc: tc("tools.infographicGenerator.short"), color: "text-amber-500", bgColor: "bg-amber-500/10", usesImageTokens: true },
+        { name: tc("tools.thumbnailGenerator.name"), href: "/thumbnail-generator", icon: ImagePlus, desc: tc("tools.thumbnailGenerator.short"), color: "text-violet-500", bgColor: "bg-violet-500/10", usesImageTokens: true },
+        { name: tc("tools.chartGenerator.name"), href: "/chart-generator", icon: PieChart, desc: tc("tools.chartGenerator.short"), color: "text-teal-500", bgColor: "bg-teal-500/10", usesImageTokens: true },
       ],
     },
     {
-      label: "Voice & Audio",
+      label: tc("categories.voice"),
       icon: AudioLines,
       color: "text-indigo-500",
       bgColor: "bg-indigo-500/10",
       tools: [
-        { name: "Speech to Text", href: "/speech-to-text", icon: Mic, desc: "Transcribe audio to text", color: "text-indigo-500", bgColor: "bg-indigo-500/10" },
-        { name: "Text to Speech", href: "/text-to-speech", icon: Volume2, desc: "Listen to text read aloud", color: "text-sky-500", bgColor: "bg-sky-500/10", isFree: true },
-        { name: "Voice to Essay", href: "/voice-to-essay", icon: FileEdit, desc: "Speak ideas, get essays", color: "text-sky-600", bgColor: "bg-sky-600/10" },
-        { name: "Audio Summarizer", href: "/audio-summarizer", icon: FileAudio, desc: "Summarize recordings", color: "text-orange-600", bgColor: "bg-orange-600/10" },
+        { name: tc("tools.speechToText.name"), href: "/speech-to-text", icon: Mic, desc: tc("tools.speechToText.short"), color: "text-indigo-500", bgColor: "bg-indigo-500/10" },
+        { name: tc("tools.textToSpeech.name"), href: "/text-to-speech", icon: Volume2, desc: tc("tools.textToSpeech.short"), color: "text-sky-500", bgColor: "bg-sky-500/10", isFree: true },
+        { name: tc("tools.voiceToEssay.name"), href: "/voice-to-essay", icon: FileEdit, desc: tc("tools.voiceToEssay.short"), color: "text-sky-600", bgColor: "bg-sky-600/10" },
+        { name: tc("tools.audioSummarizer.name"), href: "/audio-summarizer", icon: FileAudio, desc: tc("tools.audioSummarizer.short"), color: "text-orange-600", bgColor: "bg-orange-600/10" },
       ],
     },
   ]
@@ -244,11 +247,11 @@ export function Nav() {
               aria-haspopup="true"
             >
               <LayoutGrid className="h-4 w-4" />
-              Tools
+              {t("tools")}
               {onPlagiaAi && (
                 <span
                   className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-violet-500"
-                  aria-label="On PlagiaAI"
+                  aria-label={t("onPlagiaAi")}
                 />
               )}
               <ChevronDown className={`h-3.5 w-3.5 opacity-60 transition-transform duration-200 ${isToolsOpen ? "rotate-180" : ""}`} />
@@ -276,13 +279,13 @@ export function Nav() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold">PlagiaAI</span>
+                        <span className="text-sm font-semibold">{tc("plagiaAi.name")}</span>
                         <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-violet-500/15 text-violet-600 dark:text-violet-300 rounded-full leading-none">
-                          NEW
+                          {t("badges.new")}
                         </span>
                       </div>
                       <span className="text-[11px] text-muted-foreground leading-tight">
-                        Chat with an AI that uses all your tools
+                        {tc("plagiaAi.tagline")}
                       </span>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground motion-safe:group-hover:translate-x-0.5 transition-transform shrink-0" />
@@ -306,7 +309,7 @@ export function Nav() {
                         <div className="space-y-0.5">
                           {category.tools.map((tool) => (
                             <Link
-                              key={tool.name}
+                              key={tool.href}
                               href={tool.href}
                               onClick={() => setIsToolsOpen(false)}
                               className="group flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-accent transition-colors"
@@ -319,12 +322,12 @@ export function Nav() {
                                   <span className="text-sm font-medium truncate">{tool.name}</span>
                                   {tool.isFree && (
                                     <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full leading-none">
-                                      FREE
+                                      {t("badges.free")}
                                     </span>
                                   )}
                                   {tool.usesImageTokens && (
                                     <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300 rounded-full leading-none">
-                                      IMG
+                                      {t("badges.img")}
                                     </span>
                                   )}
                                 </div>
@@ -348,7 +351,7 @@ export function Nav() {
                         <div className="p-1.5 rounded-md bg-gray-500/10">
                           <LayoutGrid className="h-3.5 w-3.5 text-gray-500" />
                         </div>
-                        <span className="text-sm font-medium">View all tools</span>
+                        <span className="text-sm font-medium">{t("viewAllTools")}</span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground motion-safe:group-hover:translate-x-0.5 transition-transform" />
                     </Link>
@@ -363,10 +366,11 @@ export function Nav() {
             className="h-9 px-3 inline-flex items-center justify-center text-sm font-medium transition-colors hover:text-primary hover:bg-accent rounded-md gap-1.5 focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none"
           >
             <CreditCard className="h-4 w-4" />
-            Pricing
+            {t("pricing")}
           </Link>
 
           <ThemeToggle />
+          <LanguageToggle />
         </div>
 
         {/* Desktop Right Side */}
@@ -379,10 +383,10 @@ export function Nav() {
           ) : (
             <>
               <Button variant="ghost" size="sm" className="h-9 focus-visible:ring-0 focus-visible:ring-offset-0" asChild>
-                <Link href="/signin">Log in</Link>
+                <Link href="/signin">{t("logIn")}</Link>
               </Button>
               <Button size="sm" className="h-9 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus-visible:ring-0 focus-visible:ring-offset-0" asChild>
-                <Link href="/signin?tab=register">Get Started</Link>
+                <Link href="/signin?tab=register">{t("getStarted")}</Link>
               </Button>
             </>
           )}
@@ -395,7 +399,7 @@ export function Nav() {
           <button
             onClick={toggleMobileMenu}
             className="p-2 rounded-md hover:bg-accent transition-colors focus-visible:ring-0 focus:outline-none"
-            aria-label="Toggle menu"
+            aria-label={t("toggleMenu")}
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -444,9 +448,9 @@ export function Nav() {
                 }`}
               >
                 <Sparkles className="h-5 w-5 text-violet-500 shrink-0" />
-                <span className="font-medium text-sm">PlagiaAI</span>
+                <span className="font-medium text-sm">{tc("plagiaAi.name")}</span>
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-violet-500/20 text-violet-600 dark:text-violet-300 rounded-full leading-none">
-                  NEW
+                  {t("badges.new")}
                 </span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 ml-auto" />
               </Link>
@@ -478,7 +482,7 @@ export function Nav() {
                       <div className="mt-0.5 mb-1 pl-3 border-l border-border/60 ml-5 space-y-0.5">
                         {category.tools.map((tool) => (
                           <Link
-                            key={tool.name}
+                            key={tool.href}
                             href={tool.href}
                             className="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-accent transition-colors"
                             onClick={closeMobileMenu}
@@ -487,12 +491,12 @@ export function Nav() {
                             <span className="text-sm truncate">{tool.name}</span>
                             {tool.isFree && (
                               <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-green-500/15 text-green-600 dark:text-green-400 rounded-full leading-none shrink-0">
-                                FREE
+                                {t("badges.free")}
                               </span>
                             )}
                             {tool.usesImageTokens && (
                               <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-rose-500/15 text-rose-600 dark:text-rose-400 rounded-full leading-none shrink-0">
-                                IMG
+                                {t("badges.img")}
                               </span>
                             )}
                           </Link>
@@ -511,7 +515,7 @@ export function Nav() {
                   onClick={closeMobileMenu}
                 >
                   <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium text-sm">All Tools</span>
+                  <span className="font-medium text-sm">{t("allTools")}</span>
                 </Link>
                 <Link
                   href="/pricing"
@@ -519,28 +523,23 @@ export function Nav() {
                   onClick={closeMobileMenu}
                 >
                   <CreditCard className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium text-sm">Pricing</span>
+                  <span className="font-medium text-sm">{t("pricing")}</span>
                 </Link>
                 {user && (
-                  <>
-                    <Link
-                      href="/history"
-                      className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
-                      onClick={closeMobileMenu}
-                    >
-                      <History className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium text-sm">History</span>
-                    </Link>
-                    <Link
-                      href="/billing"
-                      className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
-                      onClick={closeMobileMenu}
-                    >
-                      <Coins className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium text-sm">Billing</span>
-                    </Link>
-                  </>
+                  <Link
+                    href="/billing"
+                    className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
+                    onClick={closeMobileMenu}
+                  >
+                    <Coins className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium text-sm">{t("billing")}</span>
+                  </Link>
                 )}
+
+                {/* Language takes the slot History used to have here, and is
+                    shown signed in or out. History stays in the desktop
+                    profile menu. */}
+                <LanguageMenuRow />
 
                 {/* Theme — the same row as the links above it, so a display
                     setting stops outweighing the actual navigation. */}
@@ -563,16 +562,16 @@ export function Nav() {
                       className="w-full focus-visible:ring-0 focus-visible:ring-offset-0"
                       onClick={handleLogout}
                     >
-                      Sign Out
+                      {t("signOut")}
                     </Button>
                   </div>
                 ) : (
                   <>
                     <Button variant="outline" className="w-full focus-visible:ring-0 focus-visible:ring-offset-0" asChild onClick={closeMobileMenu}>
-                      <Link href="/signin">Log in</Link>
+                      <Link href="/signin">{t("logIn")}</Link>
                     </Button>
                     <Button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0" asChild onClick={closeMobileMenu}>
-                      <Link href="/signin?tab=register">Get Started</Link>
+                      <Link href="/signin?tab=register">{t("getStarted")}</Link>
                     </Button>
                   </>
                 )}
@@ -596,17 +595,18 @@ interface TokenBadgeProps {
 }
 
 function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens }: TokenBadgeProps) {
+  const t = useTranslations("Nav.tokens")
   if (!user) {
     return (
       <Link
         href="/signin?tab=register"
         className="group flex items-center gap-1.5 h-8 px-3 rounded-full bg-gradient-to-r from-blue-500/10 via-violet-500/10 to-blue-500/10 border border-blue-200/60 dark:border-blue-800/60 hover:border-blue-400/60 dark:hover:border-blue-600/60 hover:from-blue-500/15 hover:via-violet-500/15 hover:to-blue-500/15 transition-all duration-200"
-        title="Sign up free — 1,000 tokens to start"
+        title={t("signUpTitle")}
       >
         <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-        <span className="text-xs font-semibold text-foreground">Sign up</span>
-        <span className="text-xs text-muted-foreground hidden xl:inline">— 1,000 free tokens</span>
-        <span className="text-xs text-muted-foreground inline xl:hidden">free</span>
+        <span className="text-xs font-semibold text-foreground">{t("signUp")}</span>
+        <span className="text-xs text-muted-foreground hidden xl:inline">{t("freeTokensLong")}</span>
+        <span className="text-xs text-muted-foreground inline xl:hidden">{t("freeShort")}</span>
       </Link>
     )
   }
@@ -614,7 +614,7 @@ function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens: _
   return (
     <div
       className="flex items-center h-8 rounded-full border border-border bg-muted/50 dark:bg-muted/30 divide-x divide-border overflow-hidden"
-      title={`${remainingWords.toLocaleString()} text tokens · ${remainingImageTokens} image tokens`}
+      title={t("balanceTitle", { text: remainingWords.toLocaleString(), image: String(remainingImageTokens) })}
     >
       {/* Text tokens */}
       <div className="flex items-center gap-1.5 px-3 h-full">
@@ -622,32 +622,33 @@ function TokenBadge({ user, remainingWords, remainingImageTokens, guestTokens: _
         <span className="text-xs font-semibold tabular-nums">
           {remainingWords.toLocaleString()}
         </span>
-        <span className="text-xs text-muted-foreground hidden xl:inline">tok</span>
+        <span className="text-xs text-muted-foreground hidden xl:inline">{t("textAbbr")}</span>
       </div>
       {/* Image tokens */}
       <Link
         href="/pricing"
         className="flex items-center gap-1.5 px-3 h-full hover:bg-accent/60 transition-colors"
-        title="Image tokens — used for visual tools"
+        title={t("imageTitle")}
       >
         <ImageIcon className="h-3.5 w-3.5 text-rose-500 shrink-0" />
         <span className="text-xs font-semibold tabular-nums">{remainingImageTokens}</span>
-        <span className="text-xs text-muted-foreground hidden xl:inline">img</span>
+        <span className="text-xs text-muted-foreground hidden xl:inline">{t("imageAbbr")}</span>
       </Link>
     </div>
   )
 }
 
 function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens }: TokenBadgeProps) {
+  const t = useTranslations("Nav.tokens")
   if (!user) {
     return (
       <Link
         href="/signin?tab=register"
         className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-500/10 to-violet-500/10 border border-blue-200/50 dark:border-blue-800/50 hover:border-blue-400/50"
-        title="Sign up free"
+        title={t("signUpFreeTitle")}
       >
         <Sparkles className="h-3 w-3 text-blue-500" />
-        <span className="text-xs font-semibold">Sign up</span>
+        <span className="text-xs font-semibold">{t("signUp")}</span>
       </Link>
     )
   }
@@ -667,6 +668,7 @@ function MobileTokenBadge({ user, remainingWords, remainingImageTokens, guestTok
 }
 
 function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestTokens: _guestTokens, onNavigate }: TokenBadgeProps & { onNavigate: () => void }) {
+  const t = useTranslations("Nav.tokens")
   if (!user) {
     // Signed out: the nav bar already carries a "Sign up" pill and the sheet
     // pins a "Get Started" button, so this is a quiet reminder of what signing
@@ -678,8 +680,8 @@ function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestT
         className="flex items-center gap-3 py-3 px-3 rounded-lg hover:bg-accent transition-colors"
       >
         <Sparkles className="h-5 w-5 text-blue-500 shrink-0" />
-        <span className="font-medium text-sm">Sign up</span>
-        <span className="text-xs text-muted-foreground">1,000 free tokens</span>
+        <span className="font-medium text-sm">{t("signUp")}</span>
+        <span className="text-xs text-muted-foreground">{t("freeTokens")}</span>
       </Link>
     )
   }
@@ -690,10 +692,14 @@ function MobileTokenSummary({ user, remainingWords, remainingImageTokens, guestT
     <div className="flex items-center gap-3 py-3 px-3">
       <Coins className="h-5 w-5 text-muted-foreground shrink-0" />
       <span className="text-sm text-muted-foreground">
-        <span className="font-medium text-foreground tabular-nums">{remainingWords.toLocaleString()}</span> text
+        {t.rich("textCount", { count: remainingWords.toLocaleString(), num: countTag })}
         <span className="mx-1.5 text-border">|</span>
-        <span className="font-medium text-foreground tabular-nums">{remainingImageTokens}</span> image
+        {t.rich("imageCount", { count: String(remainingImageTokens), num: countTag })}
       </span>
     </div>
   )
+}
+
+function countTag(chunks: ReactNode) {
+  return <span className="font-medium text-foreground tabular-nums">{chunks}</span>
 }

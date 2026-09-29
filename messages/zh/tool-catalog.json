@@ -1,0 +1,73 @@
+{
+  "categories": {
+    "writing": "写作工具",
+    "image": "图像与视觉",
+    "voice": "语音与音频"
+  },
+  "plagiaAi": {
+    "name": "PlagiaAI",
+    "tagline": "与能调用所有工具的 AI 对话"
+  },
+  "tools": {
+    "plagiarismChecker": {
+      "name": "抄袭检测",
+      "short": "检查文本是否抄袭"
+    },
+    "aiDetector": {
+      "name": "AI 内容检测",
+      "short": "识别 AI 生成的文本"
+    },
+    "aiHumanizer": {
+      "name": "AI 文本人性化",
+      "short": "让 AI 文本更像人写的"
+    },
+    "paraphraser": {
+      "name": "改写工具",
+      "short": "改写你的文本"
+    },
+    "summarizer": {
+      "name": "摘要生成",
+      "short": "浓缩长篇文本"
+    },
+    "grammarChecker": {
+      "name": "语法检查",
+      "short": "修正语法错误"
+    },
+    "wordCounter": {
+      "name": "字数统计",
+      "short": "统计字数与字符"
+    },
+    "imageToText": {
+      "name": "图片转文字",
+      "short": "从图片中提取文字"
+    },
+    "infographicGenerator": {
+      "name": "信息图生成",
+      "short": "将文本变成信息图"
+    },
+    "thumbnailGenerator": {
+      "name": "封面图生成",
+      "short": "制作封面图片"
+    },
+    "chartGenerator": {
+      "name": "图表生成",
+      "short": "将数据变成图表与示意图"
+    },
+    "speechToText": {
+      "name": "语音转文字",
+      "short": "将语音转写为文字"
+    },
+    "textToSpeech": {
+      "name": "文字转语音",
+      "short": "朗读文本"
+    },
+    "voiceToEssay": {
+      "name": "语音成文",
+      "short": "说出想法，生成文章"
+    },
+    "audioSummarizer": {
+      "name": "音频摘要",
+      "short": "总结录音内容"
+    }
+  }
+}

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { AlertTriangle, RefreshCw, Home } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Nav } from "@/components/nav"
+import { useTranslations } from "next-intl"
 
 export default function GlobalError({
   error,
@@ -13,6 +14,7 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const t = useTranslations("Shell.error")
   useEffect(() => {
     // Surface to the console so it shows up in any future observability hook.
     console.error("Unhandled application error:", error)
@@ -27,23 +29,23 @@ export default function GlobalError({
             <AlertTriangle className="h-7 w-7 text-red-500" />
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold">Something went wrong</h1>
+            <h1 className="text-2xl font-bold">{t("title")}</h1>
             <p className="text-muted-foreground text-sm">
-              An unexpected error occurred. You can try again, or head back to the home page.
+              {t("body")}
             </p>
             {error?.digest && (
-              <p className="text-xs text-muted-foreground/70">Error ID: {error.digest}</p>
+              <p className="text-xs text-muted-foreground/70">{t("errorId", { digest: error.digest })}</p>
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <Button onClick={() => reset()}>
               <RefreshCw className="h-4 w-4 mr-2" />
-              Try again
+              {t("retry")}
             </Button>
             <Button variant="outline" asChild>
               <Link href="/">
                 <Home className="h-4 w-4 mr-2" />
-                Go home
+                {t("home")}
               </Link>
             </Button>
           </div>

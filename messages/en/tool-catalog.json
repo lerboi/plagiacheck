@@ -1,0 +1,73 @@
+{
+  "categories": {
+    "writing": "Writing Tools",
+    "image": "Image & Visual",
+    "voice": "Voice & Audio"
+  },
+  "plagiaAi": {
+    "name": "PlagiaAI",
+    "tagline": "Chat with an AI that uses all your tools"
+  },
+  "tools": {
+    "plagiarismChecker": {
+      "name": "Plagiarism Checker",
+      "short": "Check for plagiarism"
+    },
+    "aiDetector": {
+      "name": "AI Detector",
+      "short": "Detect AI-written text"
+    },
+    "aiHumanizer": {
+      "name": "AI Humanizer",
+      "short": "Make AI text human"
+    },
+    "paraphraser": {
+      "name": "Paraphraser",
+      "short": "Rewrite your text"
+    },
+    "summarizer": {
+      "name": "Summarizer",
+      "short": "Condense long text"
+    },
+    "grammarChecker": {
+      "name": "Grammar Checker",
+      "short": "Fix grammar errors"
+    },
+    "wordCounter": {
+      "name": "Word Counter",
+      "short": "Count words & chars"
+    },
+    "imageToText": {
+      "name": "Image to Text",
+      "short": "Extract text from images"
+    },
+    "infographicGenerator": {
+      "name": "Infographic Generator",
+      "short": "Text to infographics"
+    },
+    "thumbnailGenerator": {
+      "name": "Thumbnail Generator",
+      "short": "Create cover images"
+    },
+    "chartGenerator": {
+      "name": "Chart Generator",
+      "short": "Data to charts & diagrams"
+    },
+    "speechToText": {
+      "name": "Speech to Text",
+      "short": "Transcribe audio to text"
+    },
+    "textToSpeech": {
+      "name": "Text to Speech",
+      "short": "Listen to text read aloud"
+    },
+    "voiceToEssay": {
+      "name": "Voice to Essay",
+      "short": "Speak ideas, get essays"
+    },
+    "audioSummarizer": {
+      "name": "Audio Summarizer",
+      "short": "Summarize recordings"
+    }
+  }
+}

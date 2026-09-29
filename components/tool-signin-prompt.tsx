@@ -1,6 +1,7 @@
 "use client"
 import Link from "next/link"
 import { LogIn } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 interface ToolSignInPromptProps {
   /** Optional href — defaults to /signin. Pass ?next= to return after auth. */
@@ -8,6 +9,7 @@ interface ToolSignInPromptProps {
 }
 
 export function ToolSignInPrompt({ href = "/signin" }: ToolSignInPromptProps) {
+  const t = useTranslations("Shell.signInPrompt")
   return (
     <div className="flex items-center justify-between gap-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl">
       <div className="flex items-center gap-3 min-w-0">
@@ -15,15 +17,15 @@ export function ToolSignInPrompt({ href = "/signin" }: ToolSignInPromptProps) {
           <LogIn className="h-4 w-4 text-blue-600 dark:text-blue-400" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">Sign in to use this tool</p>
-          <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">Your text will be here when you get back.</p>
+          <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">{t("title")}</p>
+          <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">{t("body")}</p>
         </div>
       </div>
       <Link
         href={href}
         className="shrink-0 h-9 px-4 inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
       >
-        Sign In
+        {t("action")}
       </Link>
     </div>
   )

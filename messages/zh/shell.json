@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "title": "Plagiacheck",
+    "description": "借助 Plagiacheck 的 AI 写作助手，自信下笔"
+  },
+  "footer": {
+    "terms": "服务条款",
+    "privacy": "隐私政策",
+    "copyright": "© {year} Plagiacheck。保留所有权利。"
+  },
+  "signInPrompt": {
+    "title": "登录后即可使用此工具",
+    "body": "你输入的文字会在返回后保留。",
+    "action": "登录"
+  },
+  "error": {
+    "title": "出错了",
+    "body": "发生了意外错误。你可以重试，或返回首页。",
+    "errorId": "错误 ID：{digest}",
+    "retry": "重试",
+    "home": "返回首页"
+  },
+  "notFound": {
+    "title": "页面不存在",
+    "body": "找不到你要访问的页面。它可能已被移动，或链接已失效。",
+    "home": "返回首页",
+    "browse": "浏览工具"
+  }
+}

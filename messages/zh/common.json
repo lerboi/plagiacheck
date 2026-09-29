@@ -1,0 +1,19 @@
+{
+  "copy": "复制",
+  "copied": "已复制",
+  "copiedToClipboard": "已复制到剪贴板",
+  "download": "下载",
+  "clear": "清空",
+  "upload": "上传",
+  "cancel": "取消",
+  "close": "关闭",
+  "retry": "重试",
+  "loading": "加载中...",
+  "error": "错误",
+  "success": "成功",
+  "signIn": "登录",
+  "tokens": "积分",
+  "free": "免费",
+  "characters": "字符",
+  "words": "词"
+}
