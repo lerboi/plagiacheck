@@ -16,50 +16,34 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 import { sanitizeFilename } from "@/lib/utils"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
+// `value` is sent to the API; the button label is looked up by it (`chartTypes.<value>`).
 const CHART_TYPES = [
-  { value: "auto-detect", label: "Auto-Detect" },
-  { value: "bar", label: "Bar Chart" },
-  { value: "line", label: "Line Chart" },
-  { value: "pie", label: "Pie Chart" },
-  { value: "flowchart", label: "Flowchart" },
-  { value: "mindmap", label: "Mind Map" },
-  { value: "timeline", label: "Timeline" },
-  { value: "comparison", label: "Comparison" },
-]
+  { value: "auto-detect" },
+  { value: "bar" },
+  { value: "line" },
+  { value: "pie" },
+  { value: "flowchart" },
+  { value: "mindmap" },
+  { value: "timeline" },
+  { value: "comparison" },
+] as const
+
+// chartType values the API can return; anything else is shown as-is.
+const RESULT_CHART_TYPES = ["bar", "line", "pie", "flowchart", "mindmap", "timeline", "comparison"] as const
 
 const MAX_INPUT_CHARS = 2000
 
 
-const FAQ_ITEMS = [
-  {
-    question: "What chart types can it create?",
-    answer:
-      "Bar charts, pie charts, line charts, flowcharts, mind maps, timelines, and comparisons. Pick a type explicitly or use Auto-Detect and the AI will choose the best fit for your data.",
-  },
-  {
-    question: "How does the AI turn my text into a chart?",
-    answer:
-      "The AI reads your description, extracts the labels, values, and structure into a JSON spec, and then the chart is drawn deterministically from that spec — so text and numbers render crisply, not as AI-generated imagery.",
-  },
-  {
-    question: "What input works best?",
-    answer:
-      "Concrete data in plain text, e.g. \"Sales: Q1 120, Q2 150, Q3 90\" or a list of steps for a flowchart. Vague descriptions force the AI to invent numbers.",
-  },
-  {
-    question: "How do I download the result?",
-    answer:
-      "Charts are generated as SVG, which you can download directly. SVG scales to any size without losing quality and can be opened in browsers and design tools.",
-  },
-  {
-    question: "How much does a chart cost?",
-    answer:
-      "2 image tokens per generation. If generation fails, the tokens are refunded automatically.",
-  },
-]
+const FAQ_KEYS = ["types", "how", "input", "download", "cost"] as const
+const USE_CASE_KEYS = ["business", "processes", "concepts", "comparison", "timeline"] as const
+const TIP_KEYS = ["numbers", "steps", "autoDetect", "edit"] as const
 
 export default function ChartGenerator() {
+  const t = useTranslations("ChartGenerator")
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [chartType, setChartType] = useState("auto-detect")
   const [svgOutput, setSvgOutput] = useState("")
@@ -75,6 +59,13 @@ export default function ChartGenerator() {
   const generationRef = useRef(0)
 
   const IMAGE_TOKEN_COST = 2
+
+  const faqItems = FAQ_KEYS.map((k) => ({ question: t(`faq.${k}.question`), answer: t(`faq.${k}.answer`) }))
+  const chartTypeName = (value: unknown) => {
+    const type = String(value)
+    const match = RESULT_CHART_TYPES.find((ct) => ct === type)
+    return match ? t(`resultTypes.${match}`) : type
+  }
 
   useEffect(() => {
     const checkSession = async () => {
@@ -94,7 +85,7 @@ export default function ChartGenerator() {
     if (!text.trim()) return
 
     if (IMAGE_TOKEN_COST > remainingImageTokens) {
-      toast({ title: "Not enough image tokens", description: "Purchase image tokens to generate charts.", variant: "destructive" })
+      toast({ title: t("toasts.notEnoughTokens.title"), description: t("toasts.notEnoughTokens.description"), variant: "destructive" })
       router.push("/pricing")
       return
     }
@@ -115,13 +106,13 @@ export default function ChartGenerator() {
 
       if (response.status === 401) { router.push("/signin?next=/chart-generator"); return }
       if (response.status === 402) {
-        toast({ title: "Not enough image tokens", description: "Purchase image tokens to generate charts.", variant: "destructive" })
+        toast({ title: t("toasts.notEnoughTokens.title"), description: t("toasts.notEnoughTokens.description"), variant: "destructive" })
         await syncImageBalance()
         router.push("/pricing")
         return
       }
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || "Failed to generate chart")
+      if (!response.ok) throw new Error(data.error || t("errors.failed"))
       if (generation !== generationRef.current) return
 
       setSvgOutput(data.result.svg || "")
@@ -132,12 +123,19 @@ export default function ChartGenerator() {
       })
       await syncImageBalance(data.remainingImageTokens)
 
-      toast({ title: "Chart Generated", description: `${data.result.chartType} chart: "${data.result.title}"`, variant: "success" })
+      toast({
+        title: t("toasts.generated.title"),
+        description: t("toasts.generated.description", {
+          type: chartTypeName(data.result.chartType),
+          title: String(data.result.title),
+        }),
+        variant: "success",
+      })
     } catch (err) {
       if (generation !== generationRef.current) return
-      const msg = err instanceof Error ? err.message : "Failed to generate"
+      const msg = apiError(err, t("errors.generic"))
       setError(msg)
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: t("toasts.error"), description: msg, variant: "destructive" })
     } finally {
       setIsProcessing(false)
     }
@@ -162,16 +160,16 @@ export default function ChartGenerator() {
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 0)
-    toast({ title: "Downloaded!", description: "SVG file saved", variant: "success" })
+    toast({ title: t("toasts.downloaded.title"), description: t("toasts.downloaded.description"), variant: "success" })
   }
 
   const handleCopySvg = async () => {
     if (!svgOutput) return
     try {
       await navigator.clipboard.writeText(svgOutput)
-      toast({ title: "Copied!", description: "SVG code copied to clipboard", variant: "success" })
+      toast({ title: t("toasts.copied.title"), description: t("toasts.copied.description"), variant: "success" })
     } catch {
-      toast({ title: "Copy failed", description: "Could not access the clipboard", variant: "destructive" })
+      toast({ title: t("toasts.copyFailed.title"), description: t("toasts.copyFailed.description"), variant: "destructive" })
     }
   }
 
@@ -180,9 +178,9 @@ export default function ChartGenerator() {
       <Nav />
       <ToolPageHeader
         icon={PieChart}
-        title="Chart Generator"
-        description="Describe your data or concept in plain English and get professional charts, flowcharts, mind maps, and diagrams as downloadable SVGs."
-        category="Visual Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-teal-500/[0.07]"
         iconColor="text-teal-500"
         iconBg="bg-teal-500/10 border-teal-500/20"
@@ -194,18 +192,18 @@ export default function ChartGenerator() {
           {/* Left: Input */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Describe Your Chart</span>
+              <span className="text-sm font-medium">{t("input.label")}</span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground tabular-nums">{text.length}/{MAX_INPUT_CHARS}</span>
                 <Button variant="ghost" size="sm" onClick={handleClear} disabled={isProcessing} className="h-7 text-xs text-destructive hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Clear
+                  {t("input.clear")}
                 </Button>
               </div>
             </div>
 
             <Textarea
-              placeholder={`Describe the data or concept you want to visualize. Examples:\n\n• 'Sales by quarter: Q1 $50k, Q2 $75k, Q3 $60k, Q4 $90k'\n• 'User signup flow: landing page → register → verify email → dashboard'\n• 'Compare React vs Vue vs Angular in terms of speed, ecosystem, learning curve'`}
+              placeholder={t("input.placeholder")}
               className="min-h-[200px] resize-none text-base md:text-sm leading-relaxed"
               value={text}
               maxLength={MAX_INPUT_CHARS}
@@ -214,7 +212,7 @@ export default function ChartGenerator() {
 
             {/* Chart type selector */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground">Chart Type</label>
+              <label className="text-xs font-medium text-muted-foreground">{t("input.chartTypeLabel")}</label>
               <div className="flex flex-wrap gap-2">
                 {CHART_TYPES.map((ct) => (
                   <button
@@ -226,7 +224,7 @@ export default function ChartGenerator() {
                         : "border-border hover:border-teal-400"
                     }`}
                   >
-                    {ct.label}
+                    {t(`chartTypes.${ct.value}`)}
                   </button>
                 ))}
               </div>
@@ -238,8 +236,11 @@ export default function ChartGenerator() {
 
             {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Need {IMAGE_TOKEN_COST} image tokens — you have {remainingImageTokens}.{" "}
-                <Link href="/pricing" className="underline font-medium">Get more</Link>
+                {t.rich("needTokens", {
+                  cost: IMAGE_TOKEN_COST,
+                  balance: remainingImageTokens,
+                  link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+                })}
               </p>
             )}
 
@@ -251,31 +252,31 @@ export default function ChartGenerator() {
               disabled={isProcessing || !text.trim() || (!!user && IMAGE_TOKEN_COST > remainingImageTokens)}
             >
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("generating")}</>
               ) : (
-                <><PieChart className="mr-2 h-4 w-4" />Generate Chart ({IMAGE_TOKEN_COST} image tokens)</>
+                <><PieChart className="mr-2 h-4 w-4" />{t("generate", { cost: IMAGE_TOKEN_COST })}</>
               )}
             </Button>
           </div>
 
           {/* Right: Output */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <span className="text-sm font-medium">Generated Chart</span>
+            <span className="text-sm font-medium">{t("output.label")}</span>
 
             {/* Metadata strip + SVG container */}
             <ResultReveal show={!!(svgOutput && chartInfo)}>
               <div className="flex items-center gap-3 px-4 py-2.5 rounded-t-xl border border-b-0 border-border bg-card text-xs">
                 {chartInfo?.chartType && (
-                  <span className="px-2 py-1 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium capitalize">{chartInfo.chartType}</span>
+                  <span className="px-2 py-1 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 font-medium capitalize">{chartTypeName(chartInfo.chartType)}</span>
                 )}
                 {chartInfo?.title && <span className="font-medium text-foreground">{chartInfo.title}</span>}
                 {chartInfo?.description && <span className="text-muted-foreground hidden sm:inline">{chartInfo.description}</span>}
                 <div className="ml-auto flex gap-1">
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}>
-                    <Copy className="h-3 w-3" />SVG
+                    <Copy className="h-3 w-3" />{t("output.copySvg")}
                   </Button>
                   <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}>
-                    <Download className="h-3 w-3" />Download
+                    <Download className="h-3 w-3" />{t("output.download")}
                   </Button>
                 </div>
               </div>
@@ -283,7 +284,7 @@ export default function ChartGenerator() {
             <div className={`overflow-hidden p-4 ${svgOutput && chartInfo ? "rounded-b-xl border border-border" : "rounded-xl border border-border"} ${svgOutput ? "bg-white shadow-sm" : "bg-card dark:bg-card min-h-[280px] flex items-center justify-center"}`}>
               {svgOutput
                 ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full [&>svg]:w-full [&>svg]:h-auto" />
-                : <div className="text-center text-muted-foreground/40"><PieChart className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">Chart appears here</p></div>
+                : <div className="text-center text-muted-foreground/40"><PieChart className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">{t("output.empty")}</p></div>
               }
             </div>
           </div>
@@ -297,72 +298,48 @@ export default function ChartGenerator() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-teal-500" />
-                <h3 className="text-sm font-semibold">Auto Chart Type Detection</h3>
+                <h3 className="text-sm font-semibold">{t("features.detection.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Describe your data and the AI picks the best visualisation: bar, line, pie, flowchart, mind map, timeline, or comparison chart.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.detection.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Download className="h-4 w-4 text-teal-500" />
-                <h3 className="text-sm font-semibold">SVG Export</h3>
+                <h3 className="text-sm font-semibold">{t("features.export.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">All charts are generated as scalable SVG — resize them to any resolution without quality loss for presentations or print.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.export.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-teal-500" />
-                <h3 className="text-sm font-semibold">Natural Language Input</h3>
+                <h3 className="text-sm font-semibold">{t("features.language.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">No data upload, no formatting required. Just describe what you want to visualise in plain English.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.language.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                  Creating data charts for business presentations and reports
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                  Visualising processes and workflows as flowcharts
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                  Mapping relationships between concepts as mind maps
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                  Building comparison tables for product or feature analysis
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                  Generating quick timeline graphics for project overviews
-                </li>
+                {USE_CASE_KEYS.map((k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+                    {t(`useCases.items.${k}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-teal-500 font-bold shrink-0">→</span>
-                  Include specific numbers for data charts: &apos;Q1 $50k, Q2 $75k, Q3 $60k&apos; produces a more accurate bar chart than a vague description.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-teal-500 font-bold shrink-0">→</span>
-                  For flowcharts, describe the steps sequentially: &apos;User visits page → clicks button → form appears → submits → confirmation shown.&apos;
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-teal-500 font-bold shrink-0">→</span>
-                  Use &apos;Auto-Detect&apos; for your first attempt — then switch to a specific type if the result isn&apos;t what you expected.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-teal-500 font-bold shrink-0">→</span>
-                  SVGs can be opened in Figma, Illustrator, or any vector editor for further customisation.
-                </li>
+                {TIP_KEYS.map((k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-teal-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${k}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -370,7 +347,7 @@ export default function ChartGenerator() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

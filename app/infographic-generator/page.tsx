@@ -16,39 +16,19 @@ import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 import { sanitizeFilename } from "@/lib/utils"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
 const MAX_INPUT_CHARS = 2000
 
 
-const FAQ_ITEMS = [
-  {
-    question: "How is the infographic generated?",
-    answer:
-      "The AI structures your text into a spec — title, intro, statistics, sections, and conclusion — and the infographic is then rendered deterministically from that spec as an SVG. Text stays sharp and readable, with none of the garbled lettering typical of AI image generators.",
-  },
-  {
-    question: "What input works best?",
-    answer:
-      "Factual text with clear points and a few numbers or statistics. A paragraph or two about a topic with concrete facts produces a much better layout than a one-line prompt.",
-  },
-  {
-    question: "Can I edit the result?",
-    answer:
-      "The output is SVG, so you can open it in any vector editor (Figma, Inkscape, Illustrator) to tweak colors, text, or layout after downloading.",
-  },
-  {
-    question: "How much does an infographic cost?",
-    answer:
-      "2 image tokens per generation. Failed generations are refunded automatically.",
-  },
-  {
-    question: "Why does it not look like a photo or illustration?",
-    answer:
-      "By design. This tool produces clean, data-focused layouts rather than pictorial art, because spec-based rendering guarantees legible text and consistent structure.",
-  },
-]
+const FAQ_KEYS = ["how", "input", "edit", "cost", "style"] as const
+const USE_CASE_KEYS = ["social", "research", "education", "marketing", "audiences"] as const
+const TIP_KEYS = ["length", "numbers", "summarize", "edit"] as const
 
 export default function InfographicGenerator() {
+  const t = useTranslations("InfographicGenerator")
+  const apiError = useApiErrorMessage()
   const [text, setText] = useState("")
   const [svgOutput, setSvgOutput] = useState("")
   const [title, setTitle] = useState("")
@@ -64,6 +44,8 @@ export default function InfographicGenerator() {
   const generationRef = useRef(0)
 
   const IMAGE_TOKEN_COST = 2
+
+  const faqItems = FAQ_KEYS.map((k) => ({ question: t(`faq.${k}.question`), answer: t(`faq.${k}.answer`) }))
 
   useEffect(() => {
     const checkSession = async () => {
@@ -83,7 +65,7 @@ export default function InfographicGenerator() {
     if (!text.trim()) return
 
     if (IMAGE_TOKEN_COST > remainingImageTokens) {
-      toast({ title: "Not enough image tokens", description: "Purchase image tokens to generate infographics.", variant: "destructive" })
+      toast({ title: t("toasts.notEnoughTokens.title"), description: t("toasts.notEnoughTokens.description"), variant: "destructive" })
       router.push("/pricing")
       return
     }
@@ -104,25 +86,32 @@ export default function InfographicGenerator() {
 
       if (response.status === 401) { router.push("/signin?next=/infographic-generator"); return }
       if (response.status === 402) {
-        toast({ title: "Not enough image tokens", description: "Purchase image tokens to generate infographics.", variant: "destructive" })
+        toast({ title: t("toasts.notEnoughTokens.title"), description: t("toasts.notEnoughTokens.description"), variant: "destructive" })
         await syncImageBalance()
         router.push("/pricing")
         return
       }
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || "Failed to generate infographic")
+      if (!response.ok) throw new Error(data.error || t("errors.failed"))
       if (generation !== generationRef.current) return
 
       setSvgOutput(data.result.svg || "")
-      setTitle(data.result.title || "Infographic")
+      setTitle(data.result.title || t("output.defaultTitle"))
       await syncImageBalance(data.remainingImageTokens)
 
-      toast({ title: "Infographic Generated", description: `"${data.result.title}" with ${data.result.pointCount || 0} key points`, variant: "success" })
+      toast({
+        title: t("toasts.generated.title"),
+        description: t("toasts.generated.description", {
+          title: String(data.result.title),
+          count: String(data.result.pointCount || 0),
+        }),
+        variant: "success",
+      })
     } catch (err) {
       if (generation !== generationRef.current) return
-      const msg = err instanceof Error ? err.message : "Failed to generate"
+      const msg = apiError(err, t("errors.generic"))
       setError(msg)
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: t("toasts.error"), description: msg, variant: "destructive" })
     } finally {
       setIsProcessing(false)
     }
@@ -147,16 +136,16 @@ export default function InfographicGenerator() {
     a.click()
     document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 0)
-    toast({ title: "Downloaded!", description: "SVG file saved", variant: "success" })
+    toast({ title: t("toasts.downloaded.title"), description: t("toasts.downloaded.description"), variant: "success" })
   }
 
   const handleCopySvg = async () => {
     if (!svgOutput) return
     try {
       await navigator.clipboard.writeText(svgOutput)
-      toast({ title: "Copied!", description: "SVG code copied to clipboard", variant: "success" })
+      toast({ title: t("toasts.copied.title"), description: t("toasts.copied.description"), variant: "success" })
     } catch {
-      toast({ title: "Copy failed", description: "Could not access the clipboard", variant: "destructive" })
+      toast({ title: t("toasts.copyFailed.title"), description: t("toasts.copyFailed.description"), variant: "destructive" })
     }
   }
 
@@ -167,9 +156,9 @@ export default function InfographicGenerator() {
       <Nav />
       <ToolPageHeader
         icon={BarChart3}
-        title="Infographic Generator"
-        description="Paste any article, essay, or report and get a beautiful visual infographic that highlights the key points and data. Download as SVG."
-        category="Visual Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-amber-500/[0.07]"
         iconColor="text-amber-500"
         iconBg="bg-amber-500/10 border-amber-500/20"
@@ -181,18 +170,18 @@ export default function InfographicGenerator() {
           {/* Left: Input */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Your Text</span>
+              <span className="text-sm font-medium">{t("input.label")}</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground tabular-nums">{wordCount} words · {text.length}/{MAX_INPUT_CHARS}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{t("input.counter", { words: wordCount, chars: text.length, max: MAX_INPUT_CHARS })}</span>
                 <Button variant="ghost" size="sm" onClick={handleClear} disabled={isProcessing} className="h-7 text-xs text-destructive hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Clear
+                  {t("input.clear")}
                 </Button>
               </div>
             </div>
 
             <Textarea
-              placeholder="Paste your article, essay, report, or any text you want to turn into an infographic..."
+              placeholder={t("input.placeholder")}
               className="min-h-[320px] resize-none text-base md:text-sm leading-relaxed"
               value={text}
               maxLength={MAX_INPUT_CHARS}
@@ -205,8 +194,11 @@ export default function InfographicGenerator() {
 
             {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Need {IMAGE_TOKEN_COST} image tokens — you have {remainingImageTokens}.{" "}
-                <Link href="/pricing" className="underline font-medium">Get more</Link>
+                {t.rich("needTokens", {
+                  cost: IMAGE_TOKEN_COST,
+                  balance: remainingImageTokens,
+                  link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+                })}
               </p>
             )}
 
@@ -218,31 +210,31 @@ export default function InfographicGenerator() {
               disabled={isProcessing || !text.trim() || (!!user && IMAGE_TOKEN_COST > remainingImageTokens)}
             >
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("generating")}</>
               ) : (
-                <><BarChart3 className="mr-2 h-4 w-4" />Generate Infographic ({IMAGE_TOKEN_COST} image tokens)</>
+                <><BarChart3 className="mr-2 h-4 w-4" />{t("generate", { cost: IMAGE_TOKEN_COST })}</>
               )}
             </Button>
           </div>
 
           {/* Right: Output */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-            <span className="text-sm font-medium">Generated Infographic</span>
+            <span className="text-sm font-medium">{t("output.label")}</span>
 
             {/* Metadata strip */}
             <ResultReveal show={!!svgOutput}>
               <div className="flex items-center gap-3 px-4 py-2.5 rounded-t-xl border border-b-0 border-border bg-card text-xs">
                 {title && <span className="font-medium">{title}</span>}
                 <div className="ml-auto flex gap-1">
-                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}><Copy className="h-3 w-3" />SVG</Button>
-                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}><Download className="h-3 w-3" />Download</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleCopySvg}><Copy className="h-3 w-3" />{t("output.copySvg")}</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1" onClick={handleDownload}><Download className="h-3 w-3" />{t("output.download")}</Button>
                 </div>
               </div>
             </ResultReveal>
             <div ref={svgContainerRef} className={`overflow-hidden p-4 ${svgOutput ? "rounded-b-xl border border-border bg-white shadow-sm" : "rounded-xl border border-border bg-card dark:bg-card min-h-[320px] flex items-center justify-center"}`}>
               {svgOutput
                 ? <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full [&>svg]:w-full [&>svg]:h-auto" />
-                : <div className="text-center text-muted-foreground/40"><BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">Infographic appears here</p></div>
+                : <div className="text-center text-muted-foreground/40"><BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-40" /><p className="text-xs">{t("output.empty")}</p></div>
               }
             </div>
           </div>
@@ -256,72 +248,48 @@ export default function InfographicGenerator() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-semibold">Key Point Extraction</h3>
+                <h3 className="text-sm font-semibold">{t("features.extraction.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">The AI reads your text and identifies the most important facts, statistics, and takeaways to feature in the infographic.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.extraction.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-semibold">Professional Layout</h3>
+                <h3 className="text-sm font-semibold">{t("features.layout.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Outputs a structured vertical layout with a title, highlighted statistics, numbered points, and a conclusion section.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.layout.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Download className="h-4 w-4 text-amber-500" />
-                <h3 className="text-sm font-semibold">SVG Export</h3>
+                <h3 className="text-sm font-semibold">{t("features.export.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Download the infographic as a scalable SVG file for use in blog posts, presentations, social media, or printed materials.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.export.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                  Turning long blog posts into shareable social media graphics
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                  Creating visual summaries of research papers or reports
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                  Making educational handouts from textbook chapters
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                  Producing data visualisations for marketing campaigns
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
-                  Summarising complex topics for non-technical audiences
-                </li>
+                {USE_CASE_KEYS.map((k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    {t(`useCases.items.${k}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-amber-500 font-bold shrink-0">→</span>
-                  Paste 200–500 words for the best balance — too little produces sparse output, too much causes the AI to over-generalise.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-amber-500 font-bold shrink-0">→</span>
-                  Include statistics and numbers in your text — the AI highlights them prominently in the infographic.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-amber-500 font-bold shrink-0">→</span>
-                  Use the Summarizer first to condense very long documents, then feed the summary into the Infographic Generator.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-amber-500 font-bold shrink-0">→</span>
-                  SVGs can be edited in Figma or Illustrator to adjust colours, fonts, or layout after generation.
-                </li>
+                {TIP_KEYS.map((k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-amber-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${k}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -329,7 +297,7 @@ export default function InfographicGenerator() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

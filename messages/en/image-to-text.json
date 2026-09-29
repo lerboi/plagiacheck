@@ -1,1 +1,120 @@
-{}
+{
+  "header": {
+    "category": "Visual Tools",
+    "title": "Image to Text",
+    "description": "Upload photos of documents, handwritten notes, screenshots, or any image. Our AI vision model extracts all visible text instantly."
+  },
+  "upload": {
+    "label": "Upload Image",
+    "clear": "Clear",
+    "dropPrompt": "Drop an image, click to upload, or paste",
+    "formats": "PNG, JPG, WEBP up to 8MB",
+    "previewAlt": "Uploaded image"
+  },
+  "needTokens": "Need {cost} image token — you have {balance}. <link>Get more</link>",
+  "extract": "Extract Text (1 image token)",
+  "extracting": "Extracting...",
+  "output": {
+    "label": "Extracted Text",
+    "placeholder": "Extracted text appears here",
+    "noTextDetected": "No text detected.",
+    "confidence": "{level} confidence",
+    "confidenceLevels": {
+      "high": "high",
+      "medium": "medium",
+      "low": "low"
+    },
+    "textTypes": {
+      "printed": "printed",
+      "handwritten": "handwritten",
+      "mixed": "mixed",
+      "screenshot": "screenshot",
+      "unknown": "unknown"
+    },
+    "wordsExtracted": "{count} words extracted",
+    "copy": "Copy",
+    "copied": "Copied",
+    "useWith": "Use extracted text with:",
+    "links": {
+      "plagiarism": "Plagiarism Check",
+      "aiDetector": "AI Detector",
+      "grammar": "Grammar Check"
+    }
+  },
+  "toasts": {
+    "notEnoughTokens": {
+      "title": "Not enough image tokens",
+      "description": "Purchase image tokens to use this tool."
+    },
+    "extracted": {
+      "title": "Text Extracted",
+      "description": "Found {count} words",
+      "descriptionWithConfidence": "Found {count} words ({confidence} confidence)"
+    },
+    "copied": {
+      "title": "Copied!",
+      "description": "Text copied to clipboard"
+    },
+    "error": "Error"
+  },
+  "errors": {
+    "notImage": "Please upload an image file (PNG, JPG, WEBP)",
+    "tooLarge": "Image must be under 8MB",
+    "failed": "Failed to extract text"
+  },
+  "features": {
+    "handwritten": {
+      "title": "Printed & Handwritten",
+      "body": "Extracts text from typed documents, handwritten notes, printed receipts, screenshots, and mixed-media images."
+    },
+    "confidence": {
+      "title": "Confidence Scoring",
+      "body": "Each extraction is rated as high, medium, or low confidence so you know where to double-check the output."
+    },
+    "reuse": {
+      "title": "One-Click Copy & Reuse",
+      "body": "Extracted text is immediately editable and can be piped into the Plagiarism Checker, Grammar Checker, or Summarizer."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "notes": "Digitising handwritten lecture notes or meeting whiteboard photos",
+      "screenshots": "Extracting text from screenshots of articles or social posts",
+      "receipts": "Converting scanned receipts or invoices into editable data",
+      "archive": "Archiving physical documents into searchable text",
+      "research": "Extracting quotes or data from printed research papers"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "lighting": "Ensure good lighting and a straight-on angle — blurry or skewed photos reduce accuracy significantly.",
+      "handwriting": "For handwritten text, write clearly and avoid overlapping letters for the best extraction.",
+      "resolution": "High-resolution images (1MP+) produce noticeably better results than compressed photos.",
+      "grammar": "After extraction, run through the Grammar Checker to catch any OCR errors."
+    }
+  },
+  "faq": {
+    "formats": {
+      "question": "Which image formats are supported?",
+      "answer": "PNG, JPEG, WebP, and GIF, up to 8MB per image. If your file is larger, resize or compress it before uploading."
+    },
+    "handwriting": {
+      "question": "Can it read handwriting?",
+      "answer": "It can, but accuracy depends heavily on legibility. Clear, printed handwriting works reasonably well; messy cursive often produces errors, so proofread the result."
+    },
+    "how": {
+      "question": "How does the OCR work?",
+      "answer": "Your image is sent to a vision AI model (Google's Gemini) that reads the text in it, which handles photos, screenshots, and scans better than traditional pattern-matching OCR."
+    },
+    "cost": {
+      "question": "How much does an extraction cost?",
+      "answer": "1 image token per image, regardless of how much text it contains. Failed extractions are refunded automatically."
+    },
+    "storage": {
+      "question": "Is my image stored?",
+      "answer": "The image is sent over HTTPS for processing and is not published or shared. Only a short text preview of the run is kept in your private history, which you can delete anytime."
+    }
+  }
+}

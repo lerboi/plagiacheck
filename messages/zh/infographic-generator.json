@@ -1,1 +1,105 @@
-{}
+{
+  "header": {
+    "category": "视觉工具",
+    "title": "信息图生成",
+    "description": "粘贴任意文章、论文或报告，即可生成突出关键要点和数据的精美信息图，并可下载为 SVG。"
+  },
+  "input": {
+    "label": "你的文本",
+    "counter": "{words} 个词 · {chars}/{max}",
+    "clear": "清空",
+    "placeholder": "粘贴你想转换为信息图的文章、论文、报告或任意文本..."
+  },
+  "needTokens": "需要 {cost} 图片积分，当前余额 {balance}。<link>获取更多</link>",
+  "generate": "生成信息图（{cost} 图片积分）",
+  "generating": "正在生成...",
+  "output": {
+    "label": "生成的信息图",
+    "copySvg": "复制 SVG",
+    "download": "下载",
+    "empty": "信息图将显示在这里",
+    "defaultTitle": "信息图"
+  },
+  "toasts": {
+    "notEnoughTokens": {
+      "title": "图片积分不足",
+      "description": "购买图片积分后即可生成信息图。"
+    },
+    "generated": {
+      "title": "信息图已生成",
+      "description": "“{title}”，包含 {count} 个要点"
+    },
+    "downloaded": {
+      "title": "已下载！",
+      "description": "SVG 文件已保存"
+    },
+    "copied": {
+      "title": "已复制！",
+      "description": "SVG 代码已复制到剪贴板"
+    },
+    "copyFailed": {
+      "title": "复制失败",
+      "description": "无法访问剪贴板"
+    },
+    "error": "错误"
+  },
+  "errors": {
+    "failed": "信息图生成失败",
+    "generic": "生成失败"
+  },
+  "features": {
+    "extraction": {
+      "title": "要点提取",
+      "body": "AI 会通读你的文本，找出最重要的事实、统计数据和结论，并在信息图中重点呈现。"
+    },
+    "layout": {
+      "title": "专业排版",
+      "body": "输出结构清晰的纵向版式，包含标题、醒目的统计数据、编号要点和结论部分。"
+    },
+    "export": {
+      "title": "SVG 导出",
+      "body": "将信息图下载为可缩放的 SVG 文件，用于博客文章、演示文稿、社交媒体或印刷材料。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "social": "将长篇博客文章变成便于分享的社交媒体图片",
+      "research": "为研究论文或报告制作可视化摘要",
+      "education": "根据教材章节制作教学讲义",
+      "marketing": "为营销活动制作数据可视化图",
+      "audiences": "为非技术受众概括复杂的话题"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "length": "粘贴 200–500 个词效果最佳：内容太少会显得单薄，太多则会让 AI 概括得过于笼统。",
+      "numbers": "在文本中加入统计数据和数字，AI 会在信息图中重点突出它们。",
+      "summarize": "文档很长时，先用摘要生成压缩内容，再把摘要交给信息图生成。",
+      "edit": "生成后，可以在 Figma 或 Illustrator 中编辑 SVG，调整颜色、字体或布局。"
+    }
+  },
+  "faq": {
+    "how": {
+      "question": "信息图是如何生成的？",
+      "answer": "AI 会先把你的文本整理成一份结构化规格（标题、导语、统计数据、分节和结论），再根据这份规格以确定性的方式渲染为 SVG 信息图。文字始终清晰易读，不会出现 AI 绘图工具常见的乱码文字。"
+    },
+    "input": {
+      "question": "什么样的输入效果最好？",
+      "answer": "观点清晰、包含一些数字或统计数据的事实性文本。围绕某个主题、包含具体事实的一两段文字，生成的版式会比一句话的提示好得多。"
+    },
+    "edit": {
+      "question": "可以编辑生成结果吗？",
+      "answer": "输出为 SVG 格式，下载后可以在任意矢量编辑器（Figma、Inkscape、Illustrator）中打开，调整颜色、文字或布局。"
+    },
+    "cost": {
+      "question": "生成一张信息图需要多少积分？",
+      "answer": "每次生成消耗 2 图片积分。生成失败会自动退还积分。"
+    },
+    "style": {
+      "question": "为什么生成的结果不像照片或插画？",
+      "answer": "这是有意为之。本工具生成的是简洁、以数据为中心的版式，而不是图画作品，因为基于规格的渲染能保证文字清晰可读、结构统一。"
+    }
+  }
+}

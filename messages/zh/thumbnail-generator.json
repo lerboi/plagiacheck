@@ -1,1 +1,115 @@
-{}
+{
+  "header": {
+    "category": "视觉工具",
+    "title": "封面图生成",
+    "description": "输入文章标题或主题，即可立即获得专业的封面图。可选现代、极简、醒目或渐变风格，并可下载为 SVG。"
+  },
+  "input": {
+    "label": "标题或主题",
+    "clear": "清空",
+    "placeholder": "例如：“人工智能在医疗领域的未来”",
+    "styleLabel": "风格"
+  },
+  "styles": {
+    "modern": "现代",
+    "minimal": "极简",
+    "bold": "醒目",
+    "gradient": "渐变"
+  },
+  "styleNames": {
+    "modern": "现代",
+    "minimal": "极简",
+    "bold": "醒目",
+    "gradient": "渐变"
+  },
+  "needTokens": "需要 {cost} 图片积分，当前余额 {balance}。<link>获取更多</link>",
+  "generate": "生成封面图（{cost} 图片积分）",
+  "generating": "正在生成...",
+  "output": {
+    "preview": "预览 · 1200×630",
+    "copySvg": "复制 SVG",
+    "download": "下载"
+  },
+  "toasts": {
+    "notEnoughTokens": {
+      "title": "图片积分不足",
+      "description": "购买图片积分后即可生成封面图。"
+    },
+    "generated": {
+      "title": "封面图已生成",
+      "description": "已生成{style}风格的封面图"
+    },
+    "downloaded": {
+      "title": "已下载！",
+      "description": "SVG 文件已保存"
+    },
+    "copied": {
+      "title": "已复制！",
+      "description": "SVG 代码已复制到剪贴板"
+    },
+    "copyFailed": {
+      "title": "复制失败",
+      "description": "无法访问剪贴板"
+    },
+    "error": "错误"
+  },
+  "errors": {
+    "failed": "封面图生成失败",
+    "generic": "生成失败"
+  },
+  "features": {
+    "styles": {
+      "title": "四种风格可选",
+      "body": "现代、极简、醒目和渐变，每种风格生成的封面图视觉效果各不相同，适合不同的内容类型和平台。"
+    },
+    "format": {
+      "title": "标准 1200×630 尺寸",
+      "body": "所有封面图均按标准 Open Graph 图片尺寸生成，非常适合博客头图、YouTube、LinkedIn 和 Twitter 卡片。"
+    },
+    "export": {
+      "title": "SVG 导出",
+      "body": "将封面图下载为可缩放的 SVG，可在任意设计工具中使用，也可以直接粘贴到你的内容管理系统中。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "blog": "无需设计师，也能制作博客文章的特色图片",
+      "youtube": "根据视频标题生成 YouTube 视频封面",
+      "newsletter": "为新闻通讯或系列邮件制作风格统一的封面图",
+      "social": "快速为多篇帖子制作社交媒体头图",
+      "preview": "在确定设计之前，先预览标题做成图片后的效果"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "short": "标题尽量简短（不超过 6 个词），视觉效果最清晰；标题过长会被压缩，难以阅读。",
+      "styles": "现代和渐变风格最适合科技和商业内容；极简风格适合编辑类和设计类博客。",
+      "customise": "如需更换字体、添加 Logo 或调整颜色，可以在 Figma 或 Illustrator 中自定义 SVG。",
+      "variations": "可以为同一个标题用不同风格生成几个版本，比较之后再做决定。"
+    }
+  },
+  "faq": {
+    "size": {
+      "question": "封面图是什么尺寸？",
+      "answer": "1200 × 630 像素，即社交平台链接预览使用的标准 Open Graph 尺寸。由于输出为 SVG，也可以清晰地缩放到其他尺寸。"
+    },
+    "colors": {
+      "question": "配色是如何选择的？",
+      "answer": "AI 会根据主题的氛围和你选择的风格（现代、极简、醒目或渐变）挑选配色。重新生成即可获得不同的配色和布局。"
+    },
+    "uses": {
+      "question": "封面图可以用在哪里？",
+      "answer": "博客封面、Open Graph 和社交分享图片，以及 YouTube 视频封面。注意 YouTube 推荐的尺寸是 1280 × 720；SVG 可以缩放，但你可能需要裁剪为 16:9。"
+    },
+    "how": {
+      "question": "封面图是怎么生成的？",
+      "answer": "AI 会生成一份规格（标题、副标题、配色、氛围），再由模板以确定性的方式渲染封面，因此文字始终清晰且拼写正确。"
+    },
+    "cost": {
+      "question": "生成一张封面图需要多少积分？",
+      "answer": "每次生成消耗 2 图片积分。生成失败会自动退还积分。"
+    }
+  }
+}

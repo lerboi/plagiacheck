@@ -15,36 +15,28 @@ import { useToast } from "@/hooks/use-toast"
 import { ToolPageHeader } from "@/components/tool-page-header"
 import { ResultReveal } from "@/components/plagia-ai/ResultReveal"
 import { ScanText } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
 
-const FAQ_ITEMS = [
-  {
-    question: "Which image formats are supported?",
-    answer:
-      "PNG, JPEG, WebP, and GIF, up to 8MB per image. If your file is larger, resize or compress it before uploading.",
-  },
-  {
-    question: "Can it read handwriting?",
-    answer:
-      "It can, but accuracy depends heavily on legibility. Clear, printed handwriting works reasonably well; messy cursive often produces errors, so proofread the result.",
-  },
-  {
-    question: "How does the OCR work?",
-    answer:
-      "Your image is sent to a vision AI model (Google's Gemini) that reads the text in it, which handles photos, screenshots, and scans better than traditional pattern-matching OCR.",
-  },
-  {
-    question: "How much does an extraction cost?",
-    answer:
-      "1 image token per image, regardless of how much text it contains. Failed extractions are refunded automatically.",
-  },
-  {
-    question: "Is my image stored?",
-    answer:
-      "The image is sent over HTTPS for processing and is not published or shared. Only a short text preview of the run is kept in your private history, which you can delete anytime.",
-  },
-]
+const FAQ_KEYS = ["formats", "handwriting", "how", "cost", "storage"] as const
+const USE_CASE_KEYS = ["notes", "screenshots", "receipts", "archive", "research"] as const
+const TIP_KEYS = ["lighting", "handwriting", "resolution", "grammar"] as const
+
+// Values the API returns for these fields; anything else is shown as-is.
+const CONFIDENCE_LEVELS = ["high", "medium", "low"] as const
+const TEXT_TYPES = ["printed", "handwritten", "mixed", "screenshot", "unknown"] as const
+
+function isOneOf<T extends string>(list: readonly T[], value: string): value is T {
+  return (list as readonly string[]).includes(value)
+}
 
 export default function ImageToText() {
+  const t = useTranslations("ImageToText")
+  const apiError = useApiErrorMessage()
+  // handleImageSelect also runs from the paste listener that is registered once,
+  // so it reads the translator through a ref to follow language switches.
+  const tRef = useRef(t)
+  tRef.current = t
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
   const [mimeType, setMimeType] = useState<string>("image/png")
@@ -63,6 +55,11 @@ export default function ImageToText() {
   const { toast } = useToast()
   const [isDragging, setIsDragging] = useState(false)
   const generationRef = useRef(0)
+
+  const faqItems = FAQ_KEYS.map((k) => ({ question: t(`faq.${k}.question`), answer: t(`faq.${k}.answer`) }))
+  const confidenceLabel = (level: string) =>
+    isOneOf(CONFIDENCE_LEVELS, level) ? t(`output.confidenceLevels.${level}`) : level
+  const textTypeLabel = (type: string) => (isOneOf(TEXT_TYPES, type) ? t(`output.textTypes.${type}`) : type)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -87,13 +84,13 @@ export default function ImageToText() {
 
   const handleImageSelect = (file: File) => {
     if (!file.type.startsWith("image/")) {
-      setError("Please upload an image file (PNG, JPG, WEBP)")
+      setError(tRef.current("errors.notImage"))
       return
     }
 
     // Server rejects base64 payloads over ~8.4MB of source data, so cap at 8MB here.
     if (file.size > 8 * 1024 * 1024) {
-      setError("Image must be under 8MB")
+      setError(tRef.current("errors.tooLarge"))
       return
     }
 
@@ -177,8 +174,8 @@ export default function ImageToText() {
 
     if (IMAGE_TOKEN_COST > remainingImageTokens) {
       toast({
-        title: "Not enough image tokens",
-        description: "Purchase image tokens to use this tool.",
+        title: t("toasts.notEnoughTokens.title"),
+        description: t("toasts.notEnoughTokens.description"),
         variant: "destructive",
       })
       router.push("/pricing")
@@ -201,8 +198,8 @@ export default function ImageToText() {
       if (response.status === 401) { router.push("/signin?next=/image-to-text"); return }
       if (response.status === 402) {
         toast({
-          title: "Not enough image tokens",
-          description: "Purchase image tokens to use this tool.",
+          title: t("toasts.notEnoughTokens.title"),
+          description: t("toasts.notEnoughTokens.description"),
           variant: "destructive",
         })
         await syncImageBalance()
@@ -212,29 +209,32 @@ export default function ImageToText() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to extract text")
+        throw new Error(data.error || t("errors.failed"))
       }
       if (generation !== generationRef.current) return
 
-      setExtractedText(data.result.extractedText || "No text detected.")
+      setExtractedText(data.result.extractedText || t("output.noTextDetected"))
       setConfidence(data.result.confidence || null)
       setTextType(data.result.textType || null)
 
       await syncImageBalance(data.remainingImageTokens)
 
       toast({
-        title: "Text Extracted",
+        title: t("toasts.extracted.title"),
         description: data.result.confidence
-          ? `Found ${data.result.wordCount || 0} words (${data.result.confidence} confidence)`
-          : `Found ${data.result.wordCount || 0} words`,
+          ? t("toasts.extracted.descriptionWithConfidence", {
+              count: String(data.result.wordCount || 0),
+              confidence: confidenceLabel(String(data.result.confidence)),
+            })
+          : t("toasts.extracted.description", { count: String(data.result.wordCount || 0) }),
         variant: "success",
       })
     } catch (err) {
       if (generation !== generationRef.current) return
       console.error("OCR error:", err)
-      const msg = err instanceof Error ? err.message : "Failed to extract text"
+      const msg = apiError(err, t("errors.failed"))
       setError(msg)
-      toast({ title: "Error", description: msg, variant: "destructive" })
+      toast({ title: t("toasts.error"), description: msg, variant: "destructive" })
     } finally {
       setIsProcessing(false)
     }
@@ -243,7 +243,7 @@ export default function ImageToText() {
   const handleCopy = async () => {
     await navigator.clipboard.writeText(extractedText)
     setCopied(true)
-    toast({ title: "Copied!", description: "Text copied to clipboard", variant: "success" })
+    toast({ title: t("toasts.copied.title"), description: t("toasts.copied.description"), variant: "success" })
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -252,9 +252,9 @@ export default function ImageToText() {
       <Nav />
       <ToolPageHeader
         icon={ScanText}
-        title="Image to Text"
-        description="Upload photos of documents, handwritten notes, screenshots, or any image. Our AI vision model extracts all visible text instantly."
-        category="Visual Tools"
+        title={t("header.title")}
+        description={t("header.description")}
+        category={t("header.category")}
         gradient="from-rose-500/[0.07]"
         iconColor="text-rose-500"
         iconBg="bg-rose-500/10 border-rose-500/20"
@@ -266,11 +266,11 @@ export default function ImageToText() {
           {/* Left: Image Upload */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Upload Image</span>
+              <span className="text-sm font-medium">{t("upload.label")}</span>
               {imagePreview && (
                 <Button variant="ghost" size="sm" onClick={clearImage} disabled={isProcessing} className="h-7 text-xs text-destructive hover:text-destructive">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Clear
+                  {t("upload.clear")}
                 </Button>
               )}
             </div>
@@ -296,8 +296,8 @@ export default function ImageToText() {
                 />
                 <Upload className="h-8 w-8 text-muted-foreground/50" />
                 <div className="text-center">
-                  <p className="text-sm font-medium">Drop an image, click to upload, or paste</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">PNG, JPG, WEBP up to 8MB</p>
+                  <p className="text-sm font-medium">{t("upload.dropPrompt")}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("upload.formats")}</p>
                 </div>
               </div>
             ) : (
@@ -311,7 +311,7 @@ export default function ImageToText() {
               >
                 <img
                   src={imagePreview}
-                  alt="Uploaded image"
+                  alt={t("upload.previewAlt")}
                   className="w-full h-auto max-h-[400px] object-contain bg-muted/30"
                 />
               </div>
@@ -323,8 +323,11 @@ export default function ImageToText() {
 
             {!!user && IMAGE_TOKEN_COST > remainingImageTokens && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                Need {IMAGE_TOKEN_COST} image token — you have {remainingImageTokens}.{" "}
-                <Link href="/pricing" className="underline font-medium">Get more</Link>
+                {t.rich("needTokens", {
+                  cost: IMAGE_TOKEN_COST,
+                  balance: remainingImageTokens,
+                  link: (chunks) => <Link href="/pricing" className="underline font-medium">{chunks}</Link>,
+                })}
               </p>
             )}
 
@@ -336,9 +339,9 @@ export default function ImageToText() {
               disabled={isProcessing || !imageBase64 || (!!user && IMAGE_TOKEN_COST > remainingImageTokens)}
             >
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Extracting...</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("extracting")}</>
               ) : (
-                <><ImageIcon className="mr-2 h-4 w-4" />Extract Text (1 image token)</>
+                <><ImageIcon className="mr-2 h-4 w-4" />{t("extract")}</>
               )}
             </Button>
           </div>
@@ -346,7 +349,7 @@ export default function ImageToText() {
           {/* Right: Extracted Text */}
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Extracted Text</span>
+              <span className="text-sm font-medium">{t("output.label")}</span>
             </div>
 
             {/* Confidence / type badge bar */}
@@ -358,36 +361,36 @@ export default function ImageToText() {
                     : confidence === "medium" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                     : "bg-red-500/15 text-red-600 dark:text-red-400"
                   }`}>
-                    {confidence} confidence
+                    {t("output.confidence", { level: confidenceLabel(String(confidence)) })}
                   </span>
                 )}
                 {textType && (
-                  <span className="px-2 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium capitalize">{textType}</span>
+                  <span className="px-2 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-medium capitalize">{textTypeLabel(String(textType))}</span>
                 )}
-                <span className="text-muted-foreground">{extractedText.split(/\s+/).filter(Boolean).length} words extracted</span>
+                <span className="text-muted-foreground">{t("output.wordsExtracted", { count: extractedText.split(/\s+/).filter(Boolean).length })}</span>
                 <Button variant="ghost" size="sm" className="h-6 text-xs px-2 gap-1 ml-auto" onClick={handleCopy}>
-                  {copied ? <><Check className="h-3 w-3" />Copied</> : <><Copy className="h-3 w-3" />Copy</>}
+                  {copied ? <><Check className="h-3 w-3" />{t("output.copied")}</> : <><Copy className="h-3 w-3" />{t("output.copy")}</>}
                 </Button>
               </div>
             </ResultReveal>
 
             {/* Clean document card */}
             <div className="min-h-[280px] max-h-[480px] overflow-y-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">
-              {extractedText || <span className="text-muted-foreground/40">Extracted text appears here</span>}
+              {extractedText || <span className="text-muted-foreground/40">{t("output.placeholder")}</span>}
             </div>
 
-            {extractedText && extractedText !== "No text detected." && (
+            {extractedText && extractedText !== t("output.noTextDetected") && (
               <div className="pt-3 border-t border-border">
-                <p className="text-xs text-muted-foreground mb-2">Use extracted text with:</p>
+                <p className="text-xs text-muted-foreground mb-2">{t("output.useWith")}</p>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/" className="text-xs px-3 py-1.5 rounded-full border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                    Plagiarism Check
+                    {t("output.links.plagiarism")}
                   </Link>
                   <Link href="/ai-detector" className="text-xs px-3 py-1.5 rounded-full border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors">
-                    AI Detector
+                    {t("output.links.aiDetector")}
                   </Link>
                   <Link href="/grammar-checker" className="text-xs px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
-                    Grammar Check
+                    {t("output.links.grammar")}
                   </Link>
                 </div>
               </div>
@@ -403,72 +406,48 @@ export default function ImageToText() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <ScanText className="h-4 w-4 text-rose-500" />
-                <h3 className="text-sm font-semibold">Printed &amp; Handwritten</h3>
+                <h3 className="text-sm font-semibold">{t("features.handwritten.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Extracts text from typed documents, handwritten notes, printed receipts, screenshots, and mixed-media images.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.handwritten.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-rose-500" />
-                <h3 className="text-sm font-semibold">Confidence Scoring</h3>
+                <h3 className="text-sm font-semibold">{t("features.confidence.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Each extraction is rated as high, medium, or low confidence so you know where to double-check the output.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.confidence.body")}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Copy className="h-4 w-4 text-rose-500" />
-                <h3 className="text-sm font-semibold">One-Click Copy &amp; Reuse</h3>
+                <h3 className="text-sm font-semibold">{t("features.reuse.title")}</h3>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">Extracted text is immediately editable and can be piped into the Plagiarism Checker, Grammar Checker, or Summarizer.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{t("features.reuse.body")}</p>
             </div>
           </div>
 
           {/* Use cases + Tips */}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Perfect for</h3>
+              <h3 className="text-sm font-semibold">{t("useCases.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                  Digitising handwritten lecture notes or meeting whiteboard photos
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                  Extracting text from screenshots of articles or social posts
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                  Converting scanned receipts or invoices into editable data
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                  Archiving physical documents into searchable text
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                  Extracting quotes or data from printed research papers
-                </li>
+                {USE_CASE_KEYS.map((k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                    {t(`useCases.items.${k}`)}
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="rounded-xl border border-border p-5 space-y-3">
-              <h3 className="text-sm font-semibold">Tips for best results</h3>
+              <h3 className="text-sm font-semibold">{t("tips.title")}</h3>
               <ul className="space-y-2.5">
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-rose-500 font-bold shrink-0">→</span>
-                  Ensure good lighting and a straight-on angle — blurry or skewed photos reduce accuracy significantly.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-rose-500 font-bold shrink-0">→</span>
-                  For handwritten text, write clearly and avoid overlapping letters for the best extraction.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-rose-500 font-bold shrink-0">→</span>
-                  High-resolution images (1MP+) produce noticeably better results than compressed photos.
-                </li>
-                <li className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                  <span className="text-rose-500 font-bold shrink-0">→</span>
-                  After extraction, run through the Grammar Checker to catch any OCR errors.
-                </li>
+                {TIP_KEYS.map((k) => (
+                  <li key={k} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <span className="text-rose-500 font-bold shrink-0">→</span>
+                    {t(`tips.items.${k}`)}
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
@@ -476,7 +455,7 @@ export default function ImageToText() {
         </div>
       </section>
 
-      <FAQ items={FAQ_ITEMS} />
+      <FAQ items={faqItems} />
     </div>
   )
 }

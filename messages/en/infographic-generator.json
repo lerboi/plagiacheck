@@ -1,1 +1,105 @@
-{}
+{
+  "header": {
+    "category": "Visual Tools",
+    "title": "Infographic Generator",
+    "description": "Paste any article, essay, or report and get a beautiful visual infographic that highlights the key points and data. Download as SVG."
+  },
+  "input": {
+    "label": "Your Text",
+    "counter": "{words} words · {chars}/{max}",
+    "clear": "Clear",
+    "placeholder": "Paste your article, essay, report, or any text you want to turn into an infographic..."
+  },
+  "needTokens": "Need {cost} image tokens — you have {balance}. <link>Get more</link>",
+  "generate": "Generate Infographic ({cost} image tokens)",
+  "generating": "Generating...",
+  "output": {
+    "label": "Generated Infographic",
+    "copySvg": "SVG",
+    "download": "Download",
+    "empty": "Infographic appears here",
+    "defaultTitle": "Infographic"
+  },
+  "toasts": {
+    "notEnoughTokens": {
+      "title": "Not enough image tokens",
+      "description": "Purchase image tokens to generate infographics."
+    },
+    "generated": {
+      "title": "Infographic Generated",
+      "description": "\"{title}\" with {count} key points"
+    },
+    "downloaded": {
+      "title": "Downloaded!",
+      "description": "SVG file saved"
+    },
+    "copied": {
+      "title": "Copied!",
+      "description": "SVG code copied to clipboard"
+    },
+    "copyFailed": {
+      "title": "Copy failed",
+      "description": "Could not access the clipboard"
+    },
+    "error": "Error"
+  },
+  "errors": {
+    "failed": "Failed to generate infographic",
+    "generic": "Failed to generate"
+  },
+  "features": {
+    "extraction": {
+      "title": "Key Point Extraction",
+      "body": "The AI reads your text and identifies the most important facts, statistics, and takeaways to feature in the infographic."
+    },
+    "layout": {
+      "title": "Professional Layout",
+      "body": "Outputs a structured vertical layout with a title, highlighted statistics, numbered points, and a conclusion section."
+    },
+    "export": {
+      "title": "SVG Export",
+      "body": "Download the infographic as a scalable SVG file for use in blog posts, presentations, social media, or printed materials."
+    }
+  },
+  "useCases": {
+    "title": "Perfect for",
+    "items": {
+      "social": "Turning long blog posts into shareable social media graphics",
+      "research": "Creating visual summaries of research papers or reports",
+      "education": "Making educational handouts from textbook chapters",
+      "marketing": "Producing data visualisations for marketing campaigns",
+      "audiences": "Summarising complex topics for non-technical audiences"
+    }
+  },
+  "tips": {
+    "title": "Tips for best results",
+    "items": {
+      "length": "Paste 200–500 words for the best balance — too little produces sparse output, too much causes the AI to over-generalise.",
+      "numbers": "Include statistics and numbers in your text — the AI highlights them prominently in the infographic.",
+      "summarize": "Use the Summarizer first to condense very long documents, then feed the summary into the Infographic Generator.",
+      "edit": "SVGs can be edited in Figma or Illustrator to adjust colours, fonts, or layout after generation."
+    }
+  },
+  "faq": {
+    "how": {
+      "question": "How is the infographic generated?",
+      "answer": "The AI structures your text into a spec — title, intro, statistics, sections, and conclusion — and the infographic is then rendered deterministically from that spec as an SVG. Text stays sharp and readable, with none of the garbled lettering typical of AI image generators."
+    },
+    "input": {
+      "question": "What input works best?",
+      "answer": "Factual text with clear points and a few numbers or statistics. A paragraph or two about a topic with concrete facts produces a much better layout than a one-line prompt."
+    },
+    "edit": {
+      "question": "Can I edit the result?",
+      "answer": "The output is SVG, so you can open it in any vector editor (Figma, Inkscape, Illustrator) to tweak colors, text, or layout after downloading."
+    },
+    "cost": {
+      "question": "How much does an infographic cost?",
+      "answer": "2 image tokens per generation. Failed generations are refunded automatically."
+    },
+    "style": {
+      "question": "Why does it not look like a photo or illustration?",
+      "answer": "By design. This tool produces clean, data-focused layouts rather than pictorial art, because spec-based rendering guarantees legible text and consistent structure."
+    }
+  }
+}

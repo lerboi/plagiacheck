@@ -1,1 +1,120 @@
-{}
+{
+  "header": {
+    "category": "视觉工具",
+    "title": "图片转文字",
+    "description": "上传文档照片、手写笔记、截图或任意图片，AI 视觉模型会立即提取其中所有可见的文字。"
+  },
+  "upload": {
+    "label": "上传图片",
+    "clear": "清空",
+    "dropPrompt": "拖入图片、点击上传或直接粘贴",
+    "formats": "支持 PNG、JPG、WEBP，最大 8 MB",
+    "previewAlt": "已上传的图片"
+  },
+  "needTokens": "需要 {cost} 图片积分，当前余额 {balance}。<link>获取更多</link>",
+  "extract": "提取文字（1 图片积分）",
+  "extracting": "正在提取...",
+  "output": {
+    "label": "提取的文字",
+    "placeholder": "提取的文字将显示在这里",
+    "noTextDetected": "未检测到文字。",
+    "confidence": "置信度：{level}",
+    "confidenceLevels": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "textTypes": {
+      "printed": "印刷体",
+      "handwritten": "手写",
+      "mixed": "混合",
+      "screenshot": "截图",
+      "unknown": "未知"
+    },
+    "wordsExtracted": "已提取 {count} 个词",
+    "copy": "复制",
+    "copied": "已复制",
+    "useWith": "将提取的文字用于：",
+    "links": {
+      "plagiarism": "抄袭检测",
+      "aiDetector": "AI 内容检测",
+      "grammar": "语法检查"
+    }
+  },
+  "toasts": {
+    "notEnoughTokens": {
+      "title": "图片积分不足",
+      "description": "购买图片积分后即可使用此工具。"
+    },
+    "extracted": {
+      "title": "文字已提取",
+      "description": "共识别出 {count} 个词",
+      "descriptionWithConfidence": "共识别出 {count} 个词（置信度：{confidence}）"
+    },
+    "copied": {
+      "title": "已复制！",
+      "description": "文字已复制到剪贴板"
+    },
+    "error": "错误"
+  },
+  "errors": {
+    "notImage": "请上传图片文件（PNG、JPG、WEBP）",
+    "tooLarge": "图片不能超过 8 MB",
+    "failed": "文字提取失败"
+  },
+  "features": {
+    "handwritten": {
+      "title": "印刷体与手写体",
+      "body": "可从打字文档、手写笔记、打印小票、截图以及图文混排的图片中提取文字。"
+    },
+    "confidence": {
+      "title": "置信度评分",
+      "body": "每次提取都会标注高、中、低置信度，让你知道哪些结果需要再次核对。"
+    },
+    "reuse": {
+      "title": "一键复制与复用",
+      "body": "提取出的文字可立即编辑，还能直接用于抄袭检测、语法检查或摘要生成。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "notes": "将手写课堂笔记或会议白板照片转成电子文字",
+      "screenshots": "从文章或社交媒体帖子的截图中提取文字",
+      "receipts": "将扫描的收据或发票转换为可编辑的数据",
+      "archive": "将纸质文档归档为可搜索的文本",
+      "research": "从纸质研究论文中摘录引文或数据"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "lighting": "确保光线充足、正对拍摄；模糊或歪斜的照片会明显降低识别准确率。",
+      "handwriting": "手写文字请书写清晰，避免字迹重叠，才能获得最佳提取效果。",
+      "resolution": "高分辨率图片（100 万像素以上）的效果明显优于压缩过的照片。",
+      "grammar": "提取完成后，可以用语法检查找出 OCR 识别错误。"
+    }
+  },
+  "faq": {
+    "formats": {
+      "question": "支持哪些图片格式？",
+      "answer": "支持 PNG、JPEG、WebP 和 GIF，每张图片最大 8 MB。如果文件更大，请先调整尺寸或压缩后再上传。"
+    },
+    "handwriting": {
+      "question": "能识别手写文字吗？",
+      "answer": "可以，但准确率很大程度上取决于字迹是否清晰。工整的手写体效果较好；潦草的连笔字容易出错，请务必校对结果。"
+    },
+    "how": {
+      "question": "OCR 是如何工作的？",
+      "answer": "你的图片会发送给视觉 AI 模型（Google 的 Gemini）读取其中的文字。与传统的模式匹配 OCR 相比，它处理照片、截图和扫描件的效果更好。"
+    },
+    "cost": {
+      "question": "每次提取需要多少积分？",
+      "answer": "每张图片消耗 1 图片积分，与其中的文字多少无关。提取失败会自动退还积分。"
+    },
+    "storage": {
+      "question": "我的图片会被保存吗？",
+      "answer": "图片通过 HTTPS 发送处理，不会被公开或分享。只有本次运行的简短文字预览会保存在你的私人历史记录中，你可以随时删除。"
+    }
+  }
+}

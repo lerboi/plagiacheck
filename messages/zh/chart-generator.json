@@ -1,1 +1,123 @@
-{}
+{
+  "header": {
+    "category": "视觉工具",
+    "title": "图表生成",
+    "description": "用简单的文字描述你的数据或概念，即可获得专业的图表、流程图、思维导图和示意图，并可下载为 SVG。"
+  },
+  "input": {
+    "label": "描述你的图表",
+    "clear": "清空",
+    "placeholder": "描述你想要可视化的数据或概念。示例：\n\n• “按季度的销售额：Q1 5 万美元，Q2 7.5 万美元，Q3 6 万美元，Q4 9 万美元”\n• “用户注册流程：落地页 → 注册 → 验证邮箱 → 控制台”\n• “从速度、生态和学习曲线三个方面对比 React、Vue 和 Angular”",
+    "chartTypeLabel": "图表类型"
+  },
+  "chartTypes": {
+    "auto-detect": "自动识别",
+    "bar": "柱状图",
+    "line": "折线图",
+    "pie": "饼图",
+    "flowchart": "流程图",
+    "mindmap": "思维导图",
+    "timeline": "时间线",
+    "comparison": "对比图"
+  },
+  "resultTypes": {
+    "bar": "柱状图",
+    "line": "折线图",
+    "pie": "饼图",
+    "flowchart": "流程图",
+    "mindmap": "思维导图",
+    "timeline": "时间线",
+    "comparison": "对比图"
+  },
+  "needTokens": "需要 {cost} 图片积分，当前余额 {balance}。<link>获取更多</link>",
+  "generate": "生成图表（{cost} 图片积分）",
+  "generating": "正在生成...",
+  "output": {
+    "label": "生成的图表",
+    "copySvg": "复制 SVG",
+    "download": "下载",
+    "empty": "图表将显示在这里"
+  },
+  "toasts": {
+    "notEnoughTokens": {
+      "title": "图片积分不足",
+      "description": "购买图片积分后即可生成图表。"
+    },
+    "generated": {
+      "title": "图表已生成",
+      "description": "{type}：“{title}”"
+    },
+    "downloaded": {
+      "title": "已下载！",
+      "description": "SVG 文件已保存"
+    },
+    "copied": {
+      "title": "已复制！",
+      "description": "SVG 代码已复制到剪贴板"
+    },
+    "copyFailed": {
+      "title": "复制失败",
+      "description": "无法访问剪贴板"
+    },
+    "error": "错误"
+  },
+  "errors": {
+    "failed": "图表生成失败",
+    "generic": "生成失败"
+  },
+  "features": {
+    "detection": {
+      "title": "自动识别图表类型",
+      "body": "描述你的数据，AI 会自动选择最合适的可视化方式：柱状图、折线图、饼图、流程图、思维导图、时间线或对比图。"
+    },
+    "export": {
+      "title": "SVG 导出",
+      "body": "所有图表均以可缩放的 SVG 格式生成，可调整到任意分辨率而不损失画质，适合演示文稿或印刷。"
+    },
+    "language": {
+      "title": "自然语言输入",
+      "body": "无需上传数据，也无需整理格式。只要用简单的文字描述你想要可视化的内容即可。"
+    }
+  },
+  "useCases": {
+    "title": "适用场景",
+    "items": {
+      "business": "为商务演示和报告制作数据图表",
+      "processes": "将流程和工作流可视化为流程图",
+      "concepts": "用思维导图梳理概念之间的关系",
+      "comparison": "为产品或功能分析制作对比表",
+      "timeline": "快速生成项目概览的时间线图"
+    }
+  },
+  "tips": {
+    "title": "获得最佳效果的技巧",
+    "items": {
+      "numbers": "数据类图表请写明具体数字：“Q1 5 万美元，Q2 7.5 万美元，Q3 6 万美元”比模糊的描述能生成更准确的柱状图。",
+      "steps": "制作流程图时，请按顺序描述步骤：“用户访问页面 → 点击按钮 → 弹出表单 → 提交 → 显示确认信息。”",
+      "autoDetect": "第一次尝试时可以使用“自动识别”；如果结果不符合预期，再切换到具体的图表类型。",
+      "edit": "SVG 可以在 Figma、Illustrator 或任意矢量编辑器中打开，做进一步的自定义。"
+    }
+  },
+  "faq": {
+    "types": {
+      "question": "可以生成哪些类型的图表？",
+      "answer": "柱状图、饼图、折线图、流程图、思维导图、时间线和对比图。你可以指定类型，也可以选择“自动识别”，由 AI 为你的数据挑选最合适的类型。"
+    },
+    "how": {
+      "question": "AI 如何把文字变成图表？",
+      "answer": "AI 会读取你的描述，将其中的标签、数值和结构提取为 JSON 规格，再根据这份规格以确定性的方式绘制图表，因此文字和数字都能清晰呈现，而不是 AI 生成的图像。"
+    },
+    "input": {
+      "question": "什么样的输入效果最好？",
+      "answer": "用纯文本写出的具体数据，例如“销售额：Q1 120，Q2 150，Q3 90”，或者流程图的步骤列表。描述含糊会迫使 AI 编造数字。"
+    },
+    "download": {
+      "question": "如何下载结果？",
+      "answer": "图表以 SVG 格式生成，可以直接下载。SVG 可缩放到任意尺寸而不损失画质，并能在浏览器和设计工具中打开。"
+    },
+    "cost": {
+      "question": "生成一张图表需要多少积分？",
+      "answer": "每次生成消耗 2 图片积分。如果生成失败，积分会自动退还。"
+    }
+  }
+}
