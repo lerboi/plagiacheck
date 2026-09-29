@@ -51,8 +51,8 @@ export function formatExportFilename(date: Date): string {
   return `plagia-ai-${formatExportTimestamp(date)}.md`
 }
 
-function renderHumanDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
+function renderHumanDate(date: Date, locale?: string): string {
+  return date.toLocaleDateString(locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -66,19 +66,46 @@ const TOOL_STATUS_LABELS: Record<ExportableToolMessage["status"], string> = {
   failed: "(failed)",
 }
 
+/**
+ * The visible text of an export. Every field is optional and defaults to
+ * the English wording, so callers that pass nothing get the same file.
+ */
+export interface ConversationExportLabels {
+  /** Builds the H1 from the already-formatted date. */
+  heading: (date: string) => string
+  /** H2 above each user message. */
+  you: string
+  /** Body of a failed tool block that has no error message. */
+  toolFailed: string
+  /** Suffix shown for tool blocks without a result preview. */
+  toolStatus: Record<ExportableToolMessage["status"], string>
+  /** BCP 47 tag for the heading date; undefined uses the browser default. */
+  dateLocale?: string
+}
+
+const DEFAULT_EXPORT_LABELS: ConversationExportLabels = {
+  heading: (date) => `PlagiaAI conversation — ${date}`,
+  you: "You",
+  toolFailed: "Tool failed",
+  toolStatus: TOOL_STATUS_LABELS,
+  dateLocale: undefined,
+}
+
 export function conversationToMarkdown(
   messages: ExportableMessage[],
   now: Date = new Date(),
+  labels: Partial<ConversationExportLabels> = {},
 ): string {
+  const l: ConversationExportLabels = { ...DEFAULT_EXPORT_LABELS, ...labels }
   const lines: string[] = []
-  lines.push(`# PlagiaAI conversation — ${renderHumanDate(now)}`)
+  lines.push(`# ${l.heading(renderHumanDate(now, l.dateLocale))}`)
   lines.push("")
 
   for (const m of messages) {
     if (m.kind === "user") {
       const trimmed = m.content.trim()
       if (!trimmed) continue
-      lines.push("## You")
+      lines.push(`## ${l.you}`)
       lines.push("")
       lines.push(trimmed)
       lines.push("")
@@ -94,8 +121,8 @@ export function conversationToMarkdown(
       lines.push(m.argsSummary)
       const body =
         m.status === "failed"
-          ? m.error || "Tool failed"
-          : m.resultPreview || TOOL_STATUS_LABELS[m.status]
+          ? m.error || l.toolFailed
+          : m.resultPreview || l.toolStatus[m.status]
       if (body) lines.push(body)
       lines.push("```")
       lines.push("")
@@ -113,8 +140,9 @@ export function conversationToMarkdown(
 export function downloadConversationMarkdown(
   messages: ExportableMessage[],
   now: Date = new Date(),
+  labels: Partial<ConversationExportLabels> = {},
 ): string {
-  const content = conversationToMarkdown(messages, now)
+  const content = conversationToMarkdown(messages, now, labels)
   const filename = formatExportFilename(now)
   const blob = new Blob([content], { type: "text/markdown;charset=utf-8" })
   const url = URL.createObjectURL(blob)

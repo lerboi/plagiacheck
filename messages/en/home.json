@@ -1,1 +1,39 @@
-{}
+{
+  "metadata": {
+    "title": "Plagiacheck — AI plagiarism checker, paraphraser, summarizer & 12 more writing tools",
+    "description": "One chat, 15 AI writing tools. Plagiarism detection, paraphrasing, summarization, AI detection, grammar checking, charts, infographics, and more — all driven by PlagiaAI.",
+    "ogTitle": "Plagiacheck — One chat, every writing tool",
+    "ogDescription": "Chat with PlagiaAI to run any of 15 tools: plagiarism checker, paraphraser, summarizer, AI detector, grammar checker, and more."
+  },
+  "oneChat": {
+    "title": "One chat. Every tool.",
+    "subtitle": "Just describe what you need. PlagiaAI picks the right tool and runs it.",
+    "categories": {
+      "writing": "Writing",
+      "image": "Image & Visual",
+      "voice": "Voice & Audio"
+    }
+  },
+  "howItWorks": {
+    "title": "How it works",
+    "steps": {
+      "ask": {
+        "title": "You ask.",
+        "desc": "Type or speak what you need — plain English."
+      },
+      "dispatch": {
+        "title": "PlagiaAI dispatches.",
+        "desc": "It picks the right tool from 15 available."
+      },
+      "result": {
+        "title": "You get the result.",
+        "desc": "Output appears in chat, ready to copy or download."
+      }
+    }
+  },
+  "trust": {
+    "private": "Private by default",
+    "fast": "Fast results",
+    "audience": "Built for students & writers"
+  }
+}

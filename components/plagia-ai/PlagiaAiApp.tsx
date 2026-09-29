@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useLocale, useTranslations } from "next-intl"
 import { Nav } from "@/components/nav"
 import { ToolSignInPrompt } from "@/components/tool-signin-prompt"
 import { FAQ } from "@/components/FAQ"
@@ -34,13 +35,16 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import { getAuthHeader, useTokenStore } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
+import { localeTags } from "@/i18n/config"
+import type en from "@/messages/en"
 import {
   type AttachedImage,
   type PlagiaAiEvent,
   type PlagiaAiMessage,
   type PlagiaAiToolName,
 } from "@/lib/plagia-ai/types"
-import { toolDisplayName } from "@/lib/plagia-ai/tools"
+import { getFollowupId } from "@/lib/plagia-ai/followups"
 import {
   deleteConversation,
   deriveConversationTitle,
@@ -67,8 +71,209 @@ import {
   type PlagiaAiPreferences,
 } from "@/lib/plagia-ai/preferences"
 
-const GREETING =
-  "Hi — I'm PlagiaAI. Tell me what you'd like to do and I'll use the right tool: paraphrase, summarize, humanize, check grammar, detect AI, find plagiarism, generate charts, infographics, or thumbnails."
+type ToolCatalogId = keyof (typeof en)["ToolCatalog"]["tools"]
+
+/** Each PlagiaAI tool's entry in the ToolCatalog messages (its display name). */
+const TOOL_CATALOG_IDS: Record<PlagiaAiToolName, ToolCatalogId> = {
+  paraphrase: "paraphraser",
+  summarize: "summarizer",
+  humanize: "aiHumanizer",
+  ai_detect: "aiDetector",
+  grammar: "grammarChecker",
+  plagiarism_check: "plagiarismChecker",
+  generate_infographic: "infographicGenerator",
+  generate_chart: "chartGenerator",
+  generate_thumbnail: "thumbnailGenerator",
+  image_to_text: "imageToText",
+  voice_to_essay: "voiceToEssay",
+  audio_summarize: "audioSummarizer",
+}
+
+// Option values that appear inside server-built summaries. The values stay
+// English everywhere else; these lists only drive the translated labels.
+const MODE_IDS = ["standard", "fluency", "formal", "simple", "creative", "academic"] as const
+const TONE_IDS = ["casual", "professional", "academic", "creative", "friendly"] as const
+const FORMAT_IDS = ["paragraph", "bullets"] as const
+const CHART_TYPE_IDS = [
+  "auto-detect",
+  "auto",
+  "bar",
+  "line",
+  "pie",
+  "flowchart",
+  "mindmap",
+  "timeline",
+  "comparison",
+] as const
+const STYLE_IDS = ["modern", "minimal", "bold", "gradient"] as const
+const CONFIDENCE_IDS = ["high", "medium", "low"] as const
+const VERDICT_IDS: Record<string, "likelyHuman" | "possiblyAi" | "likelyAi"> = {
+  "Likely Human": "likelyHuman",
+  "Possibly AI": "possiblyAi",
+  "Likely AI": "likelyAi",
+}
+
+// English tool errors produced by the dispatcher / route. They are also sent
+// to the model, so they stay English at the source; these are only matched to
+// show a translation.
+const NO_IMAGE_ERROR = "No image attached. Ask the user to attach an image before extracting text."
+const NO_PLAGIARISM_RESULT_ERROR = "No result from plagiarism check"
+const AI_UNAVAILABLE_EVENT_MESSAGE = "The AI service is temporarily unavailable. Please try again."
+
+function isOneOf<T extends string>(list: readonly T[], value: string): value is T {
+  return (list as readonly string[]).includes(value)
+}
+
+/**
+ * Display helpers for tool cards. The server builds the args summary, result
+ * preview and error text in English (the same strings go to the model), and
+ * they are stored with the conversation, so they are translated here, at
+ * render time only. In English every helper returns its input unchanged.
+ */
+function useToolDisplay() {
+  const t = useTranslations("PlagiaAi")
+  const tCatalog = useTranslations("ToolCatalog")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
+  const translate = locale !== "en"
+
+  const toolLabel = (name: PlagiaAiToolName): string => {
+    const id = TOOL_CATALOG_IDS[name]
+    return id ? tCatalog(`tools.${id}.name`) : String(name)
+  }
+  const mode = (v: string) => (isOneOf(MODE_IDS, v) ? t(`values.modes.${v}`) : v)
+  const tone = (v: string) => (isOneOf(TONE_IDS, v) ? t(`values.tones.${v}`) : v)
+  const format = (v: string) => (isOneOf(FORMAT_IDS, v) ? t(`values.formats.${v}`) : v)
+  const chartType = (v: string) => (isOneOf(CHART_TYPE_IDS, v) ? t(`values.chartTypes.${v}`) : v)
+  const style = (v: string) => (isOneOf(STYLE_IDS, v) ? t(`values.styles.${v}`) : v)
+  const confidence = (v: string) => (isOneOf(CONFIDENCE_IDS, v) ? t(`values.confidence.${v}`) : v)
+  const title = (v: string) => (v === "Untitled" ? t("preview.untitled") : v)
+
+  const verdict = (v: string): string => {
+    if (!translate) return v
+    const id = VERDICT_IDS[v]
+    return id ? t(`values.verdicts.${id}`) : v
+  }
+
+  const argsSummary = (name: PlagiaAiToolName, summary: string): string => {
+    if (!translate || !summary) return summary
+    let m: RegExpExecArray | null
+    switch (name) {
+      case "paraphrase":
+        if ((m = /^Mode: (.*)$/.exec(summary))) return t("args.mode", { mode: mode(m[1]) })
+        break
+      case "summarize":
+        if ((m = /^Length: (.*)% · (.*)$/.exec(summary)))
+          return t("args.summarize", { percent: m[1], format: format(m[2]) })
+        break
+      case "humanize":
+        if ((m = /^Tone: (.*) · Level: (.*)$/.exec(summary)))
+          return t("args.humanize", { tone: tone(m[1]), level: m[2] })
+        break
+      case "ai_detect":
+      case "grammar":
+      case "plagiarism_check":
+        if ((m = /^(\d+) chars$/.exec(summary))) return t("args.chars", { count: m[1] })
+        break
+      case "generate_chart":
+        if ((m = /^Type: (.*)$/.exec(summary))) return t("args.chartType", { type: chartType(m[1]) })
+        break
+      case "generate_thumbnail":
+        if ((m = /^Style: (.*)$/.exec(summary))) return t("args.style", { style: style(m[1]) })
+        break
+      case "image_to_text":
+        if (summary === "Extract text from attached image") return t("args.extractImage")
+        break
+      case "voice_to_essay":
+      case "audio_summarize":
+        if ((m = /^(\d+) chars of transcript$/.exec(summary)))
+          return t("args.transcriptChars", { count: m[1] })
+        break
+    }
+    // generate_infographic shows the start of the user's own text.
+    return summary
+  }
+
+  const resultPreview = (name: PlagiaAiToolName, preview: string): string => {
+    if (!translate || !preview) return preview
+    let m: RegExpExecArray | null
+    switch (name) {
+      case "ai_detect":
+        if (preview === "Analysis complete") return t("preview.analysisComplete")
+        if ((m = /^([\s\S]*) — (.*)% AI$/.exec(preview)))
+          return t("preview.aiDetect", { verdict: verdict(m[1]), score: m[2] })
+        break
+      case "grammar":
+        if ((m = /^(\d+) issues? found$/.exec(preview)))
+          return t("preview.grammar", { count: Number(m[1]) })
+        break
+      case "plagiarism_check":
+        if ((m = /^(-?\d+)% plagiarism · (\d+) match(?:es)?$/.exec(preview)))
+          return t("preview.plagiarism", { percent: m[1], count: Number(m[2]) })
+        break
+      case "generate_infographic":
+        if ((m = /^Infographic: ([\s\S]*)$/.exec(preview)))
+          return t("preview.infographic", { title: title(m[1]) })
+        break
+      case "generate_chart":
+        if ((m = /^Chart \(([^)]*)\): ([\s\S]*)$/.exec(preview)))
+          return t("preview.chart", { type: chartType(m[1]), title: title(m[2]) })
+        break
+      case "generate_thumbnail":
+        if ((m = /^Thumbnail: ([\s\S]*)$/.exec(preview)))
+          return t("preview.thumbnail", { title: title(m[1]) })
+        break
+      case "image_to_text":
+        if (preview === "No text extracted") return t("preview.noText")
+        if ((m = /^Extracted (\d+) chars \((.*) confidence\)$/.exec(preview)))
+          return t("preview.extractedWithConfidence", { count: m[1], confidence: confidence(m[2]) })
+        if ((m = /^Extracted (\d+) chars$/.exec(preview))) return t("preview.extracted", { count: m[1] })
+        break
+      case "voice_to_essay":
+        if ((m = /^([\s\S]*) · (\d+) words$/.exec(preview)))
+          return t("preview.essay", {
+            title: m[1] === "Essay" ? t("preview.essayTitle") : m[1],
+            count: m[2],
+          })
+        if (preview === "Essay") return t("preview.essayTitle")
+        break
+      case "audio_summarize":
+        if ((m = /^([\s\S]*) · (\d+) key points?$/.exec(preview)))
+          return t("preview.audio", {
+            title: m[1] === "Summary" ? t("preview.summaryTitle") : m[1],
+            count: Number(m[2]),
+          })
+        break
+    }
+    // Paraphrase / summary / humanize / OCR previews are the tool's own output.
+    return preview
+  }
+
+  const toolError = (name: PlagiaAiToolName, error: string): string => {
+    if (translate) {
+      let m: RegExpExecArray | null
+      if ((m = /^[A-Za-z ]+ failed \((\d+)\)$/.exec(error)))
+        return t("toolErrors.failedWithStatus", { tool: toolLabel(name), status: m[1] })
+      if (error === NO_IMAGE_ERROR) return t("toolErrors.noImageAttached")
+      if (error === NO_PLAGIARISM_RESULT_ERROR) return t("toolErrors.noPlagiarismResult")
+      if ((m = /^Unknown tool: (.*)$/.exec(error))) return t("toolErrors.unknownTool", { name: m[1] })
+      if ((m = /^Refused — this tool has already failed (\d+) times/.exec(error)))
+        return t("toolErrors.retryCap", { count: m[1] })
+    }
+    return apiError(error, t("toolCard.failed"))
+  }
+
+  /** Fallback follow-ups arrive as English text; known ones are shown translated. */
+  const suggestion = (text: string): string => {
+    if (!translate) return text
+    const id = getFollowupId(text)
+    return id ? t(`followups.${id}`) : text
+  }
+
+  return { t, toolLabel, verdict, argsSummary, resultPreview, toolError, suggestion }
+}
+
+type ToolDisplay = ReturnType<typeof useToolDisplay>
 
 type ChatItem =
   | { kind: "user"; id: string; content: string }
@@ -114,6 +319,10 @@ interface PlagiaAiAppProps {
 }
 
 export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
+  const t = useTranslations("PlagiaAi")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
+  const display = useToolDisplay()
   const supabase = useMemo(() => createClientComponentClient(), [])
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -261,20 +470,19 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       if (ok) {
         setPrefs(next)
         toast({
-          title: "Preferences saved",
-          description: "PlagiaAI will use these on future turns.",
+          title: t("toasts.preferencesSaved"),
+          description: t("toasts.preferencesSavedDescription"),
           variant: "success",
         })
       } else {
         toast({
-          title: "Could not save preferences",
-          description:
-            "Run the FE-09 migration in your Supabase, then retry. (See commit body for SQL.)",
+          title: t("toasts.preferencesFailed"),
+          description: t("toasts.preferencesFailedDescription"),
           variant: "destructive",
         })
       }
     },
-    [user, supabase, toast],
+    [user, supabase, toast, t],
   )
 
   useEffect(() => {
@@ -393,11 +601,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     e.target.value = "" // allow re-selecting the same file later
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      setAttachmentError("Only image files can be attached.")
+      setAttachmentError(t("attach.onlyImages"))
       return
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      setAttachmentError("Image too large (max 8 MB).")
+      setAttachmentError(t("attach.tooLarge"))
       return
     }
     try {
@@ -415,7 +623,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       })
       setAttachedImage({ base64, mimeType: file.type, name: file.name })
     } catch (err) {
-      setAttachmentError(err instanceof Error ? err.message : "Couldn't read image")
+      setAttachmentError(apiError(err, t("attach.readFailed")))
     }
   }
 
@@ -457,7 +665,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     }
     recognition.continuous = true
     recognition.interimResults = true
-    recognition.lang = "en-US"
+    recognition.lang = localeTags[locale]
     let inputBaseAtStart = ""
     setInput((cur) => {
       inputBaseAtStart = cur
@@ -651,7 +859,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           } catch {
             friendly = errText
           }
-          throw new Error(friendly || `Request failed (${response.status})`)
+          throw new Error(friendly || t("errors.requestFailed", { status: response.status }))
         }
 
         const reader = response.body.getReader()
@@ -805,10 +1013,14 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
         if (abortController.signal.aborted) {
           flushAssistant()
         } else {
-          const message =
-            err instanceof Error ? err.message : "Something went wrong."
+          const message = apiError(
+            err,
+            err instanceof Error && err.message === AI_UNAVAILABLE_EVENT_MESSAGE
+              ? t("errors.aiUnavailable")
+              : t("errors.generic"),
+          )
           toast({
-            title: "PlagiaAI couldn't reach the server",
+            title: t("toasts.serverError"),
             description: message,
             variant: "destructive",
           })
@@ -851,6 +1063,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       persistAndRefresh,
       attachedImage,
       skipCostConfirm,
+      t,
+      apiError,
     ]
   )
 
@@ -938,15 +1152,28 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       return {
         kind: "tool",
         name: it.name,
-        argsSummary: it.argsSummary,
+        argsSummary: display.argsSummary(it.name, it.argsSummary),
         status: it.status,
-        resultPreview: it.resultPreview,
-        error: it.error,
+        resultPreview: it.resultPreview
+          ? display.resultPreview(it.name, it.resultPreview)
+          : it.resultPreview,
+        error: it.error ? display.toolError(it.name, it.error) : it.error,
       }
     })
-    const filename = downloadConversationMarkdown(exportable)
+    const filename = downloadConversationMarkdown(exportable, undefined, {
+      heading: (date) => t("export.heading", { date }),
+      you: t("export.you"),
+      toolFailed: t("toolCard.failed"),
+      toolStatus: {
+        pending_confirm: t("export.status.pendingConfirm"),
+        running: t("export.status.running"),
+        done: "",
+        failed: t("export.status.failed"),
+      },
+      dateLocale: localeTags[locale],
+    })
     toast({
-      title: "Conversation exported",
+      title: t("toasts.exported"),
       description: filename,
       variant: "success",
     })
@@ -990,16 +1217,16 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     async (text: string) => {
       try {
         await navigator.clipboard.writeText(text)
-        toast({ title: "Copied", variant: "success" })
+        toast({ title: t("toasts.copied"), variant: "success" })
       } catch {
         toast({
-          title: "Couldn't copy",
-          description: "Your browser blocked clipboard access.",
+          title: t("toasts.copyFailed"),
+          description: t("toasts.copyFailedDescription"),
           variant: "destructive",
         })
       }
     },
-    [toast],
+    [toast, t],
   )
 
   // user message and everything after; then send the original user content
@@ -1072,8 +1299,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     const c = await loadConversation(id)
     if (!c) {
       toast({
-        title: "Couldn't load conversation",
-        description: "Something went wrong on the server.",
+        title: t("toasts.loadFailed"),
+        description: t("toasts.loadFailedDescription"),
         variant: "destructive",
       })
       return
@@ -1093,8 +1320,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     const ok = await deleteConversation(id)
     if (!ok) {
       toast({
-        title: "Couldn't delete conversation",
-        description: "Try again in a moment.",
+        title: t("toasts.deleteFailed"),
+        description: t("toasts.tryAgainLater"),
         variant: "destructive",
       })
       return
@@ -1115,8 +1342,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     const ok = await renameConversation(id, trimmed)
     if (!ok) {
       toast({
-        title: "Couldn't rename conversation",
-        description: "Try again in a moment.",
+        title: t("toasts.renameFailed"),
+        description: t("toasts.tryAgainLater"),
         variant: "destructive",
       })
       return false
@@ -1133,8 +1360,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     const ok = await setConversationPinned(id, pinned)
     if (!ok) {
       toast({
-        title: "Couldn't save pin",
-        description: "Run the FE-24 migration in Supabase, then retry.",
+        title: t("toasts.pinFailed"),
+        description: t("toasts.pinFailedDescription"),
         variant: "destructive",
       })
       return false
@@ -1212,7 +1439,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                      rows. Sizing in dvh ends the drawer at the real visible
                      edge. */
                   className="fixed top-14 left-0 z-50 h-drawer-dvh w-[280px] max-w-[85vw] shadow-xl"
-                  aria-label="Conversation history (drawer)"
+                  aria-label={t("header.drawerAria")}
                   role="dialog"
                   aria-modal="true"
                 >
@@ -1251,15 +1478,16 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   type="button"
                   onClick={() => setMobileSidebarOpen(true)}
                   className="lg:hidden h-8 w-8 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
-                  aria-label="Open conversations"
-                  title="Conversations"
+                  aria-label={t("header.openConversationsAria")}
+                  title={t("header.openConversationsTitle")}
                 >
                   <PanelLeftOpen className="h-4 w-4" />
                 </button>
                 {conversationStarted ? (
                   <span className="text-xs text-muted-foreground truncate">
-                    {items.filter((it) => it.kind === "user").length} message
-                    {items.filter((it) => it.kind === "user").length === 1 ? "" : "s"}
+                    {t("header.messageCount", {
+                      count: items.filter((it) => it.kind === "user").length,
+                    })}
                   </span>
                 ) : (
                   <span />
@@ -1270,11 +1498,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   type="button"
                   onClick={() => setSettingsOpen((v) => !v)}
                   className="h-7 px-2 gap-1 rounded-md inline-flex items-center text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  aria-label="PlagiaAI preferences"
+                  aria-label={t("header.preferencesAria")}
                   aria-expanded={settingsOpen}
                 >
                   <Settings className="h-3 w-3" />
-                  <span className="hidden sm:inline">Preferences</span>
+                  <span className="hidden sm:inline">{t("header.preferences")}</span>
                 </button>
                 {conversationStarted && !confirmingClear && (
                   <Button
@@ -1283,18 +1511,18 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
                     onClick={handleExportConversation}
                     disabled={streaming}
-                    aria-label="Export conversation as Markdown"
-                    title="Export conversation as Markdown"
+                    aria-label={t("header.exportAria")}
+                    title={t("header.exportAria")}
                   >
                     <Download className="h-3 w-3" />
-                    <span className="hidden sm:inline">Export</span>
+                    <span className="hidden sm:inline">{t("header.export")}</span>
                   </Button>
                 )}
                 {conversationStarted &&
                   (confirmingClear ? (
                     <>
                       <span className="text-xs text-muted-foreground hidden sm:inline">
-                        Clear this conversation?
+                        {t("header.clearQuestion")}
                       </span>
                       <Button
                         size="sm"
@@ -1302,14 +1530,14 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         className="h-7 text-xs px-2"
                         onClick={() => setConfirmingClear(false)}
                       >
-                        Cancel
+                        {t("header.cancel")}
                       </Button>
                       <Button
                         size="sm"
                         className="h-7 text-xs px-3 bg-red-600 hover:bg-red-700 text-white"
                         onClick={handleClearConversation}
                       >
-                        Confirm clear
+                        {t("header.confirmClear")}
                       </Button>
                     </>
                   ) : (
@@ -1321,7 +1549,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                       disabled={streaming}
                     >
                       <Trash2 className="h-3 w-3" />
-                      Clear
+                      {t("header.clear")}
                     </Button>
                   ))}
               </div>
@@ -1361,7 +1589,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               role="log"
               aria-live="polite"
               aria-atomic="false"
-              aria-label="PlagiaAI conversation"
+              aria-label={t("thread.logAria")}
               // tabIndex makes the scrollable transcript keyboard-focusable so
               // keyboard-only users can scroll back through it (WCAG 2.1.1);
               // the focus-visible ring satisfies 2.4.7.
@@ -1370,8 +1598,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             >
               <div className="flex flex-col items-start">
                 <div className="max-w-[85%] text-sm leading-relaxed text-foreground">
-                  <span className="sr-only">Assistant said: </span>
-                  {GREETING}
+                  <span className="sr-only">{t("thread.assistantSaid")}</span>
+                  {t("greeting")}
                 </div>
               </div>
 
@@ -1415,7 +1643,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               }}
                               rows={2}
                               className="min-h-[60px] resize-none border-0 bg-transparent text-base md:text-sm leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
-                              aria-label="Edit your message"
+                              aria-label={t("thread.editAria")}
                             />
                             <div className="flex items-center justify-end gap-1.5">
                               <Button
@@ -1425,7 +1653,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                                 onClick={handleCancelEditMessage}
                                 disabled={streaming}
                               >
-                                Cancel
+                                {t("thread.cancel")}
                               </Button>
                               <Button
                                 size="sm"
@@ -1437,21 +1665,21 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                                   editingDraft.trim() === userContent
                                 }
                               >
-                                Save and resend
+                                {t("thread.saveAndResend")}
                               </Button>
                             </div>
                           </div>
                         ) : (
                           <div className="group relative max-w-[85%] rounded-2xl bg-primary/10 px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words">
-                            <span className="sr-only">You said: </span>
+                            <span className="sr-only">{t("thread.youSaid")}</span>
                             {userContent}
                             <button
                               type="button"
                               onClick={() => handleStartEditMessage(it.id, userContent)}
                               disabled={streaming}
                               className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity disabled:opacity-0"
-                              aria-label="Edit message"
-                              title="Edit message"
+                              aria-label={t("thread.editMessage")}
+                              title={t("thread.editMessage")}
                             >
                               <Pencil className="h-3 w-3" />
                             </button>
@@ -1480,7 +1708,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         className="flex flex-col items-start"
                       >
                         <div className="group relative max-w-[85%] text-sm leading-relaxed text-foreground">
-                          <span className="sr-only">Assistant said: </span>
+                          <span className="sr-only">{t("thread.assistantSaid")}</span>
                           <AssistantMarkdown
                             content={it.content}
                             trailing={
@@ -1494,8 +1722,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               type="button"
                               onClick={() => void handleCopyAssistant(it.content)}
                               className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-background border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
-                              aria-label="Copy answer"
-                              title="Copy answer"
+                              aria-label={t("thread.copyAnswer")}
+                              title={t("thread.copyAnswer")}
                             >
                               <Copy className="h-3 w-3" />
                             </button>
@@ -1506,27 +1734,31 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                             type="button"
                             onClick={handleRegenerate}
                             className="mt-1.5 inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                            aria-label="Regenerate response"
-                            title="Regenerate response"
+                            aria-label={t("thread.regenerateAria")}
+                            title={t("thread.regenerateAria")}
                           >
                             <RotateCcw className="h-3 w-3" />
-                            Regenerate
+                            {t("thread.regenerate")}
                           </button>
                         )}
                       </motion.div>
                     )
                   }
                   const isExpanded = !!expandedTools[it.id]
-                  const resultText = renderToolResult(it)
-                  const toolLabel = toolDisplayName(it.name)
+                  const resultText = renderToolResult(it, display)
+                  const toolLabel = display.toolLabel(it.name)
+                  const previewText = it.resultPreview
+                    ? display.resultPreview(it.name, it.resultPreview)
+                    : ""
+                  const errorText = it.error ? display.toolError(it.name, it.error) : ""
                   const a11yStatus =
                     it.status === "pending_confirm"
-                      ? `${toolLabel} tool: confirmation required.`
+                      ? t("toolCard.a11y.pending", { tool: toolLabel })
                       : it.status === "running"
-                        ? `${toolLabel} tool: running.`
+                        ? t("toolCard.a11y.running", { tool: toolLabel })
                         : it.status === "done"
-                          ? `${toolLabel} tool: done. ${it.resultPreview || ""}`
-                          : `${toolLabel} tool: failed. ${it.error || ""}`
+                          ? t("toolCard.a11y.done", { tool: toolLabel, preview: previewText })
+                          : t("toolCard.a11y.failed", { tool: toolLabel, error: errorText })
                   return (
                     <motion.div
                       key={it.id}
@@ -1552,12 +1784,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         <div className="flex items-center gap-1.5 text-violet-600 dark:text-violet-400">
                           <Wrench className="h-3.5 w-3.5" />
                           <span className="font-medium">
-                            {toolDisplayName(it.name)}
+                            {toolLabel}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                          {it.argsSummary}
+                          {display.argsSummary(it.name, it.argsSummary)}
                         </span>
                         <ToolStatusBadge status={it.status} />
                       </div>
@@ -1569,12 +1801,14 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                       {it.status === "pending_confirm" && it.pendingConfirm && (
                         <div className="space-y-2 pt-1">
                           <p className="text-xs text-foreground">
-                            About to use{" "}
-                            <span className="font-semibold tabular-nums">
-                              ~{it.pendingConfirm.estimatedTokens.toLocaleString()}
-                            </span>{" "}
-                            {it.pendingConfirm.currency} token
-                            {it.pendingConfirm.estimatedTokens === 1 ? "" : "s"}.
+                            {t.rich("toolCard.confirmCost", {
+                              amount: it.pendingConfirm.estimatedTokens.toLocaleString(),
+                              currency: it.pendingConfirm.currency,
+                              count: it.pendingConfirm.estimatedTokens,
+                              b: (chunks) => (
+                                <span className="font-semibold tabular-nums">{chunks}</span>
+                              ),
+                            })}
                           </p>
                           <div className="flex items-center gap-2 flex-wrap">
                             <Button
@@ -1583,7 +1817,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               onClick={() => handleConfirmTool(it.id)}
                               disabled={streaming}
                             >
-                              Confirm
+                              {t("toolCard.confirm")}
                             </Button>
                             <Button
                               size="sm"
@@ -1592,7 +1826,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               onClick={() => handleCancelTool(it.id)}
                               disabled={streaming}
                             >
-                              Cancel
+                              {t("toolCard.cancel")}
                             </Button>
                             <button
                               type="button"
@@ -1600,7 +1834,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               disabled={streaming}
                               className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline disabled:opacity-50"
                             >
-                              Don&apos;t ask again
+                              {t("toolCard.dontAskAgain")}
                             </button>
                           </div>
                         </div>
@@ -1619,7 +1853,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           </div>
                           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                             <span className="truncate min-w-0 mr-2">
-                              {it.progressMessage || "Working…"}
+                              {it.progressMessage || t("toolCard.working")}
                             </span>
                             <span className="tabular-nums shrink-0">
                               {Math.round(it.progress)}%
@@ -1638,7 +1872,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           <button
                             onClick={() => toggleToolExpand(it.id)}
                             className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
-                            aria-label={isExpanded ? "Collapse tool result" : "Expand tool result"}
+                            aria-label={isExpanded ? t("toolCard.collapseAria") : t("toolCard.expandAria")}
                             aria-expanded={isExpanded}
                             type="button"
                           >
@@ -1651,11 +1885,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                           <div className="flex-1 min-w-0">
                             {it.status === "failed" ? (
                               <span className="text-red-600 dark:text-red-400">
-                                {it.error || "Tool failed"}
+                                {errorText || t("toolCard.failed")}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">
-                                {it.resultPreview || "Completed"}
+                                {previewText || t("toolCard.completed")}
                               </span>
                             )}
                             {/* FE-23 — per-run cost footnote. Done cards
@@ -1665,9 +1899,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                               it.tokensUsed > 0 &&
                               it.tokensCurrency && (
                                 <div className="mt-1 text-[11px] text-muted-foreground tabular-nums">
-                                  Used {it.tokensUsed.toLocaleString()}{" "}
-                                  {it.tokensCurrency} token
-                                  {it.tokensUsed === 1 ? "" : "s"}
+                                  {t("toolCard.tokensUsed", {
+                                    amount: it.tokensUsed.toLocaleString(),
+                                    currency: it.tokensCurrency,
+                                    count: it.tokensUsed,
+                                  })}
                                 </div>
                               )}
                             {isExpanded && resultText && (
@@ -1697,9 +1933,9 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                       transition={{ duration: 0.15 }}
                       className="flex items-center gap-1.5"
                       role="status"
-                      aria-label="PlagiaAI is thinking"
+                      aria-label={t("thread.thinkingAria")}
                     >
-                      <span className="sr-only">PlagiaAI is thinking…</span>
+                      <span className="sr-only">{t("thread.thinking")}</span>
                       <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 motion-safe:animate-bounce [animation-delay:-0.3s]" aria-hidden="true" />
                       <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 motion-safe:animate-bounce [animation-delay:-0.15s]" aria-hidden="true" />
                       <span className="h-1.5 w-1.5 rounded-full bg-violet-500/60 motion-safe:animate-bounce" aria-hidden="true" />
@@ -1724,7 +1960,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     scrollToBottom()
                   }}
                   className="absolute bottom-3 right-3 h-9 w-9 rounded-full border border-border bg-background shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground"
-                  aria-label="Scroll to bottom"
+                  aria-label={t("thread.scrollToBottom")}
                 >
                   <ArrowDown className="h-4 w-4" />
                 </motion.button>
@@ -1735,7 +1971,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           {/* Retry banner shown after a network/SSE error */}
           {lastFailedInput && !streaming && (
             <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Last message failed.</span>
+              <span>{t("thread.lastFailed")}</span>
               <Button
                 size="sm"
                 variant="ghost"
@@ -1743,7 +1979,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                 onClick={handleRetry}
               >
                 <RotateCcw className="h-3 w-3" />
-                Try again
+                {t("thread.tryAgain")}
               </Button>
             </div>
           )}
@@ -1752,7 +1988,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             <div
               className="mt-3 flex flex-wrap gap-2"
               role="group"
-              aria-label="Follow-up suggestions"
+              aria-label={t("thread.followupsAria")}
             >
               {followupSuggestions.map((suggestion) => (
                 <button
@@ -1760,12 +1996,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   type="button"
                   onClick={() => {
                     setFollowupSuggestions([])
-                    void sendMessage(suggestion)
+                    void sendMessage(display.suggestion(suggestion))
                   }}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-xs text-violet-700 dark:text-violet-300 transition-colors"
                 >
                   <ChevronRight className="h-3 w-3" />
-                  {suggestion}
+                  {display.suggestion(suggestion)}
                 </button>
               ))}
             </div>
@@ -1789,12 +2025,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-border bg-card text-xs">
                     <Paperclip className="h-3 w-3 text-violet-500" />
                     <span className="truncate max-w-[200px]">
-                      {attachedImage.name || "image"}
+                      {attachedImage.name || t("attach.defaultName")}
                     </span>
                     <button
                       onClick={handleRemoveAttached}
                       className="text-muted-foreground hover:text-foreground"
-                      aria-label="Remove attached image"
+                      aria-label={t("attach.removeAria")}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1814,8 +2050,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
             <div className="rounded-xl border border-border bg-background shadow-sm transition-colors focus-within:border-violet-500/50 focus-within:ring-2 focus-within:ring-violet-500/30">
               <Textarea
                 ref={textareaRef}
-                placeholder="Ask PlagiaAI anything…"
-                aria-label="Ask PlagiaAI"
+                placeholder={t("composer.placeholder")}
+                aria-label={t("composer.aria")}
                 aria-describedby="plagia-ai-keyboard-hint"
                 value={input}
                 maxLength={12000}
@@ -1826,7 +2062,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               />
               {input.length > 11000 && (
                 <p className="px-3 text-[11px] text-amber-600 dark:text-amber-400 tabular-nums">
-                  {input.length.toLocaleString()}/12,000 characters
+                  {t("composer.charCount", { count: input.length.toLocaleString() })}
                 </p>
               )}
               <div className="flex items-center justify-between gap-2 px-3 pb-2.5 flex-wrap">
@@ -1835,8 +2071,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     onClick={handleAttachClick}
                     disabled={streaming || !!attachedImage}
                     className="h-10 w-10 sm:h-9 sm:w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
-                    aria-label="Attach image"
-                    title="Attach an image"
+                    aria-label={t("composer.attachAria")}
+                    title={t("composer.attachTitle")}
                   >
                     <Paperclip className="h-4 w-4" />
                   </button>
@@ -1848,13 +2084,13 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                         ? "bg-red-500/15 text-red-600 dark:text-red-400 hover:bg-red-500/25"
                         : "hover:bg-accent text-muted-foreground hover:text-foreground"
                     }`}
-                    aria-label={recording ? "Stop dictation" : "Start voice dictation"}
+                    aria-label={recording ? t("composer.stopDictation") : t("composer.startDictationAria")}
                     title={
                       !speechSupported
-                        ? "Voice dictation needs Chrome, Edge, or Safari"
+                        ? t("composer.dictationUnsupported")
                         : recording
-                          ? "Stop dictation"
-                          : "Voice dictation"
+                          ? t("composer.stopDictation")
+                          : t("composer.dictation")
                     }
                   >
                     {recording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
@@ -1863,14 +2099,14 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     id="plagia-ai-keyboard-hint"
                     className="hidden sm:inline text-[11px] text-muted-foreground ml-1"
                   >
-                    Ctrl+Enter to send
+                    {t("composer.keyboardHint")}
                   </span>
                 </div>
                 <Button
                   ref={sendButtonRef}
                   onClick={streaming ? handleStop : handleSend}
                   disabled={streaming ? false : !input.trim()}
-                  aria-label={streaming ? "Stop generating" : "Send message"}
+                  aria-label={streaming ? t("composer.stopAria") : t("composer.sendAria")}
                   className="h-10 sm:h-9 px-4 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium shadow-none ml-auto"
                 >
                   {streaming ? (
@@ -1878,12 +2114,12 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                     // turn) instead of a disabled "Thinking" button.
                     <>
                       <Square className="mr-1.5 h-3 w-3 fill-current" />
-                      Stop
+                      {t("composer.stop")}
                     </>
                   ) : (
                     <>
                       <Send className="mr-1.5 h-3.5 w-3.5" />
-                      Send
+                      {t("composer.send")}
                     </>
                   )}
                 </Button>
@@ -1911,6 +2147,8 @@ function PreferencesPanel({
   onSave: (next: PlagiaAiPreferences) => void
   onClose: () => void
 }) {
+  const t = useTranslations("PlagiaAi.preferences")
+  const tValues = useTranslations("PlagiaAi.values")
   // Local form state — committed on Save. Lets users tweak controls without
   // each keystroke writing to Supabase.
   const [draft, setDraft] = useState<PlagiaAiPreferences>(prefs)
@@ -1933,25 +2171,23 @@ function PreferencesPanel({
   return (
     <div className="mb-4 rounded-xl border border-border bg-card/40 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">PlagiaAI preferences</h3>
+        <h3 className="text-sm font-semibold">{t("title")}</h3>
         <button
           type="button"
           onClick={onClose}
           className="h-7 w-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
-          aria-label="Close preferences"
+          aria-label={t("closeAria")}
         >
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
       <p className="text-xs text-muted-foreground">
-        These defaults are added to PlagiaAI&apos;s prompt on every turn so it
-        remembers how you like things. Leave any field blank to let PlagiaAI
-        pick.
+        {t("intro")}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
         <label className="space-y-1 text-xs">
-          <span className="font-medium text-foreground">Paraphrase mode</span>
+          <span className="font-medium text-foreground">{t("paraphraseMode")}</span>
           <select
             value={draft.paraphraseMode ?? ""}
             onChange={(e) =>
@@ -1962,18 +2198,18 @@ function PreferencesPanel({
             }
             className="w-full h-9 rounded-md border border-border bg-background px-2 text-base md:text-sm"
           >
-            <option value="">No preference</option>
-            <option value="standard">Standard</option>
-            <option value="fluency">Fluency</option>
-            <option value="formal">Formal</option>
-            <option value="simple">Simple</option>
-            <option value="creative">Creative</option>
-            <option value="academic">Academic</option>
+            <option value="">{t("noPreference")}</option>
+            <option value="standard">{tValues("modes.standard")}</option>
+            <option value="fluency">{tValues("modes.fluency")}</option>
+            <option value="formal">{tValues("modes.formal")}</option>
+            <option value="simple">{tValues("modes.simple")}</option>
+            <option value="creative">{tValues("modes.creative")}</option>
+            <option value="academic">{tValues("modes.academic")}</option>
           </select>
         </label>
 
         <label className="space-y-1 text-xs">
-          <span className="font-medium text-foreground">Humanizer tone</span>
+          <span className="font-medium text-foreground">{t("humanizerTone")}</span>
           <select
             value={draft.humanizerTone ?? ""}
             onChange={(e) =>
@@ -1984,18 +2220,18 @@ function PreferencesPanel({
             }
             className="w-full h-9 rounded-md border border-border bg-background px-2 text-base md:text-sm"
           >
-            <option value="">No preference</option>
-            <option value="casual">Casual</option>
-            <option value="professional">Professional</option>
-            <option value="academic">Academic</option>
-            <option value="creative">Creative</option>
-            <option value="friendly">Friendly</option>
+            <option value="">{t("noPreference")}</option>
+            <option value="casual">{tValues("tones.casual")}</option>
+            <option value="professional">{tValues("tones.professional")}</option>
+            <option value="academic">{tValues("tones.academic")}</option>
+            <option value="creative">{tValues("tones.creative")}</option>
+            <option value="friendly">{tValues("tones.friendly")}</option>
           </select>
         </label>
 
         <label className="space-y-1 text-xs sm:col-span-2">
           <span className="font-medium text-foreground inline-flex items-center gap-2">
-            Default summary length
+            {t("summaryLength")}
             {typeof draft.summaryLengthPercent === "number" && (
               <span className="text-muted-foreground tabular-nums">
                 {draft.summaryLengthPercent}%
@@ -2011,7 +2247,7 @@ function PreferencesPanel({
               value={draft.summaryLengthPercent ?? 30}
               onChange={(e) => update("summaryLengthPercent", Number(e.target.value))}
               className="flex-1 accent-violet-600"
-              aria-label="Default summary length percent"
+              aria-label={t("summaryLengthAria")}
             />
             {typeof draft.summaryLengthPercent === "number" && (
               <button
@@ -2019,7 +2255,7 @@ function PreferencesPanel({
                 onClick={() => update("summaryLengthPercent", undefined)}
                 className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
               >
-                Clear
+                {t("clear")}
               </button>
             )}
           </div>
@@ -2036,11 +2272,10 @@ function PreferencesPanel({
           />
           <span>
             <span className="font-medium text-foreground">
-              Always confirm before image-token tools
+              {t("alwaysConfirm")}
             </span>
             <span className="block text-muted-foreground mt-0.5">
-              Overrides the per-call &ldquo;Don&rsquo;t ask again&rdquo; bypass for
-              chart / infographic / thumbnail / OCR tools.
+              {t("alwaysConfirmHint")}
             </span>
           </span>
         </label>
@@ -2054,7 +2289,7 @@ function PreferencesPanel({
           onClick={() => setDraft(prefs)}
           disabled={saving}
         >
-          Reset
+          {t("reset")}
         </Button>
         <Button
           size="sm"
@@ -2065,10 +2300,10 @@ function PreferencesPanel({
           {saving ? (
             <>
               <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              Saving
+              {t("saving")}
             </>
           ) : (
-            "Save"
+            t("save")
           )}
         </Button>
       </div>
@@ -2081,6 +2316,7 @@ function ToolStatusBadge({
 }: {
   status: "pending_confirm" | "running" | "done" | "failed"
 }) {
+  const t = useTranslations("PlagiaAi.toolCard.status")
   // Tinted pills (not bare colored text) so a card's state is scannable at a
   // glance and running -> done / failed transitions read clearly. Each variant
   // carries an explicit dark-mode foreground for parity.
@@ -2090,7 +2326,7 @@ function ToolStatusBadge({
     return (
       <span className={`${base} bg-amber-500/10 text-amber-700 dark:text-amber-400`}>
         <Coins className="h-3 w-3" aria-hidden="true" />
-        Confirm
+        {t("pendingConfirm")}
       </span>
     )
   }
@@ -2098,7 +2334,7 @@ function ToolStatusBadge({
     return (
       <span className={`${base} bg-violet-500/10 text-violet-700 dark:text-violet-400`}>
         <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-        Running
+        {t("running")}
       </span>
     )
   }
@@ -2106,14 +2342,14 @@ function ToolStatusBadge({
     return (
       <span className={`${base} bg-emerald-500/10 text-emerald-700 dark:text-emerald-400`}>
         <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-        Done
+        {t("done")}
       </span>
     )
   }
   return (
     <span className={`${base} bg-red-500/10 text-red-700 dark:text-red-400`}>
       <XCircle className="h-3 w-3" aria-hidden="true" />
-      Failed
+      {t("failed")}
     </span>
   )
 }
@@ -2140,11 +2376,14 @@ function getInlineSvg(
 }
 
 function renderToolResult(
-  it: Extract<ChatItem, { kind: "tool" }>
+  it: Extract<ChatItem, { kind: "tool" }>,
+  display: ToolDisplay,
 ): string | null {
-  if (it.status === "failed") return it.error || null
+  const { t } = display
+  if (it.status === "failed") return it.error ? display.toolError(it.name, it.error) : null
   const r = it.result as { result?: any } | undefined
-  if (!r || !r.result) return it.resultPreview || null
+  if (!r || !r.result)
+    return it.resultPreview ? display.resultPreview(it.name, it.resultPreview) : null
 
   const data = r.result
   switch (it.name) {
@@ -2159,20 +2398,27 @@ function renderToolResult(
       return data.humanizedText || null
     case "ai_detect":
       return data.analysis
-        ? `${data.verdict} (${data.overallScore}% AI)\n\n${data.analysis}`
+        ? `${t("resultText.aiScore", {
+            verdict: display.verdict(String(data.verdict)),
+            score: String(data.overallScore),
+          })}\n\n${data.analysis}`
         : null
     case "grammar":
       return data.correctedText || null
     case "plagiarism_check": {
       const matches = Array.isArray(data.matches) ? data.matches : []
-      const parts = [`${Math.round(data.plagiarismPercentage ?? 0)}% plagiarism detected`]
+      const parts = [
+        t("resultText.plagiarismDetected", {
+          percent: String(Math.round(data.plagiarismPercentage ?? 0)),
+        }),
+      ]
       if (matches.length) {
         parts.push(
           ...matches
             .slice(0, 5)
             .map(
               (m: any) =>
-                `• ${m.text || "match"}${typeof m.similarity === "number" ? ` (${Math.round(m.similarity)}%)` : ""}`
+                `• ${m.text || t("resultText.match")}${typeof m.similarity === "number" ? ` (${Math.round(m.similarity)}%)` : ""}`
             )
         )
       }
@@ -2182,7 +2428,7 @@ function renderToolResult(
     case "generate_chart":
     case "generate_thumbnail":
       return typeof data.svg === "string"
-        ? `SVG output (${data.svg.length} chars). View in the standalone tool to render.`
+        ? t("resultText.svgOutput", { count: data.svg.length })
         : null
     case "image_to_text":
       return data.extractedText || null
@@ -2197,12 +2443,12 @@ function renderToolResult(
       if (data.title) parts.push(`# ${data.title}`)
       if (data.overview) parts.push(data.overview)
       if (Array.isArray(data.keyPoints) && data.keyPoints.length) {
-        parts.push("Key points:")
+        parts.push(t("resultText.keyPoints"))
         parts.push(...data.keyPoints.map((p: string) => `• ${p}`))
       }
       if (data.detailedSummary) parts.push("", data.detailedSummary)
       if (Array.isArray(data.actionItems) && data.actionItems.length) {
-        parts.push("", "Action items:")
+        parts.push("", t("resultText.actionItems"))
         parts.push(...data.actionItems.map((a: string) => `• ${a}`))
       }
       return parts.length ? parts.join("\n") : null

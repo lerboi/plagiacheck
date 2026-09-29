@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useTranslations } from "next-intl"
 import {
   Shield,
   Brain,
@@ -23,16 +24,20 @@ import {
   AudioLines,
   type LucideIcon,
 } from "lucide-react"
+import type en from "@/messages/en"
+
+type ToolCatalogId = keyof (typeof en)["ToolCatalog"]["tools"]
 
 interface Tool {
-  name: string
+  /** Key of the tool's name in the ToolCatalog messages. */
+  id: ToolCatalogId
   icon: LucideIcon
   /** Route to the tool's standalone page (all verified to exist). */
   href: string
 }
 
 interface CategoryBlock {
-  label: string
+  id: "writing" | "image" | "voice"
   icon: LucideIcon
   color: string
   bgColor: string
@@ -41,47 +46,49 @@ interface CategoryBlock {
 
 const CATEGORIES: CategoryBlock[] = [
   {
-    label: "Writing",
+    id: "writing",
     icon: Pen,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     tools: [
-      { name: "Plagiarism Checker", icon: Shield, href: "/plagiarism-checker" },
-      { name: "AI Detector", icon: Brain, href: "/ai-detector" },
-      { name: "AI Humanizer", icon: Wand2, href: "/ai-humanizer" },
-      { name: "Paraphraser", icon: RefreshCw, href: "/paraphraser" },
-      { name: "Summarizer", icon: FileText, href: "/summarizer" },
-      { name: "Grammar Checker", icon: CheckCircle2, href: "/grammar-checker" },
-      { name: "Word Counter", icon: Hash, href: "/word-counter" },
+      { id: "plagiarismChecker", icon: Shield, href: "/plagiarism-checker" },
+      { id: "aiDetector", icon: Brain, href: "/ai-detector" },
+      { id: "aiHumanizer", icon: Wand2, href: "/ai-humanizer" },
+      { id: "paraphraser", icon: RefreshCw, href: "/paraphraser" },
+      { id: "summarizer", icon: FileText, href: "/summarizer" },
+      { id: "grammarChecker", icon: CheckCircle2, href: "/grammar-checker" },
+      { id: "wordCounter", icon: Hash, href: "/word-counter" },
     ],
   },
   {
-    label: "Image & Visual",
+    id: "image",
     icon: ImagesIcon,
     color: "text-rose-500",
     bgColor: "bg-rose-500/10",
     tools: [
-      { name: "Infographic Generator", icon: BarChart3, href: "/infographic-generator" },
-      { name: "Thumbnail Generator", icon: ImagePlus, href: "/thumbnail-generator" },
-      { name: "Chart Generator", icon: PieChart, href: "/chart-generator" },
-      { name: "Image to Text", icon: ImageIcon, href: "/image-to-text" },
+      { id: "infographicGenerator", icon: BarChart3, href: "/infographic-generator" },
+      { id: "thumbnailGenerator", icon: ImagePlus, href: "/thumbnail-generator" },
+      { id: "chartGenerator", icon: PieChart, href: "/chart-generator" },
+      { id: "imageToText", icon: ImageIcon, href: "/image-to-text" },
     ],
   },
   {
-    label: "Voice & Audio",
+    id: "voice",
     icon: AudioLines,
     color: "text-indigo-500",
     bgColor: "bg-indigo-500/10",
     tools: [
-      { name: "Speech to Text", icon: Mic, href: "/speech-to-text" },
-      { name: "Text to Speech", icon: Volume2, href: "/text-to-speech" },
-      { name: "Voice to Essay", icon: FileEdit, href: "/voice-to-essay" },
-      { name: "Audio Summarizer", icon: FileAudio, href: "/audio-summarizer" },
+      { id: "speechToText", icon: Mic, href: "/speech-to-text" },
+      { id: "textToSpeech", icon: Volume2, href: "/text-to-speech" },
+      { id: "voiceToEssay", icon: FileEdit, href: "/voice-to-essay" },
+      { id: "audioSummarizer", icon: FileAudio, href: "/audio-summarizer" },
     ],
   },
 ]
 
 export function OneChatAllTools() {
+  const t = useTranslations("Home.oneChat")
+  const tCatalog = useTranslations("ToolCatalog")
   return (
     <section className="py-16 md:py-20 border-t border-border">
       <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -93,17 +100,17 @@ export function OneChatAllTools() {
           className="text-center mb-10 md:mb-12"
         >
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight">
-            One chat. Every tool.
+            {t("title")}
           </h2>
           <p className="mt-3 text-base text-muted-foreground max-w-xl mx-auto">
-            Just describe what you need. PlagiaAI picks the right tool and runs it.
+            {t("subtitle")}
           </p>
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {CATEGORIES.map((category, i) => (
             <motion.div
-              key={category.label}
+              key={category.id}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
@@ -116,12 +123,12 @@ export function OneChatAllTools() {
                   <category.icon className={`h-4 w-4 ${category.color}`} />
                 </div>
                 <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  {category.label}
+                  {t(`categories.${category.id}`)}
                 </h3>
               </div>
               <ul className="space-y-2">
                 {category.tools.map((tool) => (
-                  <li key={tool.name}>
+                  <li key={tool.id}>
                     {/* Each tool links to its standalone page so users can jump
                         straight there instead of only via chat. */}
                     <Link
@@ -129,7 +136,7 @@ export function OneChatAllTools() {
                       className="group flex items-center gap-2.5 -mx-1 rounded-md px-1 py-1 text-sm text-foreground transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
                     >
                       <tool.icon className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-150 motion-safe:group-hover:scale-110 group-hover:text-foreground" />
-                      <span>{tool.name}</span>
+                      <span>{tCatalog(`tools.${tool.id}.name`)}</span>
                     </Link>
                   </li>
                 ))}

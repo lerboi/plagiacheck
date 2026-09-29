@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion"
 import { Download } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import type { PlagiaAiToolName } from "@/lib/plagia-ai/types"
 
@@ -10,10 +11,11 @@ interface InlineSvgPreviewProps {
   toolName: PlagiaAiToolName
 }
 
-const TOOL_LABELS: Partial<Record<PlagiaAiToolName, string>> = {
-  generate_chart: "Chart",
-  generate_infographic: "Infographic",
-  generate_thumbnail: "Thumbnail",
+/** Key under PlagiaAi.svgPreview.labels for each SVG-producing tool. */
+const TOOL_LABELS: Partial<Record<PlagiaAiToolName, "chart" | "infographic" | "thumbnail">> = {
+  generate_chart: "chart",
+  generate_infographic: "infographic",
+  generate_thumbnail: "thumbnail",
 }
 
 const FILENAME_BASE: Partial<Record<PlagiaAiToolName, string>> = {
@@ -34,6 +36,7 @@ const FILENAME_BASE: Partial<Record<PlagiaAiToolName, string>> = {
  * — opacity is non-vestibular).
  */
 export function InlineSvgPreview({ svg, toolName }: InlineSvgPreviewProps) {
+  const t = useTranslations("PlagiaAi.svgPreview")
   const prefersReducedMotion = useReducedMotion()
   const motionProps = prefersReducedMotion
     ? {}
@@ -43,7 +46,7 @@ export function InlineSvgPreview({ svg, toolName }: InlineSvgPreviewProps) {
         transition: { duration: 0.25, ease: "easeOut" as const },
       }
 
-  const label = TOOL_LABELS[toolName] ?? "Output"
+  const label = t(`labels.${TOOL_LABELS[toolName] ?? "output"}`)
 
   const handleDownload = () => {
     const blob = new Blob([svg], { type: "image/svg+xml" })
@@ -66,7 +69,7 @@ export function InlineSvgPreview({ svg, toolName }: InlineSvgPreviewProps) {
         // self-contained <svg> with its own viewBox + bg fill; we just drop it
         // in and let the browser size it naturally.
         role="img"
-        aria-label={`${label} output`}
+        aria-label={t("outputAria", { label })}
         className="rounded-lg bg-white shadow-sm border border-border overflow-hidden p-3 [&>svg]:w-full [&>svg]:h-auto"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
@@ -76,11 +79,11 @@ export function InlineSvgPreview({ svg, toolName }: InlineSvgPreviewProps) {
           variant="ghost"
           className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
           onClick={handleDownload}
-          aria-label={`Download ${label.toLowerCase()} as SVG`}
-          title="Download SVG"
+          aria-label={t("downloadAria", { label: label.toLowerCase() })}
+          title={t("download")}
         >
           <Download className="h-3 w-3" />
-          Download SVG
+          {t("download")}
         </Button>
       </div>
     </motion.div>

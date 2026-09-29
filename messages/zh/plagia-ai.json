@@ -1,1 +1,321 @@
-{}
+{
+  "greeting": "你好，我是 PlagiaAI。告诉我你想做什么，我会调用合适的工具：改写、摘要、人性化改写、语法检查、AI 检测、抄袭检测，以及生成图表、信息图或封面图。",
+  "emptyState": {
+    "badge": "一个对话 · 15 款工具",
+    "title": "今天我能帮你做什么？",
+    "description": "描述你的任务或粘贴文本，PlagiaAI 会挑选合适的写作工具、运行它并展示结果。"
+  },
+  "chips": {
+    "groupAria": "推荐提示",
+    "seeAll": "查看全部工具",
+    "items": {
+      "plagiarism": {
+        "label": "检查抄袭",
+        "prefill": "检查这段文字是否存在抄袭：\n\n"
+      },
+      "paraphrase": {
+        "label": "改写",
+        "prefill": "用正式的语气改写这段文字：\n\n"
+      },
+      "detectAi": {
+        "label": "检测 AI",
+        "prefill": "这段文字是 AI 生成的吗？\n\n"
+      },
+      "summarize": {
+        "label": "生成摘要",
+        "prefill": "用 3 个要点总结这段文字：\n\n"
+      },
+      "chart": {
+        "label": "制作图表",
+        "prefill": "制作一张柱状图，展示"
+      }
+    }
+  },
+  "sidebar": {
+    "asideAria": "对话历史记录",
+    "listAria": "已保存的对话",
+    "empty": "还没有保存的对话。发送一条消息即可开始。",
+    "noMatches": "没有匹配的对话。",
+    "clearFilter": "清除筛选",
+    "filterPlaceholder": "筛选对话",
+    "untitled": "未命名",
+    "renameAria": "重命名对话",
+    "rename": "重命名",
+    "pinAria": "置顶对话",
+    "unpinAria": "取消置顶对话",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "deleteAria": "删除对话",
+    "delete": "删除",
+    "cancel": "取消",
+    "newChat": "新对话",
+    "closeAria": "关闭对话列表",
+    "close": "关闭",
+    "expandAria": "展开对话列表",
+    "expandTitle": "展开侧边栏",
+    "collapse": "收起侧边栏",
+    "time": {
+      "now": "刚刚",
+      "minutes": "{count} 分钟",
+      "hours": "{count} 小时",
+      "days": "{count} 天"
+    }
+  },
+  "header": {
+    "drawerAria": "对话历史记录（侧边抽屉）",
+    "openConversationsAria": "打开对话列表",
+    "openConversationsTitle": "对话",
+    "messageCount": "{count, plural, other {# 条消息}}",
+    "preferencesAria": "PlagiaAI 偏好设置",
+    "preferences": "偏好设置",
+    "export": "导出",
+    "exportAria": "将对话导出为 Markdown",
+    "clearQuestion": "清空此对话？",
+    "cancel": "取消",
+    "confirmClear": "确认清空",
+    "clear": "清空"
+  },
+  "thread": {
+    "logAria": "PlagiaAI 对话",
+    "assistantSaid": "助手说：",
+    "youSaid": "你说：",
+    "editAria": "编辑你的消息",
+    "cancel": "取消",
+    "saveAndResend": "保存并重新发送",
+    "editMessage": "编辑消息",
+    "copyAnswer": "复制回答",
+    "regenerateAria": "重新生成回答",
+    "regenerate": "重新生成",
+    "thinkingAria": "PlagiaAI 正在思考",
+    "thinking": "PlagiaAI 正在思考…",
+    "scrollToBottom": "滚动到底部",
+    "lastFailed": "上一条消息发送失败。",
+    "tryAgain": "重试",
+    "followupsAria": "后续建议"
+  },
+  "toolCard": {
+    "a11y": {
+      "pending": "{tool}：需要确认。",
+      "running": "{tool}：运行中。",
+      "done": "{tool}：已完成。{preview}",
+      "failed": "{tool}：失败。{error}"
+    },
+    "confirmCost": "即将消耗约 <b>{amount}</b> {currency, select, image {图片} other {文本}}{count, plural, other {积分}}。",
+    "confirm": "确认",
+    "cancel": "取消",
+    "dontAskAgain": "不再询问",
+    "working": "处理中…",
+    "collapseAria": "收起工具结果",
+    "expandAria": "展开工具结果",
+    "failed": "工具运行失败",
+    "completed": "已完成",
+    "tokensUsed": "已消耗 {amount} {currency, select, image {图片} other {文本}}{count, plural, other {积分}}",
+    "status": {
+      "pendingConfirm": "待确认",
+      "running": "运行中",
+      "done": "已完成",
+      "failed": "失败"
+    }
+  },
+  "toolErrors": {
+    "failedWithStatus": "{tool}运行失败（{status}）",
+    "noImageAttached": "未附加图片。请先附加一张图片，再提取文字。",
+    "noPlagiarismResult": "抄袭检测未返回结果",
+    "unknownTool": "未知工具：{name}",
+    "retryCap": "已停止：该工具在本轮中已失败 {count} 次。"
+  },
+  "args": {
+    "mode": "模式：{mode}",
+    "summarize": "长度：{percent}% · {format}",
+    "humanize": "语气：{tone} · 强度：{level}",
+    "chars": "{count} 个字符",
+    "chartType": "类型：{type}",
+    "style": "风格：{style}",
+    "extractImage": "从附加的图片中提取文字",
+    "transcriptChars": "转写文本共 {count} 个字符"
+  },
+  "preview": {
+    "aiDetect": "{verdict} — AI 占比 {score}%",
+    "analysisComplete": "分析完成",
+    "grammar": "发现 {count, plural, other {# 个问题}}",
+    "plagiarism": "抄袭率 {percent}% · {count, plural, other {# 处匹配}}",
+    "infographic": "信息图：{title}",
+    "chart": "图表（{type}）：{title}",
+    "extracted": "已提取 {count} 个字符",
+    "extractedWithConfidence": "已提取 {count} 个字符（置信度：{confidence}）",
+    "noText": "未提取到文字",
+    "essay": "{title} · {count} 个词",
+    "audio": "{title} · {count, plural, other {# 个要点}}",
+    "thumbnail": "封面图：{title}",
+    "untitled": "未命名",
+    "essayTitle": "文章",
+    "summaryTitle": "摘要"
+  },
+  "resultText": {
+    "aiScore": "{verdict}（AI 占比 {score}%）",
+    "plagiarismDetected": "检测到 {percent}% 的抄袭内容",
+    "match": "匹配内容",
+    "svgOutput": "SVG 输出（{count} 个字符）。请在独立工具中查看渲染效果。",
+    "keyPoints": "要点：",
+    "actionItems": "行动项："
+  },
+  "values": {
+    "modes": {
+      "standard": "标准",
+      "fluency": "流畅",
+      "formal": "正式",
+      "simple": "简洁",
+      "creative": "创意",
+      "academic": "学术"
+    },
+    "tones": {
+      "casual": "随意",
+      "professional": "专业",
+      "academic": "学术",
+      "creative": "创意",
+      "friendly": "友好"
+    },
+    "formats": {
+      "paragraph": "段落",
+      "bullets": "要点"
+    },
+    "chartTypes": {
+      "auto-detect": "自动识别",
+      "auto": "自动",
+      "bar": "柱状图",
+      "line": "折线图",
+      "pie": "饼图",
+      "flowchart": "流程图",
+      "mindmap": "思维导图",
+      "timeline": "时间线",
+      "comparison": "对比图"
+    },
+    "styles": {
+      "modern": "现代",
+      "minimal": "极简",
+      "bold": "醒目",
+      "gradient": "渐变"
+    },
+    "confidence": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "verdicts": {
+      "likelyHuman": "很可能为人工撰写",
+      "possiblyAi": "可能含有 AI 生成内容",
+      "likelyAi": "很可能为 AI 生成"
+    }
+  },
+  "followups": {
+    "checkItForGrammar": "检查一下语法",
+    "makeItShorter": "把它改短一些",
+    "detectAiSignals": "检测是否有 AI 痕迹",
+    "paraphraseSummaryFormally": "用更正式的语气改写摘要",
+    "chartFromPoints": "用这些要点制作图表",
+    "paraphraseFormally": "用更正式的语气改写",
+    "summarizeResult": "总结这个结果",
+    "humanizeFlagged": "人性化改写被标记为 AI 的部分",
+    "paraphraseReduceAi": "改写以减少 AI 痕迹",
+    "paraphraseFlagged": "改写被标记的段落",
+    "checkGrammar": "检查语法",
+    "infographicInstead": "改为制作信息图",
+    "differentChartType": "换一种图表类型",
+    "chartFromThis": "用它制作图表",
+    "summarizeSource": "总结原文",
+    "differentTitle": "换一个标题",
+    "summarizeExtracted": "总结提取出的文字",
+    "checkForPlagiarism": "检查是否存在抄袭",
+    "paraphraseIt": "改写这段文字",
+    "summarizeInBullets": "用 3 个要点总结",
+    "paraphraseSummary": "改写摘要"
+  },
+  "attach": {
+    "onlyImages": "只能附加图片文件。",
+    "tooLarge": "图片过大（最大 8 MB）。",
+    "readFailed": "无法读取图片",
+    "defaultName": "图片",
+    "removeAria": "移除附加的图片"
+  },
+  "composer": {
+    "placeholder": "向 PlagiaAI 提出任何问题…",
+    "aria": "向 PlagiaAI 提问",
+    "charCount": "{count}/12,000 字符",
+    "attachAria": "附加图片",
+    "attachTitle": "附加一张图片",
+    "stopDictation": "停止听写",
+    "startDictationAria": "开始语音听写",
+    "dictationUnsupported": "语音听写需要使用 Chrome、Edge 或 Safari",
+    "dictation": "语音听写",
+    "keyboardHint": "按 Ctrl+Enter 发送",
+    "stopAria": "停止生成",
+    "sendAria": "发送消息",
+    "stop": "停止",
+    "send": "发送"
+  },
+  "preferences": {
+    "title": "PlagiaAI 偏好设置",
+    "closeAria": "关闭偏好设置",
+    "intro": "每轮对话都会把这些默认设置加入 PlagiaAI 的提示中，让它记住你的习惯。任何一项留空，都由 PlagiaAI 自行决定。",
+    "paraphraseMode": "改写模式",
+    "humanizerTone": "人性化改写语气",
+    "noPreference": "不指定",
+    "summaryLength": "默认摘要长度",
+    "summaryLengthAria": "默认摘要长度百分比",
+    "clear": "清除",
+    "alwaysConfirm": "使用图片积分工具前始终确认",
+    "alwaysConfirmHint": "对图表 / 信息图 / 封面图 / OCR 工具，忽略单次调用时选择的“不再询问”。",
+    "reset": "重置",
+    "saving": "保存中",
+    "save": "保存"
+  },
+  "toasts": {
+    "preferencesSaved": "偏好设置已保存",
+    "preferencesSavedDescription": "PlagiaAI 会在之后的对话中使用这些设置。",
+    "preferencesFailed": "无法保存偏好设置",
+    "preferencesFailedDescription": "请先在 Supabase 中运行 FE-09 迁移，然后重试。（SQL 见提交说明。）",
+    "exported": "对话已导出",
+    "copied": "已复制",
+    "copyFailed": "无法复制",
+    "copyFailedDescription": "你的浏览器阻止了剪贴板访问。",
+    "loadFailed": "无法加载对话",
+    "loadFailedDescription": "服务器出了点问题。",
+    "deleteFailed": "无法删除对话",
+    "renameFailed": "无法重命名对话",
+    "tryAgainLater": "请稍后再试。",
+    "pinFailed": "无法保存置顶状态",
+    "pinFailedDescription": "请先在 Supabase 中运行 FE-24 迁移，然后重试。",
+    "serverError": "PlagiaAI 无法连接服务器"
+  },
+  "errors": {
+    "generic": "出了点问题。",
+    "requestFailed": "请求失败（{status}）",
+    "aiUnavailable": "AI 服务暂时不可用，请重试。"
+  },
+  "export": {
+    "heading": "PlagiaAI 对话 — {date}",
+    "you": "你",
+    "status": {
+      "pendingConfirm": "（等待确认）",
+      "running": "（进行中）",
+      "failed": "（失败）"
+    }
+  },
+  "svgPreview": {
+    "labels": {
+      "chart": "图表",
+      "infographic": "信息图",
+      "thumbnail": "封面图",
+      "output": "输出"
+    },
+    "outputAria": "{label}输出",
+    "downloadAria": "将{label}下载为 SVG",
+    "download": "下载 SVG"
+  },
+  "markdown": {
+    "code": "代码",
+    "copyCode": "复制代码",
+    "copy": "复制",
+    "copied": "已复制"
+  }
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useTranslations } from "next-intl"
 import {
   Shield,
   Pencil,
@@ -13,17 +14,17 @@ import {
 } from "lucide-react"
 
 interface ChipDef {
-  label: string
+  /** Key under PlagiaAi.chips.items holding the chip's label and prefill text. */
+  id: "plagiarism" | "paraphrase" | "detectAi" | "summarize" | "chart"
   icon: LucideIcon
-  prefill: string
 }
 
 const CHIPS: ChipDef[] = [
-  { label: "Check plagiarism", icon: Shield, prefill: "Check this text for plagiarism:\n\n" },
-  { label: "Paraphrase", icon: Pencil, prefill: "Paraphrase this in a formal tone:\n\n" },
-  { label: "Detect AI", icon: Bot, prefill: "Is this text AI-generated?\n\n" },
-  { label: "Summarize", icon: FileText, prefill: "Summarize this in 3 bullet points:\n\n" },
-  { label: "Make a chart", icon: BarChart3, prefill: "Make a bar chart showing " },
+  { id: "plagiarism", icon: Shield },
+  { id: "paraphrase", icon: Pencil },
+  { id: "detectAi", icon: Bot },
+  { id: "summarize", icon: FileText },
+  { id: "chart", icon: BarChart3 },
 ]
 
 interface SuggestionChipBarProps {
@@ -36,15 +37,22 @@ const itemVariants = {
 }
 
 export function SuggestionChipBar({ onChipClick }: SuggestionChipBarProps) {
+  const t = useTranslations("PlagiaAi.chips")
+  const chips = CHIPS.map(({ id, icon }) => ({
+    id,
+    icon,
+    label: t(`items.${id}.label`),
+    prefill: t(`items.${id}.prefill`),
+  }))
   return (
     <div
       role="group"
-      aria-label="Suggested prompts"
+      aria-label={t("groupAria")}
       className="flex flex-wrap gap-2 justify-center"
     >
-      {CHIPS.map(({ label, icon: Icon, prefill }, i) => (
+      {chips.map(({ id, label, icon: Icon, prefill }, i) => (
         <motion.button
-          key={label}
+          key={id}
           type="button"
           onClick={() => onChipClick(prefill)}
           aria-label={label}
@@ -66,10 +74,10 @@ export function SuggestionChipBar({ onChipClick }: SuggestionChipBarProps) {
       >
         <Link
           href="/all-tools"
-          aria-label="See all tools"
+          aria-label={t("seeAll")}
           className="inline-flex items-center gap-2 h-10 px-4 rounded-full border border-primary/30 hover:border-primary text-sm text-foreground transition-[background-color,border-color,transform] duration-150 motion-safe:hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
         >
-          <span>See all tools</span>
+          <span>{t("seeAll")}</span>
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </motion.div>

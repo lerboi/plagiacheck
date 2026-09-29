@@ -1,1 +1,39 @@
-{}
+{
+  "metadata": {
+    "title": "Plagiacheck — AI 抄袭检测、改写、摘要生成等 15 款写作工具",
+    "description": "一个对话，15 款 AI 写作工具。抄袭检测、文本改写、摘要生成、AI 内容检测、语法检查、图表、信息图等，全部由 PlagiaAI 驱动。",
+    "ogTitle": "Plagiacheck — 一个对话，用上所有写作工具",
+    "ogDescription": "与 PlagiaAI 对话，即可使用 15 款工具中的任意一款：抄袭检测、改写工具、摘要生成、AI 内容检测、语法检查等。"
+  },
+  "oneChat": {
+    "title": "一个对话，所有工具。",
+    "subtitle": "只需描述你的需求，PlagiaAI 会挑选合适的工具并运行。",
+    "categories": {
+      "writing": "写作",
+      "image": "图像与视觉",
+      "voice": "语音与音频"
+    }
+  },
+  "howItWorks": {
+    "title": "使用方式",
+    "steps": {
+      "ask": {
+        "title": "你提出需求。",
+        "desc": "输入或说出你的需求，用日常语言即可。"
+      },
+      "dispatch": {
+        "title": "PlagiaAI 调度工具。",
+        "desc": "它会从 15 款工具中挑选最合适的一款。"
+      },
+      "result": {
+        "title": "你拿到结果。",
+        "desc": "结果直接显示在对话中，可随时复制或下载。"
+      }
+    }
+  },
+  "trust": {
+    "private": "默认保护隐私",
+    "fast": "快速出结果",
+    "audience": "专为学生和写作者打造"
+  }
+}

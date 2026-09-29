@@ -1,1 +1,321 @@
-{}
+{
+  "greeting": "Hi — I'm PlagiaAI. Tell me what you'd like to do and I'll use the right tool: paraphrase, summarize, humanize, check grammar, detect AI, find plagiarism, generate charts, infographics, or thumbnails.",
+  "emptyState": {
+    "badge": "One chat · 15 tools",
+    "title": "What can I help with today?",
+    "description": "Describe a task or paste your text — PlagiaAI picks the right writing tool, runs it, and shows the result."
+  },
+  "chips": {
+    "groupAria": "Suggested prompts",
+    "seeAll": "See all tools",
+    "items": {
+      "plagiarism": {
+        "label": "Check plagiarism",
+        "prefill": "Check this text for plagiarism:\n\n"
+      },
+      "paraphrase": {
+        "label": "Paraphrase",
+        "prefill": "Paraphrase this in a formal tone:\n\n"
+      },
+      "detectAi": {
+        "label": "Detect AI",
+        "prefill": "Is this text AI-generated?\n\n"
+      },
+      "summarize": {
+        "label": "Summarize",
+        "prefill": "Summarize this in 3 bullet points:\n\n"
+      },
+      "chart": {
+        "label": "Make a chart",
+        "prefill": "Make a bar chart showing "
+      }
+    }
+  },
+  "sidebar": {
+    "asideAria": "Conversation history",
+    "listAria": "Saved conversations",
+    "empty": "No saved conversations yet. Send a message to start one.",
+    "noMatches": "No matches.",
+    "clearFilter": "Clear filter",
+    "filterPlaceholder": "Filter conversations",
+    "untitled": "Untitled",
+    "renameAria": "Rename conversation",
+    "rename": "Rename",
+    "pinAria": "Pin conversation",
+    "unpinAria": "Unpin conversation",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "deleteAria": "Delete conversation",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "newChat": "New chat",
+    "closeAria": "Close conversations",
+    "close": "Close",
+    "expandAria": "Expand conversations",
+    "expandTitle": "Expand sidebar",
+    "collapse": "Collapse sidebar",
+    "time": {
+      "now": "now",
+      "minutes": "{count}m",
+      "hours": "{count}h",
+      "days": "{count}d"
+    }
+  },
+  "header": {
+    "drawerAria": "Conversation history (drawer)",
+    "openConversationsAria": "Open conversations",
+    "openConversationsTitle": "Conversations",
+    "messageCount": "{count, plural, one {# message} other {# messages}}",
+    "preferencesAria": "PlagiaAI preferences",
+    "preferences": "Preferences",
+    "export": "Export",
+    "exportAria": "Export conversation as Markdown",
+    "clearQuestion": "Clear this conversation?",
+    "cancel": "Cancel",
+    "confirmClear": "Confirm clear",
+    "clear": "Clear"
+  },
+  "thread": {
+    "logAria": "PlagiaAI conversation",
+    "assistantSaid": "Assistant said: ",
+    "youSaid": "You said: ",
+    "editAria": "Edit your message",
+    "cancel": "Cancel",
+    "saveAndResend": "Save and resend",
+    "editMessage": "Edit message",
+    "copyAnswer": "Copy answer",
+    "regenerateAria": "Regenerate response",
+    "regenerate": "Regenerate",
+    "thinkingAria": "PlagiaAI is thinking",
+    "thinking": "PlagiaAI is thinking…",
+    "scrollToBottom": "Scroll to bottom",
+    "lastFailed": "Last message failed.",
+    "tryAgain": "Try again",
+    "followupsAria": "Follow-up suggestions"
+  },
+  "toolCard": {
+    "a11y": {
+      "pending": "{tool} tool: confirmation required.",
+      "running": "{tool} tool: running.",
+      "done": "{tool} tool: done. {preview}",
+      "failed": "{tool} tool: failed. {error}"
+    },
+    "confirmCost": "About to use <b>~{amount}</b> {currency, select, image {image} other {text}} {count, plural, one {token} other {tokens}}.",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "dontAskAgain": "Don't ask again",
+    "working": "Working…",
+    "collapseAria": "Collapse tool result",
+    "expandAria": "Expand tool result",
+    "failed": "Tool failed",
+    "completed": "Completed",
+    "tokensUsed": "Used {amount} {currency, select, image {image} other {text}} {count, plural, one {token} other {tokens}}",
+    "status": {
+      "pendingConfirm": "Confirm",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed"
+    }
+  },
+  "toolErrors": {
+    "failedWithStatus": "{tool} failed ({status})",
+    "noImageAttached": "No image attached. Ask the user to attach an image before extracting text.",
+    "noPlagiarismResult": "No result from plagiarism check",
+    "unknownTool": "Unknown tool: {name}",
+    "retryCap": "Refused — this tool has already failed {count} times in this turn. Try a different tool or tell the user the operation could not complete."
+  },
+  "args": {
+    "mode": "Mode: {mode}",
+    "summarize": "Length: {percent}% · {format}",
+    "humanize": "Tone: {tone} · Level: {level}",
+    "chars": "{count} chars",
+    "chartType": "Type: {type}",
+    "style": "Style: {style}",
+    "extractImage": "Extract text from attached image",
+    "transcriptChars": "{count} chars of transcript"
+  },
+  "preview": {
+    "aiDetect": "{verdict} — {score}% AI",
+    "analysisComplete": "Analysis complete",
+    "grammar": "{count, plural, one {# issue} other {# issues}} found",
+    "plagiarism": "{percent}% plagiarism · {count, plural, one {# match} other {# matches}}",
+    "infographic": "Infographic: {title}",
+    "chart": "Chart ({type}): {title}",
+    "extracted": "Extracted {count} chars",
+    "extractedWithConfidence": "Extracted {count} chars ({confidence} confidence)",
+    "noText": "No text extracted",
+    "essay": "{title} · {count} words",
+    "audio": "{title} · {count, plural, one {# key point} other {# key points}}",
+    "thumbnail": "Thumbnail: {title}",
+    "untitled": "Untitled",
+    "essayTitle": "Essay",
+    "summaryTitle": "Summary"
+  },
+  "resultText": {
+    "aiScore": "{verdict} ({score}% AI)",
+    "plagiarismDetected": "{percent}% plagiarism detected",
+    "match": "match",
+    "svgOutput": "SVG output ({count} chars). View in the standalone tool to render.",
+    "keyPoints": "Key points:",
+    "actionItems": "Action items:"
+  },
+  "values": {
+    "modes": {
+      "standard": "Standard",
+      "fluency": "Fluency",
+      "formal": "Formal",
+      "simple": "Simple",
+      "creative": "Creative",
+      "academic": "Academic"
+    },
+    "tones": {
+      "casual": "Casual",
+      "professional": "Professional",
+      "academic": "Academic",
+      "creative": "Creative",
+      "friendly": "Friendly"
+    },
+    "formats": {
+      "paragraph": "Paragraph",
+      "bullets": "Bullet points"
+    },
+    "chartTypes": {
+      "auto-detect": "Auto-detect",
+      "auto": "Auto",
+      "bar": "Bar",
+      "line": "Line",
+      "pie": "Pie",
+      "flowchart": "Flowchart",
+      "mindmap": "Mind map",
+      "timeline": "Timeline",
+      "comparison": "Comparison"
+    },
+    "styles": {
+      "modern": "Modern",
+      "minimal": "Minimal",
+      "bold": "Bold",
+      "gradient": "Gradient"
+    },
+    "confidence": {
+      "high": "high",
+      "medium": "medium",
+      "low": "low"
+    },
+    "verdicts": {
+      "likelyHuman": "Likely Human",
+      "possiblyAi": "Possibly AI",
+      "likelyAi": "Likely AI"
+    }
+  },
+  "followups": {
+    "checkItForGrammar": "Check it for grammar",
+    "makeItShorter": "Make it shorter",
+    "detectAiSignals": "Detect any AI signals",
+    "paraphraseSummaryFormally": "Paraphrase the summary more formally",
+    "chartFromPoints": "Make a chart from these points",
+    "paraphraseFormally": "Paraphrase it more formally",
+    "summarizeResult": "Summarize the result",
+    "humanizeFlagged": "Humanize the AI-flagged parts",
+    "paraphraseReduceAi": "Paraphrase to reduce AI tells",
+    "paraphraseFlagged": "Paraphrase the flagged passages",
+    "checkGrammar": "Check the grammar",
+    "infographicInstead": "Make an infographic instead",
+    "differentChartType": "Try a different chart type",
+    "chartFromThis": "Make a chart from this",
+    "summarizeSource": "Summarize the source text",
+    "differentTitle": "Try a different title",
+    "summarizeExtracted": "Summarize the extracted text",
+    "checkForPlagiarism": "Check it for plagiarism",
+    "paraphraseIt": "Paraphrase it",
+    "summarizeInBullets": "Summarize it in 3 bullets",
+    "paraphraseSummary": "Paraphrase the summary"
+  },
+  "attach": {
+    "onlyImages": "Only image files can be attached.",
+    "tooLarge": "Image too large (max 8 MB).",
+    "readFailed": "Couldn't read image",
+    "defaultName": "image",
+    "removeAria": "Remove attached image"
+  },
+  "composer": {
+    "placeholder": "Ask PlagiaAI anything…",
+    "aria": "Ask PlagiaAI",
+    "charCount": "{count}/12,000 characters",
+    "attachAria": "Attach image",
+    "attachTitle": "Attach an image",
+    "stopDictation": "Stop dictation",
+    "startDictationAria": "Start voice dictation",
+    "dictationUnsupported": "Voice dictation needs Chrome, Edge, or Safari",
+    "dictation": "Voice dictation",
+    "keyboardHint": "Ctrl+Enter to send",
+    "stopAria": "Stop generating",
+    "sendAria": "Send message",
+    "stop": "Stop",
+    "send": "Send"
+  },
+  "preferences": {
+    "title": "PlagiaAI preferences",
+    "closeAria": "Close preferences",
+    "intro": "These defaults are added to PlagiaAI's prompt on every turn so it remembers how you like things. Leave any field blank to let PlagiaAI pick.",
+    "paraphraseMode": "Paraphrase mode",
+    "humanizerTone": "Humanizer tone",
+    "noPreference": "No preference",
+    "summaryLength": "Default summary length",
+    "summaryLengthAria": "Default summary length percent",
+    "clear": "Clear",
+    "alwaysConfirm": "Always confirm before image-token tools",
+    "alwaysConfirmHint": "Overrides the per-call “Don’t ask again” bypass for chart / infographic / thumbnail / OCR tools.",
+    "reset": "Reset",
+    "saving": "Saving",
+    "save": "Save"
+  },
+  "toasts": {
+    "preferencesSaved": "Preferences saved",
+    "preferencesSavedDescription": "PlagiaAI will use these on future turns.",
+    "preferencesFailed": "Could not save preferences",
+    "preferencesFailedDescription": "Run the FE-09 migration in your Supabase, then retry. (See commit body for SQL.)",
+    "exported": "Conversation exported",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy",
+    "copyFailedDescription": "Your browser blocked clipboard access.",
+    "loadFailed": "Couldn't load conversation",
+    "loadFailedDescription": "Something went wrong on the server.",
+    "deleteFailed": "Couldn't delete conversation",
+    "renameFailed": "Couldn't rename conversation",
+    "tryAgainLater": "Try again in a moment.",
+    "pinFailed": "Couldn't save pin",
+    "pinFailedDescription": "Run the FE-24 migration in Supabase, then retry.",
+    "serverError": "PlagiaAI couldn't reach the server"
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "requestFailed": "Request failed ({status})",
+    "aiUnavailable": "The AI service is temporarily unavailable. Please try again."
+  },
+  "export": {
+    "heading": "PlagiaAI conversation — {date}",
+    "you": "You",
+    "status": {
+      "pendingConfirm": "(awaiting confirmation)",
+      "running": "(in progress)",
+      "failed": "(failed)"
+    }
+  },
+  "svgPreview": {
+    "labels": {
+      "chart": "Chart",
+      "infographic": "Infographic",
+      "thumbnail": "Thumbnail",
+      "output": "Output"
+    },
+    "outputAria": "{label} output",
+    "downloadAria": "Download {label} as SVG",
+    "download": "Download SVG"
+  },
+  "markdown": {
+    "code": "code",
+    "copyCode": "Copy code",
+    "copy": "Copy",
+    "copied": "Copied"
+  }
+}

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { Sparkles } from "lucide-react"
+import { useTranslations } from "next-intl"
 import type { ReactNode } from "react"
 
 interface EmptyStateProps {
@@ -9,6 +10,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ children }: EmptyStateProps) {
+  const t = useTranslations("PlagiaAi.emptyState")
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-4 py-10 min-h-[480px]">
       <motion.div
@@ -22,16 +24,15 @@ export function EmptyState({ children }: EmptyStateProps) {
               visual hierarchy (badge → headline → subcopy → suggestion chips). */}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-accent/40 px-3 py-1 text-xs font-medium text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
-            One chat · 15 tools
+            {t("badge")}
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold tracking-tight text-balance">
-            What can I help with today?
+            {t("title")}
           </h2>
           {/* Tells a first-time visitor what to do and that PlagiaAI runs a real
               tool, rather than being a generic chatbot. */}
           <p className="text-base text-muted-foreground text-balance max-w-md mx-auto">
-            Describe a task or paste your text — PlagiaAI picks the right writing
-            tool, runs it, and shows the result.
+            {t("description")}
           </p>
         </div>
         {children}

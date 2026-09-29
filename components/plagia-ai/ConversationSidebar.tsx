@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { useLocale, useTranslations } from "next-intl"
 import {
   MessageSquarePlus,
   Pencil,
@@ -12,6 +13,7 @@ import {
   X,
 } from "lucide-react"
 import type { StoredConversationSummary } from "@/lib/plagia-ai/storage"
+import { localeTags } from "@/i18n/config"
 
 interface ConversationSidebarProps {
   conversations: StoredConversationSummary[]
@@ -40,18 +42,27 @@ interface ConversationSidebarProps {
   onCloseDrawer?: () => void
 }
 
-function relativeTime(iso: string): string {
+interface RelativeTimeLabels {
+  now: string
+  minutes: (count: number) => string
+  hours: (count: number) => string
+  days: (count: number) => string
+  /** BCP 47 tag used for dates older than a week. */
+  dateLocale: string
+}
+
+function relativeTime(iso: string, labels: RelativeTimeLabels): string {
   const then = new Date(iso).getTime()
   const diff = Date.now() - then
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return "now"
+  if (sec < 60) return labels.now
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m`
+  if (min < 60) return labels.minutes(min)
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h`
+  if (hr < 24) return labels.hours(hr)
   const day = Math.floor(hr / 24)
-  if (day < 7) return `${day}d`
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  if (day < 7) return labels.days(day)
+  return new Date(iso).toLocaleDateString(labels.dateLocale, { month: "short", day: "numeric" })
 }
 
 const rowMotion = {
@@ -87,6 +98,15 @@ function ConversationList({
   onRename,
   onTogglePin,
 }: ListProps) {
+  const t = useTranslations("PlagiaAi.sidebar")
+  const locale = useLocale()
+  const timeLabels: RelativeTimeLabels = {
+    now: t("time.now"),
+    minutes: (count) => t("time.minutes", { count }),
+    hours: (count) => t("time.hours", { count }),
+    days: (count) => t("time.days", { count }),
+    dateLocale: localeTags[locale],
+  }
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   // FE-20 — inline rename editor. Only one row at a time can be in edit
   // mode; switching to a different row commits/cancels the previous edit
@@ -100,7 +120,7 @@ function ConversationList({
     // (aria-hidden); the empty-state hint renders only when there are no rows.
     <div
       role="list"
-      aria-label="Saved conversations"
+      aria-label={t("listAria")}
       /* pb-safe resolves to the same 0.75rem as pb-3 today; it exists so the
          last row clears the home indicator in the mobile drawer. */
       className="flex-1 overflow-y-auto px-2 pb-safe space-y-0.5 min-h-0"
@@ -119,20 +139,20 @@ function ConversationList({
 
       {!loading && conversations.length === 0 && !isFiltered && (
         <p className="text-xs text-muted-foreground px-2 py-3">
-          No saved conversations yet. Send a message to start one.
+          {t("empty")}
         </p>
       )}
 
       {!loading && conversations.length === 0 && isFiltered && (
         <div className="flex flex-col items-start gap-1.5 px-2 py-3">
-          <p className="text-xs text-muted-foreground">No matches.</p>
+          <p className="text-xs text-muted-foreground">{t("noMatches")}</p>
           {onClearFilter && (
             <button
               type="button"
               onClick={onClearFilter}
               className="text-[11px] text-violet-600 dark:text-violet-400 hover:underline underline-offset-2"
             >
-              Clear filter
+              {t("clearFilter")}
             </button>
           )}
         </div>
@@ -223,7 +243,7 @@ function ConversationList({
                           ? "border-red-400 focus:ring-red-400"
                           : "border-violet-500 focus:ring-violet-500"
                       }`}
-                      aria-label="Rename conversation"
+                      aria-label={t("renameAria")}
                       maxLength={60}
                     />
                   </div>
@@ -241,10 +261,10 @@ function ConversationList({
                       }`}
                     >
                       <span className="text-xs truncate flex-1">
-                        {c.title || "Untitled"}
+                        {c.title || t("untitled")}
                       </span>
                       <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                        {relativeTime(c.updated_at)}
+                        {relativeTime(c.updated_at, timeLabels)}
                       </span>
                     </button>
                     {confirming ? (
@@ -253,7 +273,7 @@ function ConversationList({
                           onClick={() => setConfirmDeleteId(null)}
                           className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground rounded"
                         >
-                          Cancel
+                          {t("cancel")}
                         </button>
                         <button
                           onClick={() => {
@@ -262,7 +282,7 @@ function ConversationList({
                           }}
                           className="h-6 px-1.5 text-[10px] text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium rounded"
                         >
-                          Delete
+                          {t("delete")}
                         </button>
                       </div>
                     ) : (
@@ -277,9 +297,9 @@ function ConversationList({
                                 ? "opacity-100 text-violet-600 dark:text-violet-400"
                                 : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100 text-muted-foreground hover:text-foreground"
                             }`}
-                            aria-label={c.pinned ? "Unpin conversation" : "Pin conversation"}
+                            aria-label={c.pinned ? t("unpinAria") : t("pinAria")}
                             aria-pressed={!!c.pinned}
-                            title={c.pinned ? "Unpin" : "Pin"}
+                            title={c.pinned ? t("unpin") : t("pin")}
                           >
                             <Pin
                               className={`h-3.5 w-3.5 ${
@@ -295,8 +315,8 @@ function ConversationList({
                               setRenameDraft(c.title || "")
                             }}
                             className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-foreground transition-opacity"
-                            aria-label="Rename conversation"
-                            title="Rename"
+                            aria-label={t("renameAria")}
+                            title={t("rename")}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -304,8 +324,8 @@ function ConversationList({
                         <button
                           onClick={() => setConfirmDeleteId(c.id)}
                           className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 h-7 w-7 flex items-center justify-center text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-opacity"
-                          aria-label="Delete conversation"
-                          title="Delete"
+                          aria-label={t("deleteAria")}
+                          title={t("delete")}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -341,6 +361,7 @@ export function ConversationSidebar({
   variant = "inline",
   onCloseDrawer,
 }: ConversationSidebarProps) {
+  const t = useTranslations("PlagiaAi.sidebar")
   // FE-17 — filter query (case-insensitive substring on `title`).
   // Lives at the outer component so both drawer and inline modes share it,
   // and so the empty-state branch can know whether to say "No matches" vs
@@ -366,13 +387,13 @@ export function ConversationSidebar({
             className="flex-1 h-9 inline-flex items-center gap-2 px-3 rounded-md border border-border bg-background hover:bg-accent text-sm text-foreground transition-colors min-w-0"
           >
             <MessageSquarePlus className="h-4 w-4 shrink-0" />
-            <span className="truncate">New chat</span>
+            <span className="truncate">{t("newChat")}</span>
           </button>
           <button
             onClick={onCloseDrawer}
             className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
-            aria-label="Close conversations"
-            title="Close"
+            aria-label={t("closeAria")}
+            title={t("close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -383,8 +404,8 @@ export function ConversationSidebar({
               type="search"
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="Filter conversations"
-              aria-label="Filter conversations"
+              placeholder={t("filterPlaceholder")}
+              aria-label={t("filterPlaceholder")}
               className="w-full h-9 md:h-8 px-2.5 rounded-md border border-border bg-background text-base md:text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
             />
           </div>
@@ -410,7 +431,7 @@ export function ConversationSidebar({
       className={`hidden lg:flex shrink-0 flex-col border-r border-border bg-card/30 overflow-hidden transition-[width] duration-200 ease-out ${
         collapsed ? "w-14" : "w-[260px]"
       }`}
-      aria-label="Conversation history"
+      aria-label={t("asideAria")}
     >
       <div
         className={`flex items-center gap-1 p-2 ${
@@ -422,16 +443,16 @@ export function ConversationSidebar({
             <button
               onClick={onToggleCollapse}
               className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label="Expand conversations"
-              title="Expand sidebar"
+              aria-label={t("expandAria")}
+              title={t("expandTitle")}
             >
               <PanelLeftOpen className="h-4 w-4" />
             </button>
             <button
               onClick={onNewChat}
               className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label="New chat"
-              title="New chat"
+              aria-label={t("newChat")}
+              title={t("newChat")}
             >
               <MessageSquarePlus className="h-4 w-4" />
             </button>
@@ -443,13 +464,13 @@ export function ConversationSidebar({
               className="flex-1 h-9 inline-flex items-center gap-2 px-3 rounded-md border border-border bg-background hover:bg-accent text-sm text-foreground transition-colors min-w-0"
             >
               <MessageSquarePlus className="h-4 w-4 shrink-0" />
-              <span className="truncate">New chat</span>
+              <span className="truncate">{t("newChat")}</span>
             </button>
             <button
               onClick={onToggleCollapse}
               className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
+              aria-label={t("collapse")}
+              title={t("collapse")}
             >
               <PanelLeftClose className="h-4 w-4" />
             </button>
@@ -476,8 +497,8 @@ export function ConversationSidebar({
                   type="search"
                   value={filterQuery}
                   onChange={(e) => setFilterQuery(e.target.value)}
-                  placeholder="Filter conversations"
-                  aria-label="Filter conversations"
+                  placeholder={t("filterPlaceholder")}
+                  aria-label={t("filterPlaceholder")}
                   className="w-full h-9 md:h-8 px-2.5 rounded-md border border-border bg-background text-base md:text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
               </div>

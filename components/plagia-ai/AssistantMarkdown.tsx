@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
 import { Check, Copy } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 /**
  * Markdown renderer for PlagiaAI assistant messages.
@@ -17,6 +18,7 @@ import { Check, Copy } from "lucide-react"
  */
 
 function CodeBlock({ children, language }: { children: string; language?: string }) {
+  const t = useTranslations("PlagiaAi.markdown")
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -33,16 +35,16 @@ function CodeBlock({ children, language }: { children: string; language?: string
     <div className="group/code relative my-2 rounded-lg border border-border bg-muted/40 overflow-hidden">
       <div className="flex items-center justify-between px-3 py-1 border-b border-border/60 bg-muted/40">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-          {language || "code"}
+          {language || t("code")}
         </span>
         <button
           type="button"
           onClick={() => void handleCopy()}
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Copy code"
+          aria-label={t("copyCode")}
         >
           {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? t("copied") : t("copy")}
         </button>
       </div>
       <pre className="px-3 py-2.5 text-xs leading-relaxed overflow-x-auto">
