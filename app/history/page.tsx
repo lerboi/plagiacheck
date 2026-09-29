@@ -32,6 +32,10 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { useLocale, useTranslations } from "next-intl"
+import { localeTags } from "@/i18n/config"
+import { useApiErrorMessage } from "@/lib/i18n/api-errors"
+import type en from "@/messages/en"
 import {
   Select,
   SelectContent,
@@ -50,42 +54,55 @@ interface ToolHistoryRow {
   created_at: string
 }
 
+type CatalogToolId = keyof (typeof en)["ToolCatalog"]["tools"]
+
+// Keys are the tool ids stored in tool_history (and sent as the filter value);
+// the display name is looked up in ToolCatalog by `catalogId` at render time.
 const TOOL_META: Record<
   string,
-  { label: string; href: string; icon: LucideIcon; color: string; bg: string }
+  { catalogId: CatalogToolId; href: string; icon: LucideIcon; color: string; bg: string }
 > = {
-  plagiarism: { label: "Plagiarism Checker", href: "/plagiarism-checker", icon: Shield, color: "text-blue-500", bg: "bg-blue-500/10" },
-  "ai-detect": { label: "AI Detector", href: "/ai-detector", icon: Brain, color: "text-purple-500", bg: "bg-purple-500/10" },
-  humanize: { label: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500", bg: "bg-pink-500/10" },
-  paraphrase: { label: "Paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bg: "bg-cyan-500/10" },
-  summarize: { label: "Summarizer", href: "/summarizer", icon: FileText, color: "text-green-500", bg: "bg-green-500/10" },
-  grammar: { label: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  "audio-summarize": { label: "Audio Summarizer", href: "/audio-summarizer", icon: FileAudio, color: "text-orange-600", bg: "bg-orange-600/10" },
-  "voice-to-essay": { label: "Voice to Essay", href: "/voice-to-essay", icon: FileEdit, color: "text-sky-600", bg: "bg-sky-600/10" },
-  "speech-to-text": { label: "Speech to Text", href: "/speech-to-text", icon: Mic, color: "text-indigo-500", bg: "bg-indigo-500/10" },
-  "image-to-text": { label: "Image to Text", href: "/image-to-text", icon: Image, color: "text-rose-500", bg: "bg-rose-500/10" },
-  chart: { label: "Chart Generator", href: "/chart-generator", icon: PieChart, color: "text-teal-500", bg: "bg-teal-500/10" },
-  infographic: { label: "Infographic Generator", href: "/infographic-generator", icon: BarChart3, color: "text-amber-500", bg: "bg-amber-500/10" },
-  thumbnail: { label: "Thumbnail Generator", href: "/thumbnail-generator", icon: ImagePlus, color: "text-violet-500", bg: "bg-violet-500/10" },
+  plagiarism: { catalogId: "plagiarismChecker", href: "/plagiarism-checker", icon: Shield, color: "text-blue-500", bg: "bg-blue-500/10" },
+  "ai-detect": { catalogId: "aiDetector", href: "/ai-detector", icon: Brain, color: "text-purple-500", bg: "bg-purple-500/10" },
+  humanize: { catalogId: "aiHumanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500", bg: "bg-pink-500/10" },
+  paraphrase: { catalogId: "paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+  summarize: { catalogId: "summarizer", href: "/summarizer", icon: FileText, color: "text-green-500", bg: "bg-green-500/10" },
+  grammar: { catalogId: "grammarChecker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+  "audio-summarize": { catalogId: "audioSummarizer", href: "/audio-summarizer", icon: FileAudio, color: "text-orange-600", bg: "bg-orange-600/10" },
+  "voice-to-essay": { catalogId: "voiceToEssay", href: "/voice-to-essay", icon: FileEdit, color: "text-sky-600", bg: "bg-sky-600/10" },
+  "speech-to-text": { catalogId: "speechToText", href: "/speech-to-text", icon: Mic, color: "text-indigo-500", bg: "bg-indigo-500/10" },
+  "image-to-text": { catalogId: "imageToText", href: "/image-to-text", icon: Image, color: "text-rose-500", bg: "bg-rose-500/10" },
+  chart: { catalogId: "chartGenerator", href: "/chart-generator", icon: PieChart, color: "text-teal-500", bg: "bg-teal-500/10" },
+  infographic: { catalogId: "infographicGenerator", href: "/infographic-generator", icon: BarChart3, color: "text-amber-500", bg: "bg-amber-500/10" },
+  thumbnail: { catalogId: "thumbnailGenerator", href: "/thumbnail-generator", icon: ImagePlus, color: "text-violet-500", bg: "bg-violet-500/10" },
 }
 
 const PAGE_SIZE = 20
 
-function relativeTime(iso: string): string {
+function relativeTime(
+  iso: string,
+  t: ReturnType<typeof useTranslations<"History.time">>,
+  dateLocale: string
+): string {
   const then = new Date(iso).getTime()
   const diff = Date.now() - then
   const sec = Math.floor(diff / 1000)
-  if (sec < 60) return "Just now"
+  if (sec < 60) return t("justNow")
   const min = Math.floor(sec / 60)
-  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`
+  if (min < 60) return t("minutesAgo", { count: min })
   const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`
+  if (hr < 24) return t("hoursAgo", { count: hr })
   const days = Math.floor(hr / 24)
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`
-  return new Date(iso).toLocaleDateString()
+  if (days < 7) return t("daysAgo", { count: days })
+  return new Date(iso).toLocaleDateString(dateLocale)
 }
 
 export default function HistoryPage() {
+  const t = useTranslations("History")
+  const tTime = useTranslations("History.time")
+  const tCatalog = useTranslations("ToolCatalog")
+  const locale = useLocale()
+  const apiError = useApiErrorMessage()
   const supabase = createClientComponentClient()
   const router = useRouter()
   const { toast } = useToast()
@@ -94,7 +111,7 @@ export default function HistoryPage() {
   const [authChecked, setAuthChecked] = useState(false)
   const [rows, setRows] = useState<ToolHistoryRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [loadFailed, setLoadFailed] = useState(false)
   const [filter, setFilter] = useState<string>("all")
   const [search, setSearch] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
@@ -131,7 +148,7 @@ export default function HistoryPage() {
   const fetchHistory = useCallback(async () => {
     if (!user) return
     setLoading(true)
-    setError(null)
+    setLoadFailed(false)
     let query = supabase
       .from("tool_history")
       .select(
@@ -159,7 +176,7 @@ export default function HistoryPage() {
     const { data, error: fetchError, count } = await query
 
     if (fetchError) {
-      setError("Could not load your history. Please try again.")
+      setLoadFailed(true)
       setRows([])
       setTotalCount(null)
       setLoading(false)
@@ -189,8 +206,8 @@ export default function HistoryPage() {
 
     if (delError) {
       toast({
-        title: "Could not delete",
-        description: delError.message,
+        title: t("toast.deleteFailedTitle"),
+        description: apiError(delError.message, t("toast.deleteFailedDescription")),
         variant: "destructive",
       })
       return
@@ -208,8 +225,8 @@ export default function HistoryPage() {
     }
 
     toast({
-      title: "Deleted",
-      description: "History entry removed.",
+      title: t("toast.deletedTitle"),
+      description: t("toast.deletedDescription"),
       variant: "success",
     })
   }
@@ -240,10 +257,10 @@ export default function HistoryPage() {
         >
           <div className="mb-8">
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Your Activity
+              {t("title")}
             </h1>
             <p className="text-muted-foreground mt-2">
-              Recent tool runs and their results.
+              {t("subtitle")}
             </p>
           </div>
 
@@ -251,7 +268,7 @@ export default function HistoryPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search input or output..."
+                placeholder={t("searchPlaceholder")}
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -265,22 +282,22 @@ export default function HistoryPage() {
               }}
             >
               <SelectTrigger className="sm:w-56">
-                <SelectValue placeholder="All tools" />
+                <SelectValue placeholder={t("allTools")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All tools</SelectItem>
+                <SelectItem value="all">{t("allTools")}</SelectItem>
                 {Object.entries(TOOL_META).map(([key, meta]) => (
                   <SelectItem key={key} value={key}>
-                    {meta.label}
+                    {tCatalog(`tools.${meta.catalogId}.name`)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {error && (
+          {loadFailed && (
             <Card className="p-6 mb-6 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              <p className="text-sm text-red-700 dark:text-red-300">{t("loadError")}</p>
             </Card>
           )}
 
@@ -293,18 +310,18 @@ export default function HistoryPage() {
               <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
               <h3 className="font-semibold text-lg">
                 {search.trim() || filter !== "all"
-                  ? "No matches for your search"
-                  : "No history yet"}
+                  ? t("empty.noMatchesTitle")
+                  : t("empty.noHistoryTitle")}
               </h3>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
                 {search.trim() || filter !== "all"
-                  ? "Try a different search term or tool filter."
-                  : "Your tool runs will show up here."}
+                  ? t("empty.noMatchesBody")
+                  : t("empty.noHistoryBody")}
               </p>
               {!search.trim() && filter === "all" && (
                 <Button asChild>
                   <Link href="/">
-                    Try a tool
+                    {t("empty.tryTool")}
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </Link>
                 </Button>
@@ -314,8 +331,9 @@ export default function HistoryPage() {
             <>
               <ul className="space-y-3">
                 {rows.map((row, i) => {
-                  const meta = TOOL_META[row.tool] || {
-                    label: row.tool,
+                  const known = TOOL_META[row.tool]
+                  const label = known ? tCatalog(`tools.${known.catalogId}.name`) : row.tool
+                  const meta = known || {
                     href: "/",
                     icon: FileText,
                     color: "text-gray-500",
@@ -338,21 +356,21 @@ export default function HistoryPage() {
                           </div>
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                              <h3 className="font-semibold">{meta.label}</h3>
+                              <h3 className="font-semibold">{label}</h3>
                               <span className="text-xs text-muted-foreground">
-                                {relativeTime(row.created_at)}
+                                {relativeTime(row.created_at, tTime, localeTags[locale])}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                · {row.tokens_used} token{row.tokens_used === 1 ? "" : "s"}
+                                · {t("entry.tokens", { count: row.tokens_used })}
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground line-clamp-2">
-                              <span className="font-medium text-foreground/70">Input: </span>
+                              <span className="font-medium text-foreground/70">{t("entry.input")}</span>
                               {row.input_preview}
                             </p>
                             {row.output_preview && (
                               <p className="text-sm text-muted-foreground line-clamp-2">
-                                <span className="font-medium text-foreground/70">Result: </span>
+                                <span className="font-medium text-foreground/70">{t("entry.result")}</span>
                                 {row.output_preview}
                               </p>
                             )}
@@ -365,7 +383,7 @@ export default function HistoryPage() {
                               className="h-8"
                             >
                               <Link href={meta.href}>
-                                Open tool
+                                {t("entry.openTool")}
                                 <ArrowRight className="h-3.5 w-3.5 ml-1" />
                               </Link>
                             </Button>
@@ -376,18 +394,18 @@ export default function HistoryPage() {
                                   size="sm"
                                   onClick={() => handleDelete(row.id)}
                                   className="h-8 px-2 text-xs"
-                                  aria-label="Confirm delete"
+                                  aria-label={t("entry.confirmDelete")}
                                 >
-                                  Delete
+                                  {t("entry.delete")}
                                 </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => setConfirmDeleteId(null)}
                                   className="h-8 px-2 text-xs"
-                                  aria-label="Cancel delete"
+                                  aria-label={t("entry.cancelDelete")}
                                 >
-                                  Cancel
+                                  {t("entry.cancel")}
                                 </Button>
                               </div>
                             ) : (
@@ -396,7 +414,7 @@ export default function HistoryPage() {
                                 size="sm"
                                 onClick={() => setConfirmDeleteId(row.id)}
                                 className="h-8 text-muted-foreground hover:text-red-500"
-                                aria-label="Delete history entry"
+                                aria-label={t("entry.deleteEntry")}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
@@ -418,19 +436,21 @@ export default function HistoryPage() {
                 <span className="text-xs sm:text-sm text-muted-foreground tabular-nums text-center sm:text-left">
                   {totalCount !== null ? (
                     <>
-                      Showing{" "}
-                      <span className="font-medium text-foreground">
-                        {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, totalCount)}
-                      </span>{" "}
-                      of <span className="font-medium text-foreground">{totalCount}</span>
+                      {t.rich("pagination.showing", {
+                        start: page * PAGE_SIZE + 1,
+                        end: Math.min((page + 1) * PAGE_SIZE, totalCount),
+                        total: totalCount,
+                        num: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                      })}
                       <span className="mx-1.5 opacity-60">·</span>
-                      Page <span className="font-medium text-foreground">{page + 1}</span> of{" "}
-                      <span className="font-medium text-foreground">
-                        {Math.max(1, Math.ceil(totalCount / PAGE_SIZE))}
-                      </span>
+                      {t.rich("pagination.pageOf", {
+                        page: page + 1,
+                        pages: Math.max(1, Math.ceil(totalCount / PAGE_SIZE)),
+                        num: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                      })}
                     </>
                   ) : (
-                    `Page ${page + 1}`
+                    t("pagination.page", { page: page + 1 })
                   )}
                 </span>
                 <div className="flex justify-center gap-2">
@@ -440,7 +460,7 @@ export default function HistoryPage() {
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0}
                   >
-                    Previous
+                    {t("pagination.previous")}
                   </Button>
                   <Button
                     variant="outline"
@@ -448,7 +468,7 @@ export default function HistoryPage() {
                     onClick={() => setPage((p) => p + 1)}
                     disabled={!hasMore}
                   >
-                    Next
+                    {t("pagination.next")}
                   </Button>
                 </div>
             </div>

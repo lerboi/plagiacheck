@@ -1,1 +1,63 @@
-{}
+{
+  "metadata": {
+    "title": "All Tools — Plagiacheck",
+    "description": "Every Plagiacheck writing tool in one place. Paraphraser, summarizer, AI detector, plagiarism checker, grammar checker, voice and image tools, and PlagiaAI — your AI assistant that runs them all.",
+    "ogTitle": "All Tools — Plagiacheck",
+    "ogDescription": "Every Plagiacheck writing tool in one place. 15 tools across writing, image, and voice — plus PlagiaAI to chat your way through them."
+  },
+  "header": {
+    "title": "All Tools",
+    "description": "Fifteen writing, image, and voice tools — plus PlagiaAI, the chat assistant that runs them all for you. Pick a tool below, or just ask PlagiaAI."
+  },
+  "plagiaAi": {
+    "description": "Chat with an AI assistant that picks the right tool, runs it, and explains the result. Attach an image to OCR, dictate by voice, or just type what you want done.",
+    "cta": "Try PlagiaAI"
+  },
+  "tools": {
+    "plagiarismChecker": {
+      "description": "Detect copied or reused text with sentence-level highlighting."
+    },
+    "aiDetector": {
+      "description": "Spot AI-generated writing with a sentence-by-sentence confidence breakdown."
+    },
+    "aiHumanizer": {
+      "description": "Rewrite AI-flavoured text into natural-sounding human writing."
+    },
+    "paraphraser": {
+      "description": "Rewrite text in six modes — standard, fluency, formal, simple, creative, academic."
+    },
+    "summarizer": {
+      "description": "Condense long text into a paragraph or bullet points with adjustable length."
+    },
+    "grammarChecker": {
+      "description": "Catch grammar, spelling, and punctuation errors with explanations."
+    },
+    "wordCounter": {
+      "description": "Count words, characters, paragraphs, and reading time. Free, no tokens."
+    },
+    "imageToText": {
+      "description": "Extract text from photos, screenshots, and scanned documents."
+    },
+    "infographicGenerator": {
+      "description": "Turn any article or topic into a clean, deterministic SVG infographic."
+    },
+    "thumbnailGenerator": {
+      "description": "Create 1200×630 cover images for blogs, videos, and social."
+    },
+    "chartGenerator": {
+      "description": "Generate bar, line, pie, flowchart, mindmap, timeline, or comparison charts."
+    },
+    "speechToText": {
+      "description": "Transcribe spoken audio to clean, punctuated text."
+    },
+    "textToSpeech": {
+      "description": "Read text aloud with adjustable rate and pitch. Free, no tokens."
+    },
+    "voiceToEssay": {
+      "description": "Speak your draft; get back a structured, polished essay."
+    },
+    "audioSummarizer": {
+      "description": "Summarize lectures, interviews, meetings, and podcasts into key points."
+    }
+  }
+}

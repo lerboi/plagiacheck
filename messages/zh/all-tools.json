@@ -1,1 +1,63 @@
-{}
+{
+  "metadata": {
+    "title": "全部工具 — Plagiacheck",
+    "description": "Plagiacheck 的全部写作工具尽在一处：改写、摘要、AI 内容检测、抄袭检测、语法检查、语音与图片工具，以及能帮你调用所有工具的 AI 助手 PlagiaAI。",
+    "ogTitle": "全部工具 — Plagiacheck",
+    "ogDescription": "Plagiacheck 的全部写作工具尽在一处。15 款工具覆盖写作、图片与语音，还有 PlagiaAI，聊着天就能用上它们。"
+  },
+  "header": {
+    "title": "全部工具",
+    "description": "15 款写作、图片与语音工具，外加聊天助手 PlagiaAI，帮你调用所有工具。在下方选择一个工具，或者直接问 PlagiaAI。"
+  },
+  "plagiaAi": {
+    "description": "与 AI 助手对话，它会选择合适的工具、运行它并解释结果。你可以附上图片进行文字识别、用语音输入，或者直接输入你想完成的事。",
+    "cta": "试用 PlagiaAI"
+  },
+  "tools": {
+    "plagiarismChecker": {
+      "description": "检测抄袭或重复使用的文本，并逐句高亮标注。"
+    },
+    "aiDetector": {
+      "description": "识别 AI 生成的文字，并逐句给出置信度分析。"
+    },
+    "aiHumanizer": {
+      "description": "将带有 AI 痕迹的文本改写成自然流畅、像真人写的文字。"
+    },
+    "paraphraser": {
+      "description": "提供六种改写模式：标准、流畅、正式、简洁、创意、学术。"
+    },
+    "summarizer": {
+      "description": "将长文本浓缩为一段话或要点，长度可调。"
+    },
+    "grammarChecker": {
+      "description": "找出语法、拼写和标点错误，并附上解释。"
+    },
+    "wordCounter": {
+      "description": "统计词数、字符数、段落数和阅读时间。免费，不消耗积分。"
+    },
+    "imageToText": {
+      "description": "从照片、截图和扫描文档中提取文字。"
+    },
+    "infographicGenerator": {
+      "description": "将任意文章或主题转换成简洁、输出稳定的 SVG 信息图。"
+    },
+    "thumbnailGenerator": {
+      "description": "为博客、视频和社交媒体制作 1200×630 的封面图。"
+    },
+    "chartGenerator": {
+      "description": "生成柱状图、折线图、饼图、流程图、思维导图、时间线或对比图。"
+    },
+    "speechToText": {
+      "description": "将语音转写为整洁、带标点的文字。"
+    },
+    "textToSpeech": {
+      "description": "朗读文本，可调节语速和音调。免费，不消耗积分。"
+    },
+    "voiceToEssay": {
+      "description": "说出你的草稿，得到结构清晰、文字精炼的文章。"
+    },
+    "audioSummarizer": {
+      "description": "将讲座、访谈、会议和播客总结成要点。"
+    }
+  }
+}

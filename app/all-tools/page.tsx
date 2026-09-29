@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { getTranslations } from "next-intl/server"
 import { Nav } from "@/components/nav"
 import {
   Shield,
@@ -24,26 +25,30 @@ import {
   AudioLines,
   type LucideIcon,
 } from "lucide-react"
+import type en from "@/messages/en"
 
-export const metadata: Metadata = {
-  title: "All Tools — Plagiacheck",
-  description:
-    "Every Plagiacheck writing tool in one place. Paraphraser, summarizer, AI detector, plagiarism checker, grammar checker, voice and image tools, and PlagiaAI — your AI assistant that runs them all.",
-  alternates: { canonical: "/all-tools" },
-  openGraph: {
-    title: "All Tools — Plagiacheck",
-    description:
-      "Every Plagiacheck writing tool in one place. 15 tools across writing, image, and voice — plus PlagiaAI to chat your way through them.",
-    type: "website",
-    url: "/all-tools",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("AllTools.metadata")
+  return {
+    title: t("title"),
+    description: t("description"),
+    alternates: { canonical: "/all-tools" },
+    openGraph: {
+      title: t("ogTitle"),
+      description: t("ogDescription"),
+      type: "website",
+      url: "/all-tools",
+    },
+  }
 }
 
+type ToolId = keyof (typeof en)["ToolCatalog"]["tools"]
+type CategoryId = keyof (typeof en)["ToolCatalog"]["categories"]
+
 interface ToolCard {
-  name: string
+  id: ToolId
   href: string
   icon: LucideIcon
-  desc: string
   color: string
   bgColor: string
   isFree?: boolean
@@ -51,6 +56,8 @@ interface ToolCard {
 }
 
 interface CategoryBlock {
+  id: CategoryId
+  /** English label, kept only for the stable section id / aria-labelledby. */
   label: string
   icon: LucideIcon
   color: string
@@ -60,47 +67,54 @@ interface CategoryBlock {
 
 const CATEGORIES: CategoryBlock[] = [
   {
+    id: "writing",
     label: "Writing Tools",
     icon: Pen,
     color: "text-blue-500",
     bgColor: "bg-blue-500/10",
     tools: [
-      { name: "Plagiarism Checker", href: "/plagiarism-checker", icon: Shield, desc: "Detect copied or reused text with sentence-level highlighting.", color: "text-blue-500", bgColor: "bg-blue-500/10" },
-      { name: "AI Detector", href: "/ai-detector", icon: Brain, desc: "Spot AI-generated writing with a sentence-by-sentence confidence breakdown.", color: "text-purple-500", bgColor: "bg-purple-500/10" },
-      { name: "AI Humanizer", href: "/ai-humanizer", icon: Wand2, desc: "Rewrite AI-flavoured text into natural-sounding human writing.", color: "text-pink-500", bgColor: "bg-pink-500/10" },
-      { name: "Paraphraser", href: "/paraphraser", icon: RefreshCw, desc: "Rewrite text in six modes — standard, fluency, formal, simple, creative, academic.", color: "text-cyan-500", bgColor: "bg-cyan-500/10" },
-      { name: "Summarizer", href: "/summarizer", icon: FileText, desc: "Condense long text into a paragraph or bullet points with adjustable length.", color: "text-green-500", bgColor: "bg-green-500/10" },
-      { name: "Grammar Checker", href: "/grammar-checker", icon: CheckCircle2, desc: "Catch grammar, spelling, and punctuation errors with explanations.", color: "text-emerald-500", bgColor: "bg-emerald-500/10" },
-      { name: "Word Counter", href: "/word-counter", icon: Hash, desc: "Count words, characters, paragraphs, and reading time. Free, no tokens.", color: "text-orange-500", bgColor: "bg-orange-500/10", isFree: true },
+      { id: "plagiarismChecker", href: "/plagiarism-checker", icon: Shield, color: "text-blue-500", bgColor: "bg-blue-500/10" },
+      { id: "aiDetector", href: "/ai-detector", icon: Brain, color: "text-purple-500", bgColor: "bg-purple-500/10" },
+      { id: "aiHumanizer", href: "/ai-humanizer", icon: Wand2, color: "text-pink-500", bgColor: "bg-pink-500/10" },
+      { id: "paraphraser", href: "/paraphraser", icon: RefreshCw, color: "text-cyan-500", bgColor: "bg-cyan-500/10" },
+      { id: "summarizer", href: "/summarizer", icon: FileText, color: "text-green-500", bgColor: "bg-green-500/10" },
+      { id: "grammarChecker", href: "/grammar-checker", icon: CheckCircle2, color: "text-emerald-500", bgColor: "bg-emerald-500/10" },
+      { id: "wordCounter", href: "/word-counter", icon: Hash, color: "text-orange-500", bgColor: "bg-orange-500/10", isFree: true },
     ],
   },
   {
+    id: "image",
     label: "Image & Visual",
     icon: ImageIcon,
     color: "text-rose-500",
     bgColor: "bg-rose-500/10",
     tools: [
-      { name: "Image to Text", href: "/image-to-text", icon: Image, desc: "Extract text from photos, screenshots, and scanned documents.", color: "text-rose-500", bgColor: "bg-rose-500/10", usesImageTokens: true },
-      { name: "Infographic Generator", href: "/infographic-generator", icon: BarChart3, desc: "Turn any article or topic into a clean, deterministic SVG infographic.", color: "text-amber-500", bgColor: "bg-amber-500/10", usesImageTokens: true },
-      { name: "Thumbnail Generator", href: "/thumbnail-generator", icon: ImagePlus, desc: "Create 1200×630 cover images for blogs, videos, and social.", color: "text-violet-500", bgColor: "bg-violet-500/10", usesImageTokens: true },
-      { name: "Chart Generator", href: "/chart-generator", icon: PieChart, desc: "Generate bar, line, pie, flowchart, mindmap, timeline, or comparison charts.", color: "text-teal-500", bgColor: "bg-teal-500/10", usesImageTokens: true },
+      { id: "imageToText", href: "/image-to-text", icon: Image, color: "text-rose-500", bgColor: "bg-rose-500/10", usesImageTokens: true },
+      { id: "infographicGenerator", href: "/infographic-generator", icon: BarChart3, color: "text-amber-500", bgColor: "bg-amber-500/10", usesImageTokens: true },
+      { id: "thumbnailGenerator", href: "/thumbnail-generator", icon: ImagePlus, color: "text-violet-500", bgColor: "bg-violet-500/10", usesImageTokens: true },
+      { id: "chartGenerator", href: "/chart-generator", icon: PieChart, color: "text-teal-500", bgColor: "bg-teal-500/10", usesImageTokens: true },
     ],
   },
   {
+    id: "voice",
     label: "Voice & Audio",
     icon: AudioLines,
     color: "text-indigo-500",
     bgColor: "bg-indigo-500/10",
     tools: [
-      { name: "Speech to Text", href: "/speech-to-text", icon: Mic, desc: "Transcribe spoken audio to clean, punctuated text.", color: "text-indigo-500", bgColor: "bg-indigo-500/10" },
-      { name: "Text to Speech", href: "/text-to-speech", icon: Volume2, desc: "Read text aloud with adjustable rate and pitch. Free, no tokens.", color: "text-sky-500", bgColor: "bg-sky-500/10", isFree: true },
-      { name: "Voice to Essay", href: "/voice-to-essay", icon: FileEdit, desc: "Speak your draft; get back a structured, polished essay.", color: "text-sky-600", bgColor: "bg-sky-600/10" },
-      { name: "Audio Summarizer", href: "/audio-summarizer", icon: FileAudio, desc: "Summarize lectures, interviews, meetings, and podcasts into key points.", color: "text-orange-600", bgColor: "bg-orange-600/10" },
+      { id: "speechToText", href: "/speech-to-text", icon: Mic, color: "text-indigo-500", bgColor: "bg-indigo-500/10" },
+      { id: "textToSpeech", href: "/text-to-speech", icon: Volume2, color: "text-sky-500", bgColor: "bg-sky-500/10", isFree: true },
+      { id: "voiceToEssay", href: "/voice-to-essay", icon: FileEdit, color: "text-sky-600", bgColor: "bg-sky-600/10" },
+      { id: "audioSummarizer", href: "/audio-summarizer", icon: FileAudio, color: "text-orange-600", bgColor: "bg-orange-600/10" },
     ],
   },
 ]
 
-export default function AllToolsPage() {
+export default async function AllToolsPage() {
+  const t = await getTranslations("AllTools")
+  const tCatalog = await getTranslations("ToolCatalog")
+  const tBadges = await getTranslations("Nav.badges")
+
   return (
     <div className="min-h-screen bg-background">
       <Nav />
@@ -111,12 +125,10 @@ export default function AllToolsPage() {
             Plagiacheck
           </p>
           <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight leading-[1.1]">
-            All Tools
+            {t("header.title")}
           </h1>
           <p className="mt-3 text-base text-muted-foreground max-w-2xl leading-relaxed">
-            Fifteen writing, image, and voice tools — plus PlagiaAI, the chat
-            assistant that runs them all for you. Pick a tool below, or just
-            ask PlagiaAI.
+            {t("header.description")}
           </p>
         </div>
       </header>
@@ -135,16 +147,14 @@ export default function AllToolsPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl md:text-2xl font-bold">PlagiaAI</h2>
                 <span className="text-[10px] font-semibold px-2 py-0.5 bg-violet-500/20 text-violet-600 dark:text-violet-300 rounded-full leading-none">
-                  NEW
+                  {tBadges("new")}
                 </span>
               </div>
               <p className="mt-1.5 text-sm md:text-base text-muted-foreground leading-relaxed max-w-2xl">
-                Chat with an AI assistant that picks the right tool, runs it,
-                and explains the result. Attach an image to OCR, dictate by
-                voice, or just type what you want done.
+                {t("plagiaAi.description")}
               </p>
               <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-violet-600 dark:text-violet-400 group-hover:gap-1.5 transition-all">
-                Try PlagiaAI
+                {t("plagiaAi.cta")}
                 <ChevronRight className="h-4 w-4" />
               </span>
             </div>
@@ -162,14 +172,14 @@ export default function AllToolsPage() {
                 id={`cat-${category.label}`}
                 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
               >
-                {category.label}
+                {tCatalog(`categories.${category.id}`)}
               </h2>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {category.tools.map((tool) => (
                 <Link
-                  key={tool.name}
+                  key={tool.id}
                   href={tool.href}
                   className="group rounded-xl border border-border p-4 hover:border-foreground/20 hover:bg-accent/40 transition-[background-color,border-color,transform] duration-150 motion-safe:hover:-translate-y-0.5"
                 >
@@ -179,20 +189,20 @@ export default function AllToolsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h3 className="text-sm font-semibold">{tool.name}</h3>
+                        <h3 className="text-sm font-semibold">{tCatalog(`tools.${tool.id}.name`)}</h3>
                         {tool.isFree && (
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 rounded-full leading-none">
-                            FREE
+                            {tBadges("free")}
                           </span>
                         )}
                         {tool.usesImageTokens && (
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-300 rounded-full leading-none">
-                            IMG
+                            {tBadges("img")}
                           </span>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                        {tool.desc}
+                        {t(`tools.${tool.id}.description`)}
                       </p>
                     </div>
                   </div>

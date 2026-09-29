@@ -1,1 +1,44 @@
-{}
+{
+  "title": "Your Activity",
+  "subtitle": "Recent tool runs and their results.",
+  "searchPlaceholder": "Search input or output...",
+  "allTools": "All tools",
+  "loadError": "Could not load your history. Please try again.",
+  "empty": {
+    "noMatchesTitle": "No matches for your search",
+    "noMatchesBody": "Try a different search term or tool filter.",
+    "noHistoryTitle": "No history yet",
+    "noHistoryBody": "Your tool runs will show up here.",
+    "tryTool": "Try a tool"
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo": "{count, plural, one {{count} minute ago} other {{count} minutes ago}}",
+    "hoursAgo": "{count, plural, one {{count} hour ago} other {{count} hours ago}}",
+    "daysAgo": "{count, plural, one {{count} day ago} other {{count} days ago}}"
+  },
+  "entry": {
+    "tokens": "{count, plural, one {{count} token} other {{count} tokens}}",
+    "input": "Input: ",
+    "result": "Result: ",
+    "openTool": "Open tool",
+    "delete": "Delete",
+    "confirmDelete": "Confirm delete",
+    "cancel": "Cancel",
+    "cancelDelete": "Cancel delete",
+    "deleteEntry": "Delete history entry"
+  },
+  "toast": {
+    "deleteFailedTitle": "Could not delete",
+    "deleteFailedDescription": "Something went wrong. Please try again.",
+    "deletedTitle": "Deleted",
+    "deletedDescription": "History entry removed."
+  },
+  "pagination": {
+    "showing": "Showing <num>{start}-{end}</num> of <num>{total}</num>",
+    "pageOf": "Page <num>{page}</num> of <num>{pages}</num>",
+    "page": "Page {page}",
+    "previous": "Previous",
+    "next": "Next"
+  }
+}

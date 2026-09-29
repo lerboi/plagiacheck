@@ -11,8 +11,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useLocale, useTranslations } from "next-intl"
+
+/**
+ * Supabase answers in English. English keeps the message exactly as before;
+ * Chinese gets a translation of the common ones, otherwise the translated
+ * fallback.
+ */
+function useSupabaseMessage() {
+  const t = useTranslations("Auth.supabase")
+  const locale = useLocale()
+  return (message: string | undefined, fallback: string): string => {
+    if (locale === "en") return message || fallback
+    if (!message) return fallback
+    const parts: string[] = []
+    const tooShort = /password should be at least (\d+) characters/i.exec(message)
+    if (tooShort) parts.push(t("passwordTooShort", { min: tooShort[1] }))
+    const charset = /password should contain at least one character of each: (.+)$/i.exec(message)
+    if (charset) parts.push(t("passwordCharacters", { sets: charset[1] }))
+    if (/known to be weak/i.test(message)) parts.push(t("passwordPwned"))
+    if (/should be different from the old password/i.test(message)) parts.push(t("samePassword"))
+    if (/auth session missing/i.test(message)) parts.push(t("sessionMissing"))
+    if (/requires reauthentication/i.test(message)) parts.push(t("reauthenticationNeeded"))
+    if (/invalid or has expired|has expired or is invalid/i.test(message)) parts.push(t("linkExpired"))
+    if (/failed to fetch|load failed|networkerror/i.test(message)) parts.push(t("network"))
+    return parts.length ? parts.join("") : fallback
+  }
+}
 
 export default function ResetPasswordPage() {
+  const t = useTranslations("Auth")
+  const supabaseMessage = useSupabaseMessage()
   const supabase = createClientComponentClient()
   const router = useRouter()
   const [password, setPassword] = useState("")
@@ -72,10 +101,10 @@ export default function ResetPasswordPage() {
   }, [])
 
   const validatePassword = (pwd: string) => {
-    if (pwd.length < 8) return "Password must be at least 8 characters."
-    if (!/[A-Z]/.test(pwd)) return "Password must contain an uppercase letter."
+    if (pwd.length < 8) return t("reset.validation.minLength")
+    if (!/[A-Z]/.test(pwd)) return t("reset.validation.uppercase")
     if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd))
-      return "Password must contain a special character."
+      return t("reset.validation.specialChar")
     return null
   }
 
@@ -90,7 +119,7 @@ export default function ResetPasswordPage() {
       return
     }
     if (password !== confirmPassword) {
-      setError("Passwords do not match.")
+      setError(t("reset.validation.mismatch"))
       return
     }
 
@@ -98,11 +127,11 @@ export default function ResetPasswordPage() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password })
       if (updateError) throw updateError
-      setSuccess("Password updated. Redirecting you to sign in...")
+      setSuccess(t("reset.success"))
       await supabase.auth.signOut()
       redirectTimerRef.current = setTimeout(() => router.push("/signin"), 1500)
     } catch (err: any) {
-      setError(err?.message || "Could not update password. The reset link may have expired.")
+      setError(supabaseMessage(err?.message, t("reset.updateFailed")))
     } finally {
       setIsLoading(false)
     }
@@ -120,9 +149,9 @@ export default function ResetPasswordPage() {
         >
           <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-2xl font-bold">Set a new password</CardTitle>
+              <CardTitle className="text-2xl font-bold">{t("reset.title")}</CardTitle>
               <CardDescription>
-                Enter your new password below.
+                {t("reset.description")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -134,7 +163,7 @@ export default function ResetPasswordPage() {
                 >
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   <p className="text-xs text-muted-foreground">
-                    Verifying your reset link…
+                    {t("reset.verifying")}
                   </p>
                 </div>
               ) : hasRecoverySession === false ? (
@@ -142,18 +171,18 @@ export default function ResetPasswordPage() {
                   <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-amber-700 dark:text-amber-300">
-                      This page can only be opened from the password reset link in your email. If your link has expired, request a new one.
+                      {t("reset.invalidLink")}
                     </p>
                   </div>
                   <Button asChild className="w-full" variant="outline">
-                    <Link href="/forgot-password">Request a new reset link</Link>
+                    <Link href="/forgot-password">{t("reset.requestNewLink")}</Link>
                   </Button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="new-password" className="text-sm font-medium">
-                      New password
+                      {t("reset.newPassword")}
                     </Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -168,7 +197,7 @@ export default function ResetPasswordPage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-label={showPassword ? t("fields.hidePassword") : t("fields.showPassword")}
                         className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -178,7 +207,7 @@ export default function ResetPasswordPage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password" className="text-sm font-medium">
-                      Confirm password
+                      {t("reset.confirmPassword")}
                     </Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -229,10 +258,10 @@ export default function ResetPasswordPage() {
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Updating...
+                        {t("reset.updating")}
                       </>
                     ) : (
-                      "Update password"
+                      t("reset.submit")
                     )}
                   </Button>
                 </form>

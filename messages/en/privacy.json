@@ -1,1 +1,76 @@
-{}
+{
+  "metadata": {
+    "title": "Privacy Policy — Plagiacheck",
+    "description": "How Plagiacheck collects, uses, and protects your personal data when you use our writing tools."
+  },
+  "title": "Privacy Policy",
+  "lastUpdated": "Last updated: August 2026",
+  "translationNotice": "This Chinese version is provided for reference only. If there is any inconsistency between it and the English version, the English version prevails.",
+  "intro": {
+    "commitment": "At Plagiacheck, we respect your privacy and are committed to safeguarding the personal information you share with us. This Privacy Policy explains how we collect, use, and protect your personal data when you use our services.",
+    "agreement": "By accessing or using our website and services (\"Service\"), you agree to this Privacy Policy. If you do not agree with the terms outlined, please refrain from using our Service."
+  },
+  "collect": {
+    "heading": "1. Information We Collect",
+    "intro": "We collect the following types of information:",
+    "items": {
+      "personal": "<strong>Personal Information</strong>: This includes information you provide when you create an account, contact customer support, or interact with our Service. It may include your name, email address, billing information, and other relevant details.",
+      "usage": "<strong>Usage Data</strong>: We collect data on how you access and use our Service, such as your IP address, browser type, device information, and pages visited.",
+      "cookies": "<strong>Cookies</strong>: We use cookies and similar tracking technologies to enhance your user experience and analyze how you use our Service. You can manage cookie settings through your browser."
+    }
+  },
+  "use": {
+    "heading": "2. How We Use Your Information",
+    "intro": "We use the information we collect to:",
+    "items": {
+      "provide": "Provide and improve our Service.",
+      "personalize": "Personalize your experience and recommend features you may find useful.",
+      "communicate": "Communicate with you, including sending service-related updates or promotional materials (with your consent).",
+      "security": "Prevent fraud and ensure the security of our Service.",
+      "legal": "Comply with legal obligations."
+    }
+  },
+  "sharing": {
+    "heading": "3. Sharing Your Information",
+    "intro": "We do not sell, rent, or share your personal information with third parties except for the following:",
+    "items": {
+      "providers": "<strong>Service Providers</strong>: We may share your information with trusted third-party vendors who assist us in operating our Service, conducting business activities, or serving you.",
+      "legal": "<strong>Legal Compliance</strong>: We may disclose your information if required by law, regulation, or legal process, or if we believe that such disclosure is necessary to protect the rights, property, or safety of Plagiacheck, our users, or the public."
+    }
+  },
+  "retention": {
+    "heading": "4. Data Retention",
+    "body": "We retain your information for as long as necessary to fulfill the purposes outlined in this Privacy Policy, or as required by law. If you close your account, we may retain certain information as required by law or for legitimate business purposes."
+  },
+  "rights": {
+    "heading": "5. Your Rights",
+    "intro": "You have the following rights with respect to your personal data:",
+    "items": {
+      "access": "<strong>Access</strong>: You can request access to the personal data we hold about you.",
+      "correction": "<strong>Correction</strong>: You can update or correct your information if it is inaccurate or incomplete.",
+      "deletion": "<strong>Deletion</strong>: You can request the deletion of your personal data, subject to certain conditions.",
+      "optOut": "<strong>Opt-out of Marketing</strong>: You can unsubscribe from marketing communications at any time by following the opt-out instructions in the emails or contacting us directly."
+    },
+    "outro": "To exercise these rights, please contact us using the information provided in the \"Contact Us\" section."
+  },
+  "security": {
+    "heading": "6. Security",
+    "body": "We take reasonable measures to protect your information from unauthorized access, alteration, disclosure, or destruction. However, no data transmission method or storage system is completely secure, and we cannot guarantee the absolute security of your information."
+  },
+  "transfers": {
+    "heading": "7. International Transfers",
+    "body": "Your information may be transferred to and maintained on servers located outside of your country or region. By using our Service, you consent to the transfer and processing of your data in jurisdictions that may not have the same data protection laws as your home country."
+  },
+  "changes": {
+    "heading": "8. Changes to This Privacy Policy",
+    "body": "We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated \"Last Updated\" date. We encourage you to review this Privacy Policy periodically to stay informed about how we are protecting your information."
+  },
+  "children": {
+    "heading": "9. Children's Privacy",
+    "body": "Our Service is not intended for individuals under the age of 18, and we do not knowingly collect personal information from children. If we become aware that a child under 18 has provided us with personal data, we will take steps to delete such information from our records."
+  },
+  "contact": {
+    "heading": "10. Contact Us",
+    "body": "If you have any questions or concerns about this Privacy Policy, or if you wish to exercise your rights, please contact us at:"
+  }
+}

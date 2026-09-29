@@ -1,1 +1,87 @@
-{}
+{
+  "metadata": {
+    "title": "Terms of Service — Plagiacheck",
+    "description": "The terms that govern your use of Plagiacheck's writing, image, and voice tools."
+  },
+  "title": "Terms of Service",
+  "lastUpdated": "Last updated: August 2026",
+  "translationNotice": "This Chinese version is provided for reference only. If there is any inconsistency between it and the English version, the English version prevails.",
+  "intro": "Welcome to Plagiacheck (“we,” “our,” or “us”). By using our website and services (the “Service”), you agree to these Terms of Service (“Terms”). Please read them carefully before accessing or using our Service.",
+  "acceptance": {
+    "heading": "1. Acceptance of Terms",
+    "body": "By accessing or using the Service, you agree to comply with and be bound by these Terms and our Privacy Policy, which is incorporated by reference. If you do not agree with these Terms, you must not use the Service."
+  },
+  "eligibility": {
+    "heading": "2. Eligibility",
+    "body": "To use our Service, you must be at least 18 years old and have the legal capacity to form a binding contract. If you are using the Service on behalf of an organization or entity, you represent that you have the authority to bind that organization to these Terms."
+  },
+  "account": {
+    "heading": "3. Account Registration and Security",
+    "body": "To access certain features of the Service, you may be required to create an account. You agree to provide accurate, current, and complete information and to keep your account information updated. You are responsible for maintaining the confidentiality of your login credentials and for all activities that occur under your account."
+  },
+  "use": {
+    "heading": "4. Use of the Service",
+    "intro": "You may use the Service solely for personal, non-commercial purposes in accordance with these Terms. You agree not to:",
+    "items": {
+      "law": "Violate any applicable law or regulation.",
+      "unlawful": "Use the Service for any unlawful or prohibited purpose.",
+      "interfere": "Interfere with or disrupt the functionality of the Service.",
+      "access": "Attempt to access any data or systems without authorization."
+    }
+  },
+  "payment": {
+    "heading": "5. Subscription and Payment",
+    "fees": "Some features of the Service may require a subscription or one-time payment. By subscribing or purchasing access, you agree to pay the fees associated with your selected plan. All fees are non-refundable, except as otherwise provided in these Terms.",
+    "recurring": "You authorize us to charge your chosen payment method for recurring fees, as applicable. If you cancel your subscription, you will retain access to the Service until the end of the current billing period, but you will not be refunded."
+  },
+  "plagiarism": {
+    "heading": "6. Plagiarism Checking Service",
+    "accuracy": "Our Service includes a plagiarism checking tool that allows users to analyze text for potential instances of plagiarism. You acknowledge that while we strive to provide accurate results, the tool's accuracy may vary and is not guaranteed.",
+    "responsibility": "You are solely responsible for ensuring that your use of the plagiarism checker complies with all applicable laws, including intellectual property laws."
+  },
+  "ip": {
+    "heading": "7. Intellectual Property",
+    "ownership": "We retain all rights, title, and interest in and to the Service, including all associated intellectual property rights. Except for the limited right to use the Service as described in these Terms, you do not acquire any rights to the Service or its content.",
+    "license": "You grant us a non-exclusive, royalty-free license to use any content you upload to the Service solely for the purpose of providing the Service."
+  },
+  "userContent": {
+    "heading": "8. User Content",
+    "responsibility": "You are responsible for all content that you upload, submit, or otherwise make available via the Service. You retain ownership of your content, but by using the Service, you grant us a license to store, process, and display your content as necessary to provide the Service.",
+    "warranty": "You represent and warrant that your content does not infringe on the rights of any third party and complies with all applicable laws."
+  },
+  "termination": {
+    "heading": "9. Termination",
+    "body": "We may suspend or terminate your access to the Service at any time for any reason, including if you violate these Terms. Upon termination, all licenses granted to you under these Terms will immediately end, and you must cease all use of the Service."
+  },
+  "disclaimers": {
+    "heading": "10. Disclaimers and Limitations of Liability",
+    "asIs": "The Service is provided “as is” and “as available.” We do not warrant that the Service will be error-free, uninterrupted, or secure. To the maximum extent permitted by law, we disclaim all warranties, express or implied, regarding the Service.",
+    "liability": "Our liability is limited to the maximum extent permitted by law. In no event shall we be liable for any indirect, incidental, or consequential damages arising from your use of the Service."
+  },
+  "indemnification": {
+    "heading": "11. Indemnification",
+    "body": "You agree to indemnify and hold harmless Plagiacheck, its affiliates, employees, and agents from any claims, damages, or losses arising out of your use of the Service, including any violation of these Terms or infringement of third-party rights."
+  },
+  "privacy": {
+    "heading": "12. Privacy Policy",
+    "body": "Our Privacy Policy governs the collection and use of your personal information. By using the Service, you consent to the practices described in our Privacy Policy."
+  },
+  "changes": {
+    "heading": "13. Changes to These Terms",
+    "body": "We reserve the right to modify these Terms at any time. Any changes will be posted on this page with an updated “Last Updated” date. Your continued use of the Service after any such changes constitutes your acceptance of the revised Terms."
+  },
+  "governingLaw": {
+    "heading": "14. Governing Law",
+    "body": "These Terms are governed by the laws of the State of Singapore, without regard to its conflict of law principles. Any disputes related to these Terms will be resolved in the competent courts of Singapore."
+  },
+  "misc": {
+    "heading": "15. Miscellaneous",
+    "entireAgreement": "<strong>Entire Agreement:</strong> These Terms, together with our Privacy Policy, constitute the entire agreement between you and Plagiacheck regarding the Service.",
+    "severability": "<strong>Severability:</strong> If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions will continue in full force and effect.",
+    "waiver": "<strong>Waiver:</strong> Our failure to enforce any right or provision of these Terms will not be deemed a waiver of those rights."
+  },
+  "contact": {
+    "heading": "16. Contact Us",
+    "body": "If you have any questions or concerns regarding these Terms, please contact us at:"
+  }
+}

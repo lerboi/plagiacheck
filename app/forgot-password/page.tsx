@@ -10,8 +10,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Mail, AlertCircle, CheckCircle, Loader2, ArrowLeft } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useLocale, useTranslations } from "next-intl"
+
+/**
+ * Supabase answers in English. English keeps the message exactly as before;
+ * Chinese gets a translation of the common ones, otherwise the translated
+ * fallback.
+ */
+function useSupabaseMessage() {
+  const t = useTranslations("Auth.supabase")
+  const locale = useLocale()
+  return (message: string | undefined, fallback: string): string => {
+    if (locale === "en") return message || fallback
+    if (!message) return fallback
+    if (/unable to validate email address|email address .* is invalid/i.test(message)) return t("invalidEmail")
+    if (/failed to fetch|load failed|networkerror/i.test(message)) return t("network")
+    return fallback
+  }
+}
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("Auth")
+  const supabaseMessage = useSupabaseMessage()
   const supabase = createClientComponentClient()
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -36,15 +56,13 @@ export default function ForgotPasswordPage() {
 
       if (resetError) throw resetError
 
-      setSuccess(
-        "If an account exists for that email, a reset link is on its way. Check your inbox."
-      )
+      setSuccess(t("forgot.success"))
     } catch (err: any) {
       const msg = (err?.message || "").toLowerCase()
       if (msg.includes("rate") || err?.status === 429) {
-        setError("Too many attempts. Please wait a minute and try again.")
+        setError(t("errors.rateLimit"))
       } else {
-        setError(err?.message || "Something went wrong. Please try again.")
+        setError(supabaseMessage(err?.message, t("errors.generic")))
       }
     } finally {
       setIsLoading(false)
@@ -63,16 +81,16 @@ export default function ForgotPasswordPage() {
         >
           <Card className="shadow-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-2xl font-bold">Reset your password</CardTitle>
+              <CardTitle className="text-2xl font-bold">{t("forgot.title")}</CardTitle>
               <CardDescription>
-                Enter the email you used to sign up and we&apos;ll send you a reset link.
+                {t("forgot.description")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="forgot-email" className="text-sm font-medium">
-                    Email
+                    {t("fields.email")}
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -124,10 +142,10 @@ export default function ForgotPasswordPage() {
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
+                      {t("forgot.sending")}
                     </>
                   ) : (
-                    "Send reset link"
+                    t("forgot.submit")
                   )}
                 </Button>
               </form>
@@ -138,7 +156,7 @@ export default function ForgotPasswordPage() {
                   className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
                 >
                   <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                  Back to sign in
+                  {t("forgot.backToSignIn")}
                 </Link>
               </div>
             </CardContent>
