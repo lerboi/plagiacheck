@@ -1,1 +1,11 @@
-{}
+{
+  "purchase": {
+    "title": "Purchase Successful!",
+    "body": "Thank you for supporting to our service."
+  },
+  "subscription": {
+    "title": "Subscription Successful!",
+    "body": "Thank you for subscribing to our service."
+  },
+  "dashboard": "Go to Dashboard"
+}

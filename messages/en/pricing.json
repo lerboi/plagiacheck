@@ -1,1 +1,157 @@
-{}
+{
+  "hero": {
+    "badge": "Plain pricing — cancel anytime",
+    "title": "Choose Your Perfect Plan",
+    "subtitle": "Ensure originality and maintain academic integrity with our advanced plagiarism detection. Start free, upgrade when you need more power."
+  },
+  "planNames": {
+    "Free": "Free",
+    "Plus": "Plus",
+    "Premium": "Premium"
+  },
+  "plans": {
+    "free": {
+      "description": "Perfect for students",
+      "period": "forever",
+      "features": {
+        "f1": "Write without mistakes",
+        "f2": "See your writing tone",
+        "f3": "1,000 free tokens",
+        "f4": "Basic plagiarism detection"
+      },
+      "included": "Included free",
+      "cta": "Get Started Free"
+    },
+    "plus": {
+      "description": "For individuals & small teams",
+      "period": "per month",
+      "features": {
+        "f1": "Everything in Free",
+        "f2": "100,000 words monthly",
+        "f3": "Advanced plagiarism detection",
+        "f4": "Detailed similarity reports",
+        "f5": "Citation assistance",
+        "f6": "Priority support"
+      },
+      "cta": "Start Plus Plan",
+      "savings": "Save $20/year"
+    },
+    "premium": {
+      "description": "For organizations & power users",
+      "period": "per month",
+      "features": {
+        "f1": "Everything in Plus",
+        "f2": "1,000,000 words monthly",
+        "f3": "Team collaboration tools",
+        "f4": "API access",
+        "f5": "Custom integrations",
+        "f6": "Dedicated account manager",
+        "f7": "Advanced analytics"
+      },
+      "cta": "Go Premium",
+      "savings": "Save $40/year"
+    }
+  },
+  "mostPopular": "Most Popular",
+  "billedYearly": "{price} when billed yearly",
+  "whatsIncluded": "What's included:",
+  "toolsHeading": "All Plans Include These Tools",
+  "toolsSubheading": "Get access to our complete suite of writing, image, and voice tools with any plan",
+  "freeBadge": "FREE",
+  "usesImageTokens": "Uses Image Tokens",
+  "faq": {
+    "heading": "Frequently Asked Questions",
+    "subheading": "Everything you need to know about our pricing",
+    "changePlans": {
+      "q": "Can I change plans anytime?",
+      "a": "Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately."
+    },
+    "secure": {
+      "q": "Is my content secure?",
+      "a": "Yes. Your content is sent over HTTPS, and only a short preview of each run is saved to your private history so you can revisit results. Your documents are never shared or used to train models."
+    },
+    "refunds": {
+      "q": "Do you offer refunds?",
+      "a": "Yes, we offer a 30-day money-back guarantee for all paid plans."
+    },
+    "plagiarism": {
+      "q": "How does plagiarism detection work?",
+      "a": "We use a language model to flag passages that read like common patterns and surface similarity signals worth a closer look. It is a writing aid, not a verdict."
+    },
+    "aiAccuracy": {
+      "q": "How accurate is AI detection?",
+      "a": "AI detection is an estimate based on writing style. Treat the score as a signal worth investigating, not a definitive label."
+    },
+    "teams": {
+      "q": "Do you support team accounts?",
+      "a": "Yes, our Premium plan includes team collaboration tools and user management."
+    }
+  },
+  "custom": {
+    "title": "Customize Your Tokens",
+    "subtitle": "One-time purchase, no subscription. Pick exactly what you need.",
+    "wordTokens": "Word Tokens",
+    "imageTokens": "Image Tokens",
+    "wordTokensDesc": "For all writing & analysis tools",
+    "imageTokensDesc": "For image, chart & infographic tools",
+    "words": "words",
+    "images": "images",
+    "wordsUsedBy": "Used by: plagiarism checker, AI detector, AI humanizer, paraphraser, summarizer, grammar checker, speech-to-text, and voice tools.",
+    "imageToTextCost": "Image to Text: <strong>1 token</strong> per image",
+    "generationCost": "Charts / Infographics / Thumbnails: <strong>2 tokens</strong> per generation",
+    "wordTokensCount": "{count} word tokens",
+    "imageTokensCount": "{count} image tokens",
+    "total": "Total",
+    "oneTime": "One-time purchase",
+    "processing": "Processing...",
+    "buy": "Buy {type} Tokens — ${price}",
+    "typeWord": "Word",
+    "typeImage": "Image"
+  },
+  "trust": {
+    "title": "Trusted Worldwide",
+    "subtitle": "Join millions who trust our advanced plagiarism detection technology",
+    "stats": {
+      "documents": "Documents Checked",
+      "accuracy": "Accuracy Rate",
+      "speed": "Average Check Time",
+      "universities": "Universities Trust Us"
+    },
+    "testimonials": {
+      "sarah": {
+        "role": "Graduate Student",
+        "content": "This plagiarism checker saved my thesis. The accuracy is incredible."
+      },
+      "rodriguez": {
+        "role": "Professor",
+        "content": "I recommend this to all my students. Great detailed reports."
+      },
+      "emma": {
+        "role": "Content Writer",
+        "content": "As a freelancer, this tool gives me confidence in every submission."
+      }
+    },
+    "features": {
+      "scanning": {
+        "title": "Real-time Scanning",
+        "description": "Check against billions of sources instantly"
+      },
+      "privacy": {
+        "title": "Privacy Protected",
+        "description": "Your documents are secure and never stored"
+      },
+      "citation": {
+        "title": "Citation Assistant",
+        "description": "Get proper citation suggestions"
+      }
+    },
+    "featuresHeading": "Powerful Features",
+    "testimonialsHeading": "What Users Say",
+    "ctaTitle": "Ready to Get Started?",
+    "ctaSubtitle": "Join millions of users who trust our plagiarism detection technology",
+    "noCard": "No credit card required",
+    "instant": "Instant results",
+    "secure": "Secure & private",
+    "startNow": "Start Now"
+  }
+}

@@ -10,10 +10,13 @@ import { useState, useEffect } from "react"
 import { loadStripe } from "@stripe/stripe-js"
 import { CustomPlanSlider } from "@/components/PricingPage/CustomPlanSlider"
 import { TrustSection } from "@/components/PricingPage/TrustSection"
+import { useTranslations } from "next-intl"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 export default function Pricing() {
+  const t = useTranslations("Pricing")
+  const tc = useTranslations("ToolCatalog")
   const router = useRouter()
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
@@ -40,17 +43,17 @@ export default function Pricing() {
   const plans = [
     {
       name: "Free",
-      description: "Perfect for students",
+      description: t("plans.free.description"),
       price: "$0",
-      period: "forever",
+      period: t("plans.free.period"),
       features: [
-        "Write without mistakes", 
-        "See your writing tone", 
-        "1,000 free tokens",
-        "Basic plagiarism detection",
+        t("plans.free.features.f1"), 
+        t("plans.free.features.f2"), 
+        t("plans.free.features.f3"),
+        t("plans.free.features.f4"),
       ],
       button: {
-        text: user ? "Included free" : "Get Started Free",
+        text: user ? t("plans.free.included") : t("plans.free.cta"),
         variant: "outline" as const,
       },
       priceId: null,
@@ -58,49 +61,49 @@ export default function Pricing() {
     },
     {
       name: "Plus",
-      description: "For individuals & small teams",
+      description: t("plans.plus.description"),
       price: "$9.99",
-      period: "per month",
+      period: t("plans.plus.period"),
       yearlyPrice: "$119",
       features: [
-        "Everything in Free", 
-        "100,000 words monthly",
-        "Advanced plagiarism detection",
-        "Detailed similarity reports",
-        "Citation assistance",
-        "Priority support"
+        t("plans.plus.features.f1"), 
+        t("plans.plus.features.f2"),
+        t("plans.plus.features.f3"),
+        t("plans.plus.features.f4"),
+        t("plans.plus.features.f5"),
+        t("plans.plus.features.f6")
       ],
       button: {
-        text: "Start Plus Plan",
+        text: t("plans.plus.cta"),
         variant: "default" as const,
       },
       popular: true,
       priceId: "price_1QrlQ3AJsVayTGRcMsOQu8Gy",
       icon: Sparkles,
-      savings: "Save $20/year",
+      savings: t("plans.plus.savings"),
     },
     {
       name: "Premium",
-      description: "For organizations & power users",
+      description: t("plans.premium.description"),
       price: "$29.99",
-      period: "per month",
+      period: t("plans.premium.period"),
       yearlyPrice: "$239",
       features: [
-        "Everything in Plus", 
-        "1,000,000 words monthly",
-        "Team collaboration tools",
-        "API access",
-        "Custom integrations",
-        "Dedicated account manager",
-        "Advanced analytics"
+        t("plans.premium.features.f1"), 
+        t("plans.premium.features.f2"),
+        t("plans.premium.features.f3"),
+        t("plans.premium.features.f4"),
+        t("plans.premium.features.f5"),
+        t("plans.premium.features.f6"),
+        t("plans.premium.features.f7")
       ],
       button: {
-        text: "Go Premium",
+        text: t("plans.premium.cta"),
         variant: "outline" as const,
       },
       priceId: "price_1S4ntlAJsVayTGRcEL6YUGdf",
       icon: Zap,
-      savings: "Save $40/year",
+      savings: t("plans.premium.savings"),
     },
   ]
 
@@ -128,14 +131,13 @@ export default function Pricing() {
             <div className="grid gap-6 text-center max-w-3xl mx-auto">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mx-auto">
                 <Sparkles className="h-4 w-4" />
-                Plain pricing — cancel anytime
+                {t("hero.badge")}
               </div>
               <h1 className="text-4xl font-bold tracking-tighter sm:text-6xl bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Choose Your Perfect Plan
+                {t("hero.title")}
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                Ensure originality and maintain academic integrity with our advanced plagiarism detection. 
-                Start free, upgrade when you need more power.
+                {t("hero.subtitle")}
               </p>
             </div>
 
@@ -154,7 +156,7 @@ export default function Pricing() {
                   >
                     {plan.popular && (
                       <div className="absolute -top-4 left-0 right-0 mx-auto w-36 rounded-full bg-gradient-to-r from-primary to-primary/80 px-4 py-2 text-center text-sm font-semibold text-primary-foreground shadow-lg">
-                        Most Popular
+                        {t("mostPopular")}
                       </div>
                     )}
                     <CardHeader className="p-8 pb-4">
@@ -165,7 +167,7 @@ export default function Pricing() {
                           </div>
                         )}
                         <div>
-                          <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
+                          <h3 className="text-2xl font-bold text-foreground">{t(`planNames.${plan.name as "Free" | "Plus" | "Premium"}`)}</h3>
                           <p className="text-sm text-muted-foreground">{plan.description}</p>
                         </div>
                       </div>
@@ -177,7 +179,7 @@ export default function Pricing() {
                         {plan.yearlyPrice && (
                           <div className="space-y-1">
                             <p className="text-sm text-muted-foreground">
-                              {plan.yearlyPrice} when billed yearly
+                              {t("billedYearly", { price: plan.yearlyPrice })}
                             </p>
                             {plan.savings && (
                               <div className="inline-flex items-center gap-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2 py-1 rounded-full text-xs font-medium">
@@ -205,7 +207,7 @@ export default function Pricing() {
                       </Button>
                       <div className="space-y-4">
                         <div className="text-sm font-semibold text-foreground mb-3">
-                          What&apos;s included:
+                          {t("whatsIncluded")}
                         </div>
                         {plan.features.map((feature) => (
                           <div key={feature} className="flex items-start gap-3">
@@ -230,9 +232,9 @@ export default function Pricing() {
             {/* Tools Included Section */}
             <div className="mt-20">
               <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold mb-4">All Plans Include These Tools</h2>
+                <h2 className="text-3xl font-bold mb-4">{t("toolsHeading")}</h2>
                 <p className="text-muted-foreground max-w-2xl mx-auto">
-                  Get access to our complete suite of writing, image, and voice tools with any plan
+                  {t("toolsSubheading")}
                 </p>
               </div>
 
@@ -243,18 +245,18 @@ export default function Pricing() {
                     <div className="p-1.5 rounded-lg bg-blue-500/10">
                       <Pen className="h-4 w-4 text-blue-500" />
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground">Writing Tools</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{tc("categories.writing")}</h3>
                     <div className="flex-1 h-px bg-border ml-2" />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
                     {[
-                      { name: "Plagiarism Checker", icon: Shield, color: "text-blue-500" },
-                      { name: "AI Detector", icon: Brain, color: "text-purple-500" },
-                      { name: "AI Humanizer", icon: Wand2, color: "text-pink-500" },
-                      { name: "Paraphraser", icon: RefreshCw, color: "text-cyan-500" },
-                      { name: "Summarizer", icon: FileText, color: "text-green-500" },
-                      { name: "Grammar Checker", icon: CheckCircle2, color: "text-emerald-500" },
-                      { name: "Word Counter", icon: Hash, color: "text-orange-500", isFree: true },
+                      { name: tc("tools.plagiarismChecker.name"), icon: Shield, color: "text-blue-500" },
+                      { name: tc("tools.aiDetector.name"), icon: Brain, color: "text-purple-500" },
+                      { name: tc("tools.aiHumanizer.name"), icon: Wand2, color: "text-pink-500" },
+                      { name: tc("tools.paraphraser.name"), icon: RefreshCw, color: "text-cyan-500" },
+                      { name: tc("tools.summarizer.name"), icon: FileText, color: "text-green-500" },
+                      { name: tc("tools.grammarChecker.name"), icon: CheckCircle2, color: "text-emerald-500" },
+                      { name: tc("tools.wordCounter.name"), icon: Hash, color: "text-orange-500", isFree: true },
                     ].map((tool) => (
                       <div
                         key={tool.name}
@@ -263,7 +265,7 @@ export default function Pricing() {
                         <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 motion-safe:group-hover:scale-110`} />
                         <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
                         {tool.isFree && (
-                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">FREE</span>
+                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">{t("freeBadge")}</span>
                         )}
                       </div>
                     ))}
@@ -276,16 +278,16 @@ export default function Pricing() {
                     <div className="p-1.5 rounded-lg bg-rose-500/10">
                       <ImageIcon className="h-4 w-4 text-rose-500" />
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground">Image & Visual</h3>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 rounded-full">Uses Image Tokens</span>
+                    <h3 className="text-lg font-semibold text-foreground">{tc("categories.image")}</h3>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-300 rounded-full">{t("usesImageTokens")}</span>
                     <div className="flex-1 h-px bg-border ml-2" />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { name: "Image to Text", icon: Image, color: "text-rose-500" },
-                      { name: "Infographic Generator", icon: BarChart3, color: "text-amber-500" },
-                      { name: "Thumbnail Generator", icon: ImagePlus, color: "text-violet-500" },
-                      { name: "Chart Generator", icon: PieChart, color: "text-teal-500" },
+                      { name: tc("tools.imageToText.name"), icon: Image, color: "text-rose-500" },
+                      { name: tc("tools.infographicGenerator.name"), icon: BarChart3, color: "text-amber-500" },
+                      { name: tc("tools.thumbnailGenerator.name"), icon: ImagePlus, color: "text-violet-500" },
+                      { name: tc("tools.chartGenerator.name"), icon: PieChart, color: "text-teal-500" },
                     ].map((tool) => (
                       <div
                         key={tool.name}
@@ -304,15 +306,15 @@ export default function Pricing() {
                     <div className="p-1.5 rounded-lg bg-indigo-500/10">
                       <AudioLines className="h-4 w-4 text-indigo-500" />
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground">Voice & Audio</h3>
+                    <h3 className="text-lg font-semibold text-foreground">{tc("categories.voice")}</h3>
                     <div className="flex-1 h-px bg-border ml-2" />
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                     {[
-                      { name: "Speech to Text", icon: Mic, color: "text-indigo-500" },
-                      { name: "Text to Speech", icon: Volume2, color: "text-sky-500", isFree: true },
-                      { name: "Voice to Essay", icon: FileEdit, color: "text-sky-600" },
-                      { name: "Audio Summarizer", icon: FileAudio, color: "text-orange-600" },
+                      { name: tc("tools.speechToText.name"), icon: Mic, color: "text-indigo-500" },
+                      { name: tc("tools.textToSpeech.name"), icon: Volume2, color: "text-sky-500", isFree: true },
+                      { name: tc("tools.voiceToEssay.name"), icon: FileEdit, color: "text-sky-600" },
+                      { name: tc("tools.audioSummarizer.name"), icon: FileAudio, color: "text-orange-600" },
                     ].map((tool) => (
                       <div
                         key={tool.name}
@@ -321,7 +323,7 @@ export default function Pricing() {
                         <tool.icon className={`h-6 w-6 md:h-7 md:w-7 ${tool.color} mb-2 transition-transform duration-200 motion-safe:group-hover:scale-110`} />
                         <span className="font-medium text-xs md:text-sm text-center text-gray-900 dark:text-gray-100 leading-tight">{tool.name}</span>
                         {tool.isFree && (
-                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">FREE</span>
+                          <span className="absolute top-1.5 right-1.5 text-[8px] font-semibold px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded-full">{t("freeBadge")}</span>
                         )}
                       </div>
                     ))}
@@ -338,47 +340,47 @@ export default function Pricing() {
         {/* FAQ Section */}
         <section className="container mx-auto px-4 py-16">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Frequently Asked Questions</h2>
-            <p className="text-muted-foreground">Everything you need to know about our pricing</p>
+            <h2 className="text-3xl font-bold mb-4">{t("faq.heading")}</h2>
+            <p className="text-muted-foreground">{t("faq.subheading")}</p>
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <div className="space-y-6">
               <div>
-                <h3 className="font-semibold mb-2">Can I change plans anytime?</h3>
+                <h3 className="font-semibold mb-2">{t("faq.changePlans.q")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.
+                  {t("faq.changePlans.a")}
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Is my content secure?</h3>
+                <h3 className="font-semibold mb-2">{t("faq.secure.q")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes. Your content is sent over HTTPS, and only a short preview of each run is saved to your private history so you can revisit results. Your documents are never shared or used to train models.
+                  {t("faq.secure.a")}
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Do you offer refunds?</h3>
+                <h3 className="font-semibold mb-2">{t("faq.refunds.q")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes, we offer a 30-day money-back guarantee for all paid plans.
+                  {t("faq.refunds.a")}
                 </p>
               </div>
             </div>
             <div className="space-y-6">
               <div>
-                <h3 className="font-semibold mb-2">How does plagiarism detection work?</h3>
+                <h3 className="font-semibold mb-2">{t("faq.plagiarism.q")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  We use a language model to flag passages that read like common patterns and surface similarity signals worth a closer look. It is a writing aid, not a verdict.
+                  {t("faq.plagiarism.a")}
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">How accurate is AI detection?</h3>
+                <h3 className="font-semibold mb-2">{t("faq.aiAccuracy.q")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  AI detection is an estimate based on writing style. Treat the score as a signal worth investigating, not a definitive label.
+                  {t("faq.aiAccuracy.a")}
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Do you support team accounts?</h3>
+                <h3 className="font-semibold mb-2">{t("faq.teams.q")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Yes, our Premium plan includes team collaboration tools and user management.
+                  {t("faq.teams.a")}
                 </p>
               </div>
             </div>

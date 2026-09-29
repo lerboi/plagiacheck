@@ -1,1 +1,157 @@
-{}
+{
+  "hero": {
+    "badge": "价格透明 — 随时取消",
+    "title": "选择最适合你的方案",
+    "subtitle": "借助我们先进的抄袭检测，确保原创性，维护学术诚信。免费开始，需要更多功能时再升级。"
+  },
+  "planNames": {
+    "Free": "免费版",
+    "Plus": "Plus",
+    "Premium": "Premium"
+  },
+  "plans": {
+    "free": {
+      "description": "非常适合学生",
+      "period": "永久",
+      "features": {
+        "f1": "写作零失误",
+        "f2": "了解你的写作语气",
+        "f3": "赠送 1,000 积分",
+        "f4": "基础抄袭检测"
+      },
+      "included": "已免费包含",
+      "cta": "免费开始"
+    },
+    "plus": {
+      "description": "适合个人和小型团队",
+      "period": "每月",
+      "features": {
+        "f1": "包含免费版全部功能",
+        "f2": "每月 100,000 词",
+        "f3": "高级抄袭检测",
+        "f4": "详细的相似度报告",
+        "f5": "引用辅助",
+        "f6": "优先支持"
+      },
+      "cta": "开通 Plus 方案",
+      "savings": "每年节省 $20"
+    },
+    "premium": {
+      "description": "适合机构和重度用户",
+      "period": "每月",
+      "features": {
+        "f1": "包含 Plus 全部功能",
+        "f2": "每月 1,000,000 词",
+        "f3": "团队协作工具",
+        "f4": "API 访问",
+        "f5": "定制集成",
+        "f6": "专属客户经理",
+        "f7": "高级数据分析"
+      },
+      "cta": "升级到 Premium",
+      "savings": "每年节省 $40"
+    }
+  },
+  "mostPopular": "最受欢迎",
+  "billedYearly": "按年付费为 {price}",
+  "whatsIncluded": "包含内容：",
+  "toolsHeading": "所有方案均包含以下工具",
+  "toolsSubheading": "任何方案都能使用我们全套的写作、图像和语音工具",
+  "freeBadge": "免费",
+  "usesImageTokens": "消耗图片积分",
+  "faq": {
+    "heading": "常见问题",
+    "subheading": "关于价格你需要了解的一切",
+    "changePlans": {
+      "q": "我可以随时更换方案吗？",
+      "a": "可以，你可以随时升级或降级方案，更改立即生效。"
+    },
+    "secure": {
+      "q": "我的内容安全吗？",
+      "a": "安全。你的内容通过 HTTPS 传输，每次运行只会将简短预览保存到你的私人历史记录中，方便你回看结果。你的文档绝不会被分享或用于训练模型。"
+    },
+    "refunds": {
+      "q": "你们提供退款吗？",
+      "a": "提供，所有付费方案均享有 30 天退款保证。"
+    },
+    "plagiarism": {
+      "q": "抄袭检测是如何工作的？",
+      "a": "我们使用语言模型标记读起来像常见模式的段落，并提示值得进一步查看的相似性信号。它是写作辅助工具，而不是定论。"
+    },
+    "aiAccuracy": {
+      "q": "AI 检测的准确度如何？",
+      "a": "AI 检测是基于写作风格的估计。请把分数看作值得进一步核查的信号，而不是确定的结论。"
+    },
+    "teams": {
+      "q": "支持团队账户吗？",
+      "a": "支持，我们的 Premium 方案包含团队协作工具和用户管理。"
+    }
+  },
+  "custom": {
+    "title": "自定义积分",
+    "subtitle": "一次性购买，无需订阅。需要多少买多少。",
+    "wordTokens": "文本积分",
+    "imageTokens": "图片积分",
+    "wordTokensDesc": "适用于所有写作与分析工具",
+    "imageTokensDesc": "适用于图片、图表和信息图工具",
+    "words": "词",
+    "images": "张图片",
+    "wordsUsedBy": "适用于：抄袭检测、AI 内容检测、AI 文本人性化、改写工具、摘要生成、语法检查、语音转文字及其他语音工具。",
+    "imageToTextCost": "图片转文字：每张图片 <strong>1 积分</strong>",
+    "generationCost": "图表 / 信息图 / 封面图：每次生成 <strong>2 积分</strong>",
+    "wordTokensCount": "{count} 文本积分",
+    "imageTokensCount": "{count} 图片积分",
+    "total": "合计",
+    "oneTime": "一次性购买",
+    "processing": "处理中...",
+    "buy": "购买{type}积分 — ${price}",
+    "typeWord": "文本",
+    "typeImage": "图片"
+  },
+  "trust": {
+    "title": "深受全球用户信赖",
+    "subtitle": "加入数百万信赖我们先进抄袭检测技术的用户",
+    "stats": {
+      "documents": "已检测文档",
+      "accuracy": "准确率",
+      "speed": "平均检测时间",
+      "universities": "高校信赖我们"
+    },
+    "testimonials": {
+      "sarah": {
+        "role": "研究生",
+        "content": "这款抄袭检测工具拯救了我的论文，准确度令人惊叹。"
+      },
+      "rodriguez": {
+        "role": "教授",
+        "content": "我向所有学生推荐它，报告非常详细。"
+      },
+      "emma": {
+        "role": "内容写作者",
+        "content": "作为自由职业者，这个工具让我对每一次交稿都充满信心。"
+      }
+    },
+    "features": {
+      "scanning": {
+        "title": "实时扫描",
+        "description": "即时比对数十亿来源"
+      },
+      "privacy": {
+        "title": "隐私保护",
+        "description": "你的文档安全可靠，绝不存储"
+      },
+      "citation": {
+        "title": "引用助手",
+        "description": "获取规范的引用建议"
+      }
+    },
+    "featuresHeading": "强大功能",
+    "testimonialsHeading": "用户评价",
+    "ctaTitle": "准备好开始了吗？",
+    "ctaSubtitle": "加入数百万信赖我们抄袭检测技术的用户",
+    "noCard": "无需信用卡",
+    "instant": "即时出结果",
+    "secure": "安全私密",
+    "startNow": "立即开始"
+  }
+}

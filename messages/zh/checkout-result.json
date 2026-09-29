@@ -1,1 +1,11 @@
-{}
+{
+  "purchase": {
+    "title": "购买成功！",
+    "body": "感谢你对我们服务的支持。"
+  },
+  "subscription": {
+    "title": "订阅成功！",
+    "body": "感谢你订阅我们的服务。"
+  },
+  "dashboard": "前往控制台"
+}

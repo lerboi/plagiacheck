@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { loadStripe } from "@stripe/stripe-js"
 import { FileText, Image as ImageIcon } from "lucide-react"
 import type { User } from "@supabase/auth-helpers-nextjs"
+import { useTranslations } from "next-intl"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -35,6 +36,7 @@ function calculateImagePrice(images: number): number {
 }
 
 export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
+  const t = useTranslations("Pricing.custom")
   const [tokenType, setTokenType] = useState<TokenType>("words")
   const [wordCount, setWordCount] = useState(2500)
   const [imageCount, setImageCount] = useState(200)
@@ -91,9 +93,9 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
       >
         {/* Header */}
         <div className="text-center mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold">Customize Your Tokens</h2>
+          <h2 className="text-2xl md:text-3xl font-bold">{t("title")}</h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            One-time purchase, no subscription. Pick exactly what you need.
+            {t("subtitle")}
           </p>
         </div>
 
@@ -102,11 +104,11 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
           {(["words", "images"] as TokenType[]).map((type) => {
             const isActive = tokenType === type
             const Icon = type === "words" ? FileText : ImageIcon
-            const label = type === "words" ? "Word Tokens" : "Image Tokens"
+            const label = type === "words" ? t("wordTokens") : t("imageTokens")
             const description =
               type === "words"
-                ? "For all writing & analysis tools"
-                : "For image, chart & infographic tools"
+                ? t("wordTokensDesc")
+                : t("imageTokensDesc")
             return (
               <button
                 key={type}
@@ -170,11 +172,11 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm font-medium">Word Tokens</span>
+                  <span className="text-sm font-medium">{t("wordTokens")}</span>
                 </div>
                 <div className="text-right">
                   <span className="text-2xl font-bold tabular-nums">{wordCount.toLocaleString()}</span>
-                  <span className="text-sm text-muted-foreground ml-1">words</span>
+                  <span className="text-sm text-muted-foreground ml-1">{t("words")}</span>
                 </div>
               </div>
 
@@ -194,7 +196,7 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Used by: plagiarism checker, AI detector, AI humanizer, paraphraser, summarizer, grammar checker, speech-to-text, and voice tools.
+                {t("wordsUsedBy")}
               </p>
             </motion.div>
           ) : (
@@ -210,11 +212,11 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4 text-rose-500" />
-                  <span className="text-sm font-medium">Image Tokens</span>
+                  <span className="text-sm font-medium">{t("imageTokens")}</span>
                 </div>
                 <div className="text-right">
                   <span className="text-2xl font-bold tabular-nums">{imageCount.toLocaleString()}</span>
-                  <span className="text-sm text-muted-foreground ml-1">images</span>
+                  <span className="text-sm text-muted-foreground ml-1">{t("images")}</span>
                 </div>
               </div>
 
@@ -235,8 +237,8 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
 
               {/* Cost per token hint */}
               <div className="flex gap-4 text-xs text-muted-foreground">
-                <span>Image to Text: <strong className="text-foreground">1 token</strong> per image</span>
-                <span>Charts / Infographics / Thumbnails: <strong className="text-foreground">2 tokens</strong> per generation</span>
+                <span>{t.rich("imageToTextCost", { strong: (chunks) => <strong className="text-foreground">{chunks}</strong> })}</span>
+                <span>{t.rich("generationCost", { strong: (chunks) => <strong className="text-foreground">{chunks}</strong> })}</span>
               </div>
             </motion.div>
           )}
@@ -248,16 +250,16 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">
                 {tokenType === "words"
-                  ? `${wordCount.toLocaleString()} word tokens`
-                  : `${imageCount.toLocaleString()} image tokens`}
+                  ? t("wordTokensCount", { count: wordCount.toLocaleString() })
+                  : t("imageTokensCount", { count: imageCount.toLocaleString() })}
               </span>
               <span className="font-medium">${totalPrice}</span>
             </div>
             <div className="flex justify-between items-baseline pt-2 border-t border-border">
-              <span className="font-semibold">Total</span>
+              <span className="font-semibold">{t("total")}</span>
               <div className="text-right">
                 <span className="text-3xl font-bold">${totalPrice}</span>
-                <p className="text-xs text-muted-foreground">One-time purchase</p>
+                <p className="text-xs text-muted-foreground">{t("oneTime")}</p>
               </div>
             </div>
           </div>
@@ -272,8 +274,8 @@ export const CustomPlanSlider: React.FC<CustomPlanSliderProps> = ({ user }) => {
             disabled={isLoading || totalPrice === 0}
           >
             {isLoading
-              ? "Processing..."
-              : `Buy ${tokenType === "words" ? "Word" : "Image"} Tokens — $${totalPrice}`}
+              ? t("processing")
+              : t("buy", { type: tokenType === "words" ? t("typeWord") : t("typeImage"), price: totalPrice })}
           </Button>
         </div>
       </motion.div>

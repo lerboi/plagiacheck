@@ -3,48 +3,50 @@ import { Shield, Users, Award, Clock, CheckCircle, Star, ArrowRight } from 'luci
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useTranslations } from "next-intl"
 
 export function TrustSection() {
+  const t = useTranslations("Pricing.trust")
   const stats = [
     {
       icon: Users,
       number: "10M+",
-      label: "Documents Checked"
+      label: t("stats.documents")
     },
     {
       icon: Shield,
       number: "99.9%",
-      label: "Accuracy Rate"
+      label: t("stats.accuracy")
     },
     {
       icon: Clock,
       number: "< 30s",
-      label: "Average Check Time"
+      label: t("stats.speed")
     },
     {
       icon: Award,
       number: "500+",
-      label: "Universities Trust Us"
+      label: t("stats.universities")
     }
   ]
 
   const testimonials = [
     {
       name: "Sarah Chen",
-      role: "Graduate Student",
-      content: "This plagiarism checker saved my thesis. The accuracy is incredible.",
+      role: t("testimonials.sarah.role"),
+      content: t("testimonials.sarah.content"),
       rating: 5
     },
     {
       name: "Dr. Rodriguez",
-      role: "Professor",
-      content: "I recommend this to all my students. Great detailed reports.",
+      role: t("testimonials.rodriguez.role"),
+      content: t("testimonials.rodriguez.content"),
       rating: 5
     },
     {
       name: "Emma Thompson",
-      role: "Content Writer",
-      content: "As a freelancer, this tool gives me confidence in every submission.",
+      role: t("testimonials.emma.role"),
+      content: t("testimonials.emma.content"),
       rating: 5
     }
   ]
@@ -52,18 +54,18 @@ export function TrustSection() {
   const features = [
     {
       icon: CheckCircle,
-      title: "Real-time Scanning",
-      description: "Check against billions of sources instantly"
+      title: t("features.scanning.title"),
+      description: t("features.scanning.description")
     },
     {
       icon: Shield,
-      title: "Privacy Protected",
-      description: "Your documents are secure and never stored"
+      title: t("features.privacy.title"),
+      description: t("features.privacy.description")
     },
     {
       icon: Award,
-      title: "Citation Assistant",
-      description: "Get proper citation suggestions"
+      title: t("features.citation.title"),
+      description: t("features.citation.description")
     }
   ]
 
@@ -79,10 +81,10 @@ export function TrustSection() {
           viewport={{ once: true }}
         >
           <h2 className="text-4xl font-bold tracking-tight mb-4 bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
-            Trusted Worldwide
+            {t("title")}
           </h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Join millions who trust our advanced plagiarism detection technology
+            {t("subtitle")}
           </p>
         </motion.div>
 
@@ -126,7 +128,7 @@ export function TrustSection() {
           transition={{ duration: 0.6, delay: 0.3 }}
           viewport={{ once: true }}
         >
-          <h3 className="text-3xl font-bold text-center mb-12">Powerful Features</h3>
+          <h3 className="text-3xl font-bold text-center mb-12">{t("featuresHeading")}</h3>
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, index) => {
               const IconComponent = feature.icon
@@ -158,7 +160,7 @@ export function TrustSection() {
           transition={{ duration: 0.6, delay: 0.4 }}
           viewport={{ once: true }}
         >
-          <h3 className="text-3xl font-bold text-center mb-12">What Users Say</h3>
+          <h3 className="text-3xl font-bold text-center mb-12">{t("testimonialsHeading")}</h3>
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
               <motion.div
@@ -198,22 +200,22 @@ export function TrustSection() {
           <Card className="bg-gradient-to-r from-blue-500 to-blue-600 border-0 text-white overflow-hidden relative">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent"></div>
             <CardContent className="relative p-12">
-              <h3 className="text-3xl font-bold mb-4">Ready to Get Started?</h3>
+              <h3 className="text-3xl font-bold mb-4">{t("ctaTitle")}</h3>
               <p className="text-blue-100 mb-8 text-lg max-w-2xl mx-auto">
-                Join millions of users who trust our plagiarism detection technology
+                {t("ctaSubtitle")}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
                 <div className="flex items-center gap-2 text-blue-100">
                   <CheckCircle className="h-4 w-4" />
-                  <span className="text-sm">No credit card required</span>
+                  <span className="text-sm">{t("noCard")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-blue-100">
                   <CheckCircle className="h-4 w-4" />
-                  <span className="text-sm">Instant results</span>
+                  <span className="text-sm">{t("instant")}</span>
                 </div>
                 <div className="flex items-center gap-2 text-blue-100">
                   <CheckCircle className="h-4 w-4" />
-                  <span className="text-sm">Secure & private</span>
+                  <span className="text-sm">{t("secure")}</span>
                 </div>
               </div>
               <Button 
@@ -221,7 +223,7 @@ export function TrustSection() {
                 className="bg-white text-blue-600 hover:bg-gray-50 font-semibold px-8 py-3 h-auto text-lg shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <Link href="/pricing" className="inline-flex items-center gap-2">
-                  Start Now
+                  {t("startNow")}
                   <ArrowRight className="h-5 w-5" />
                 </Link>
               </Button>

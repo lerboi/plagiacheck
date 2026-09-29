@@ -20,6 +20,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { User } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
 import { useTokenStore } from "@/lib/store"
+import { useTranslations } from "next-intl"
 
 interface PaymentRecord {
   id: string
@@ -47,6 +48,7 @@ const PLAN_DETAILS: Record<string, { label: string; price: string }> = {
 }
 
 export default function Billing() {
+  const t = useTranslations("Billing")
   const supabase = createClientComponentClient()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -70,7 +72,7 @@ export default function Billing() {
       })
 
       if (!res.ok) {
-        setBillingError("Could not load billing data. Try refreshing.")
+        setBillingError(t("errors.loadData"))
         return
       }
 
@@ -81,11 +83,14 @@ export default function Billing() {
       // Only surface an error if user_profiles also fails — Payment/Package
       // tables may simply be empty (new account) which is not an error.
       if (data.errors?.includes("token balance")) {
-        setBillingError("Could not load token balance. Try refreshing.")
+        setBillingError(t("errors.loadBalance"))
       }
     } catch {
-      setBillingError("Could not load billing data. Try refreshing.")
+      setBillingError(t("errors.loadData"))
     }
+    // `t` is left out on purpose: adding it would re-run the fetch effect
+    // whenever the language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase])
 
   useEffect(() => {
@@ -112,7 +117,7 @@ export default function Billing() {
   }, [supabase, fetchBillingData])
 
   const getPlanName = () => {
-    if (!activePackage) return 'Free Plan'
+    if (!activePackage) return t("freePlan")
     return PLAN_DETAILS[activePackage.packageName]?.label || activePackage.packageName
   }
 
@@ -134,7 +139,7 @@ export default function Billing() {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
       if (!token) {
-        setBillingError("Session expired. Please sign in again.")
+        setBillingError(t("errors.sessionExpired"))
         return
       }
 
@@ -146,13 +151,13 @@ export default function Billing() {
       const data = await response.json()
 
       if (!response.ok || !data.url) {
-        setBillingError(data.error || "Could not open the billing portal.")
+        setBillingError(data.error || t("errors.portal"))
         return
       }
 
       window.location.href = data.url
     } catch (err: any) {
-      setBillingError(err?.message || "Could not open the billing portal.")
+      setBillingError(err?.message || t("errors.portal"))
     } finally {
       setPortalLoading(false)
     }
@@ -175,9 +180,9 @@ export default function Billing() {
         <Nav />
         <div className="container mx-auto px-4 py-12">
           <div className="text-center">
-            <h1 className="text-2xl font-bold mb-4">Please sign in to view billing</h1>
+            <h1 className="text-2xl font-bold mb-4">{t("signInPrompt")}</h1>
             <Button asChild>
-              <Link href="/signin?next=/billing">Sign In</Link>
+              <Link href="/signin?next=/billing">{t("signIn")}</Link>
             </Button>
           </div>
         </div>
@@ -193,9 +198,9 @@ export default function Billing() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Billing & Usage</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
               <p className="text-muted-foreground">
-                Manage your subscription and view your usage and payment history
+                {t("subtitle")}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -210,13 +215,13 @@ export default function Billing() {
                   ) : (
                     <CreditCard className="mr-2 h-4 w-4" />
                   )}
-                  Manage Subscription
+                  {t("manageSubscription")}
                 </Button>
               )}
               <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" asChild>
                 <Link href="/pricing">
                   <Crown className="mr-2 h-4 w-4" />
-                  {activePackage ? "Change Plan" : "Upgrade Plan"}
+                  {activePackage ? t("changePlan") : t("upgradePlan")}
                 </Link>
               </Button>
             </div>
@@ -234,10 +239,10 @@ export default function Billing() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Crown className="h-5 w-5 text-blue-600" />
-                  Current Plan
+                  {t("currentPlan")}
                 </CardTitle>
                 <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                  {activePackage ? formatStatus(activePackage.status) : 'Free'}
+                  {activePackage ? formatStatus(activePackage.status) : t("free")}
                 </Badge>
               </div>
             </CardHeader>
@@ -249,14 +254,14 @@ export default function Billing() {
                     <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{getPlanPrice()}</p>
                     {activePackage && (
                       <p className="text-sm text-muted-foreground">
-                        {isOneTimePackage ? "One-time purchase" : "per month"}
+                        {isOneTimePackage ? t("oneTime") : t("perMonth")}
                       </p>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Tokens Remaining</span>
+                      <span className="text-muted-foreground">{t("tokensRemaining")}</span>
                       <span className="font-medium">{displayedTokens.toLocaleString()}</span>
                     </div>
                   </div>
@@ -264,19 +269,19 @@ export default function Billing() {
 
                 <div className="space-y-4">
                   <div className="p-4 bg-white/60 dark:bg-gray-800/60 rounded-lg border">
-                    <h4 className="font-semibold mb-2 text-foreground">Plan Details</h4>
+                    <h4 className="font-semibold mb-2 text-foreground">{t("planDetails")}</h4>
                     <ul className="space-y-2 text-sm text-muted-foreground">
                       <li className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-500" />
-                        {activePackage ? 'All AI tools access' : 'Basic plagiarism detection'}
+                        {activePackage ? t("allTools") : t("basicDetection")}
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-500" />
-                        {displayedTokens.toLocaleString()} tokens remaining
+                        {t("tokensRemainingCount", { count: displayedTokens.toLocaleString() })}
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-500" />
-                        {activePackage ? 'Priority support' : 'Standard support'}
+                        {activePackage ? t("prioritySupport") : t("standardSupport")}
                       </li>
                     </ul>
                   </div>
@@ -285,8 +290,8 @@ export default function Billing() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
                       {isOneTimePackage
-                        ? "One-time purchase"
-                        : `Renews on ${new Date(activePackage.expiryDate).toLocaleDateString()}`}
+                        ? t("oneTime")
+                        : t("renewsOn", { date: new Date(activePackage.expiryDate).toLocaleDateString() })}
                     </div>
                   )}
                 </div>
@@ -298,7 +303,7 @@ export default function Billing() {
           <div className="grid md:grid-cols-3 gap-6">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-muted-foreground">Tokens Remaining</CardTitle>
+                <CardTitle className="text-base font-medium text-muted-foreground">{t("tokensRemaining")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -312,7 +317,7 @@ export default function Billing() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-muted-foreground">Total Payments</CardTitle>
+                <CardTitle className="text-base font-medium text-muted-foreground">{t("totalPayments")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -324,7 +329,7 @@ export default function Billing() {
 
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium text-muted-foreground">Account Age</CardTitle>
+                <CardTitle className="text-base font-medium text-muted-foreground">{t("accountAge")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2">
@@ -333,7 +338,7 @@ export default function Billing() {
                     {user?.created_at ? Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">Days</p>
+                <p className="text-sm text-muted-foreground mt-1">{t("days")}</p>
               </CardContent>
             </Card>
           </div>
@@ -344,7 +349,7 @@ export default function Billing() {
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
-                  Payment History
+                  {t("paymentHistory")}
                 </CardTitle>
               </div>
             </CardHeader>
@@ -356,9 +361,9 @@ export default function Billing() {
                       <FileText className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-foreground">No payment history</h3>
+                      <h3 className="font-medium text-foreground">{t("noPayments")}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Your payment history will appear here once you make your first purchase
+                        {t("noPaymentsBody")}
                       </p>
                     </div>
                   </div>
@@ -370,7 +375,7 @@ export default function Billing() {
                       <div className="flex items-center gap-3">
                         <div className={`w-2 h-2 rounded-full ${payment.status === 'succeeded' ? 'bg-green-500' : 'bg-red-500'}`} />
                         <div>
-                          <p className="font-medium text-sm">{payment.paymentType === 'Packages' ? 'Package Subscription' : 'Token Purchase'}</p>
+                          <p className="font-medium text-sm">{payment.paymentType === 'Packages' ? t("packageSubscription") : t("tokenPurchase")}</p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(payment.createdAt).toLocaleDateString()}
                           </p>
@@ -393,14 +398,14 @@ export default function Billing() {
               <CardContent className="p-8">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="space-y-2">
-                    <h3 className="text-xl font-bold">Ready to upgrade?</h3>
+                    <h3 className="text-xl font-bold">{t("upgradeTitle")}</h3>
                     <p className="text-blue-100">
-                      Get more words, advanced features, and priority support with our premium plans
+                      {t("upgradeBody")}
                     </p>
                   </div>
                   <Button className="bg-white text-blue-600 hover:bg-gray-100 font-semibold" asChild>
                     <Link href="/pricing">
-                      View Plans
+                      {t("viewPlans")}
                       <ArrowUpRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
