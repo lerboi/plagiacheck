@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { useLocale, useTranslations } from "next-intl"
 import {
@@ -40,6 +40,9 @@ interface ConversationSidebarProps {
   variant?: "inline" | "drawer"
   /** Drawer-mode close button — typically maps to `setMobileSidebarOpen(false)`. */
   onCloseDrawer?: () => void
+  /** Inline mode only: content pinned to the bottom of the sidebar (e.g. the
+   *  preferences launcher). Receives the collapsed state so it can go icon-only. */
+  footer?: (collapsed: boolean) => ReactNode
 }
 
 interface RelativeTimeLabels {
@@ -360,6 +363,7 @@ export function ConversationSidebar({
   onTogglePin,
   variant = "inline",
   onCloseDrawer,
+  footer,
 }: ConversationSidebarProps) {
   const t = useTranslations("PlagiaAi.sidebar")
   // FE-17 — filter query (case-insensitive substring on `title`).
@@ -425,98 +429,104 @@ export function ConversationSidebar({
     )
   }
 
-  // Inline (desktop) mode — width-transition collapse.
+  // Inline (desktop) mode — width-transition collapse. Sticky at viewport
+  // height so the footer stays at the bottom-left while the chat scrolls.
+  // Clipping for the width transition lives on the inner wrapper, not the
+  // aside, so a footer popover can extend past the sidebar's edge.
   return (
     <aside
-      className={`hidden lg:flex shrink-0 flex-col border-r border-border bg-card/30 overflow-hidden transition-[width] duration-200 ease-out ${
+      className={`hidden lg:flex sticky top-14 self-start h-drawer-dvh shrink-0 flex-col border-r border-border bg-card/30 transition-[width] duration-200 ease-out ${
         collapsed ? "w-14" : "w-[260px]"
       }`}
       aria-label={t("asideAria")}
     >
-      <div
-        className={`flex items-center gap-1 p-2 ${
-          collapsed ? "flex-col" : ""
-        }`}
-      >
-        {collapsed ? (
-          <>
-            <button
-              onClick={onToggleCollapse}
-              className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label={t("expandAria")}
-              title={t("expandTitle")}
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
-            <button
-              onClick={onNewChat}
-              className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label={t("newChat")}
-              title={t("newChat")}
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={onNewChat}
-              className="flex-1 h-9 inline-flex items-center gap-2 px-3 rounded-md border border-border bg-background hover:bg-accent text-sm text-foreground transition-colors min-w-0"
-            >
-              <MessageSquarePlus className="h-4 w-4 shrink-0" />
-              <span className="truncate">{t("newChat")}</span>
-            </button>
-            <button
-              onClick={onToggleCollapse}
-              className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
-              aria-label={t("collapse")}
-              title={t("collapse")}
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
-          </>
-        )}
-      </div>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div
+          className={`flex items-center gap-1 p-2 ${
+            collapsed ? "flex-col" : ""
+          }`}
+        >
+          {collapsed ? (
+            <>
+              <button
+                onClick={onToggleCollapse}
+                className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={t("expandAria")}
+                title={t("expandTitle")}
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+              <button
+                onClick={onNewChat}
+                className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={t("newChat")}
+                title={t("newChat")}
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onNewChat}
+                className="flex-1 h-9 inline-flex items-center gap-2 px-3 rounded-md border border-border bg-background hover:bg-accent text-sm text-foreground transition-colors min-w-0"
+              >
+                <MessageSquarePlus className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t("newChat")}</span>
+              </button>
+              <button
+                onClick={onToggleCollapse}
+                className="h-9 w-9 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
+                aria-label={t("collapse")}
+                title={t("collapse")}
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
 
-      {/* Outer fade for the whole list when sidebar collapses. The inner
-          per-row AnimatePresence inside ConversationList handles row
-          enter/exit. Two separate AnimatePresences — keep them disjoint. */}
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.div
-            key="list"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="flex-1 flex flex-col min-h-0"
-          >
-            {showFilter && (
-              <div className="px-2 pb-2">
-                <input
-                  type="search"
-                  value={filterQuery}
-                  onChange={(e) => setFilterQuery(e.target.value)}
-                  placeholder={t("filterPlaceholder")}
-                  aria-label={t("filterPlaceholder")}
-                  className="w-full h-9 md:h-8 px-2.5 rounded-md border border-border bg-background text-base md:text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
-            )}
-            <ConversationList
-              conversations={filteredConversations}
-              activeId={activeId}
-              loading={loading}
-              isFiltered={hasActiveFilter}
-              onClearFilter={() => setFilterQuery("")}
-              onSelect={onSelect}
-              onDelete={onDelete}
-              onRename={onRename}
-              onTogglePin={onTogglePin}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Outer fade for the whole list when sidebar collapses. The inner
+            per-row AnimatePresence inside ConversationList handles row
+            enter/exit. Two separate AnimatePresences — keep them disjoint. */}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div
+              key="list"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex-1 flex flex-col min-h-0"
+            >
+              {showFilter && (
+                <div className="px-2 pb-2">
+                  <input
+                    type="search"
+                    value={filterQuery}
+                    onChange={(e) => setFilterQuery(e.target.value)}
+                    placeholder={t("filterPlaceholder")}
+                    aria-label={t("filterPlaceholder")}
+                    className="w-full h-9 md:h-8 px-2.5 rounded-md border border-border bg-background text-base md:text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+                  />
+                </div>
+              )}
+              <ConversationList
+                conversations={filteredConversations}
+                activeId={activeId}
+                loading={loading}
+                isFiltered={hasActiveFilter}
+                onClearFilter={() => setFilterQuery("")}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onRename={onRename}
+                onTogglePin={onTogglePin}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      {footer?.(collapsed)}
     </aside>
   )
 }

@@ -61,6 +61,11 @@ import {
 } from "@/lib/plagia-ai/export"
 import { AssistantMarkdown } from "@/components/plagia-ai/AssistantMarkdown"
 import { ConversationSidebar } from "@/components/plagia-ai/ConversationSidebar"
+import {
+  countActivePreferences,
+  PreferencesSheet,
+  PreferencesSidebarLauncher,
+} from "@/components/plagia-ai/PreferencesPanel"
 import { EmptyState } from "@/components/plagia-ai/EmptyState"
 import { InlineSvgPreview } from "@/components/plagia-ai/InlineSvgPreview"
 import { SuggestionChipBar } from "@/components/plagia-ai/SuggestionChipBar"
@@ -445,9 +450,10 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   const abortRef = useRef<AbortController | null>(null)
 
   // FE-09 — persistent personalization (Supabase-backed).
-  // The panel is a small inline section that slides open under the chat
-  // header; only sign-in users can interact with it. Preferences are
-  // sanitised before save and re-fetched on every user change.
+  // Opened from the bottom of the conversation sidebar on desktop and from the
+  // gear in the chat header (as a bottom sheet) on mobile; signed-in users
+  // only. Preferences are sanitised before save and re-fetched on every user
+  // change.
   useEffect(() => {
     if (!user) {
       setPrefs(EMPTY_PREFERENCES)
@@ -462,8 +468,8 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
     }
   }, [user, supabase])
   const handleSavePreferences = useCallback(
-    async (next: PlagiaAiPreferences) => {
-      if (!user) return
+    async (next: PlagiaAiPreferences): Promise<boolean> => {
+      if (!user) return false
       setPrefsSaving(true)
       const ok = await savePreferences(supabase, user.id, next)
       setPrefsSaving(false)
@@ -481,9 +487,11 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
           variant: "destructive",
         })
       }
+      return ok
     },
     [user, supabase, toast, t],
   )
+  const closeSettings = useCallback(() => setSettingsOpen(false), [])
 
   useEffect(() => {
     let mounted = true
@@ -1379,6 +1387,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
   }
 
   const conversationStarted = items.length > 0
+  const activePreferenceCount = countActivePreferences(prefs)
 
   // FE-19 — id of the last assistant text bubble in `items`, used to gate
   // the "Regenerate" button (visible only under the most recent answer).
@@ -1409,6 +1418,14 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
               onDelete={handleDeleteConversation}
               onRename={handleRenameConversation}
               onTogglePin={handleTogglePinConversation}
+              footer={(collapsed) => (
+                <PreferencesSidebarLauncher
+                  collapsed={collapsed}
+                  prefs={prefs}
+                  saving={prefsSaving}
+                  onSave={handleSavePreferences}
+                />
+              )}
             />
           )}
           {/* FE-13 — mobile drawer (lg:hidden). Renders a backdrop +
@@ -1493,17 +1510,7 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                   <span />
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen((v) => !v)}
-                  className="h-7 px-2 gap-1 rounded-md inline-flex items-center text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  aria-label={t("header.preferencesAria")}
-                  aria-expanded={settingsOpen}
-                >
-                  <Settings className="h-3 w-3" />
-                  <span className="hidden sm:inline">{t("header.preferences")}</span>
-                </button>
+              <div className="flex items-center gap-1">
                 {conversationStarted && !confirmingClear && (
                   <Button
                     size="sm"
@@ -1547,21 +1554,46 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
                       className="h-7 text-xs px-2 gap-1 text-muted-foreground hover:text-foreground"
                       onClick={() => setConfirmingClear(true)}
                       disabled={streaming}
+                      aria-label={t("header.clear")}
+                      title={t("header.clear")}
                     >
                       <Trash2 className="h-3 w-3" />
-                      {t("header.clear")}
+                      <span className="hidden sm:inline">{t("header.clear")}</span>
                     </Button>
                   ))}
+                {/* Mobile only — on desktop preferences live at the bottom of
+                    the conversation sidebar. */}
+                <button
+                  type="button"
+                  onClick={() => setSettingsOpen(true)}
+                  className="lg:hidden relative h-8 w-8 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
+                  aria-label={
+                    activePreferenceCount > 0
+                      ? `${t("header.preferencesAria")}, ${t("preferences.activeCount", { count: activePreferenceCount })}`
+                      : t("header.preferencesAria")
+                  }
+                  aria-haspopup="dialog"
+                  aria-expanded={settingsOpen}
+                >
+                  <Settings className="h-4 w-4" />
+                  {activePreferenceCount > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-violet-500"
+                    />
+                  )}
+                </button>
               </div>
             </div>
           )}
 
-          {settingsOpen && user && (
-            <PreferencesPanel
+          {user && (
+            <PreferencesSheet
+              open={settingsOpen}
+              onClose={closeSettings}
               prefs={prefs}
               saving={prefsSaving}
-              onSave={(next) => void handleSavePreferences(next)}
-              onClose={() => setSettingsOpen(false)}
+              onSave={handleSavePreferences}
             />
           )}
 
@@ -2132,181 +2164,6 @@ export function PlagiaAiApp({ marketingFooter }: PlagiaAiAppProps = {}) {
       </section>
 
       {!conversationStarted && marketingFooter ? marketingFooter : <FAQ />}
-    </div>
-  )
-}
-
-function PreferencesPanel({
-  prefs,
-  saving,
-  onSave,
-  onClose,
-}: {
-  prefs: PlagiaAiPreferences
-  saving: boolean
-  onSave: (next: PlagiaAiPreferences) => void
-  onClose: () => void
-}) {
-  const t = useTranslations("PlagiaAi.preferences")
-  const tValues = useTranslations("PlagiaAi.values")
-  // Local form state — committed on Save. Lets users tweak controls without
-  // each keystroke writing to Supabase.
-  const [draft, setDraft] = useState<PlagiaAiPreferences>(prefs)
-  useEffect(() => {
-    setDraft(prefs)
-  }, [prefs])
-
-  const update = <K extends keyof PlagiaAiPreferences>(
-    key: K,
-    value: PlagiaAiPreferences[K] | undefined,
-  ) => {
-    setDraft((prev) => {
-      const next = { ...prev }
-      if (value === undefined) delete next[key]
-      else next[key] = value
-      return next
-    })
-  }
-
-  return (
-    <div className="mb-4 rounded-xl border border-border bg-card/40 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">{t("title")}</h3>
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-7 w-7 rounded-md hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground"
-          aria-label={t("closeAria")}
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {t("intro")}
-      </p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-        <label className="space-y-1 text-xs">
-          <span className="font-medium text-foreground">{t("paraphraseMode")}</span>
-          <select
-            value={draft.paraphraseMode ?? ""}
-            onChange={(e) =>
-              update(
-                "paraphraseMode",
-                (e.target.value || undefined) as PlagiaAiPreferences["paraphraseMode"],
-              )
-            }
-            className="w-full h-9 rounded-md border border-border bg-background px-2 text-base md:text-sm"
-          >
-            <option value="">{t("noPreference")}</option>
-            <option value="standard">{tValues("modes.standard")}</option>
-            <option value="fluency">{tValues("modes.fluency")}</option>
-            <option value="formal">{tValues("modes.formal")}</option>
-            <option value="simple">{tValues("modes.simple")}</option>
-            <option value="creative">{tValues("modes.creative")}</option>
-            <option value="academic">{tValues("modes.academic")}</option>
-          </select>
-        </label>
-
-        <label className="space-y-1 text-xs">
-          <span className="font-medium text-foreground">{t("humanizerTone")}</span>
-          <select
-            value={draft.humanizerTone ?? ""}
-            onChange={(e) =>
-              update(
-                "humanizerTone",
-                (e.target.value || undefined) as PlagiaAiPreferences["humanizerTone"],
-              )
-            }
-            className="w-full h-9 rounded-md border border-border bg-background px-2 text-base md:text-sm"
-          >
-            <option value="">{t("noPreference")}</option>
-            <option value="casual">{tValues("tones.casual")}</option>
-            <option value="professional">{tValues("tones.professional")}</option>
-            <option value="academic">{tValues("tones.academic")}</option>
-            <option value="creative">{tValues("tones.creative")}</option>
-            <option value="friendly">{tValues("tones.friendly")}</option>
-          </select>
-        </label>
-
-        <label className="space-y-1 text-xs sm:col-span-2">
-          <span className="font-medium text-foreground inline-flex items-center gap-2">
-            {t("summaryLength")}
-            {typeof draft.summaryLengthPercent === "number" && (
-              <span className="text-muted-foreground tabular-nums">
-                {draft.summaryLengthPercent}%
-              </span>
-            )}
-          </span>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min={10}
-              max={90}
-              step={5}
-              value={draft.summaryLengthPercent ?? 30}
-              onChange={(e) => update("summaryLengthPercent", Number(e.target.value))}
-              className="flex-1 accent-violet-600"
-              aria-label={t("summaryLengthAria")}
-            />
-            {typeof draft.summaryLengthPercent === "number" && (
-              <button
-                type="button"
-                onClick={() => update("summaryLengthPercent", undefined)}
-                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-              >
-                {t("clear")}
-              </button>
-            )}
-          </div>
-        </label>
-
-        <label className="flex items-start gap-2 text-xs sm:col-span-2">
-          <input
-            type="checkbox"
-            checked={!!draft.alwaysConfirmImageSpend}
-            onChange={(e) =>
-              update("alwaysConfirmImageSpend", e.target.checked || undefined)
-            }
-            className="mt-0.5 accent-violet-600"
-          />
-          <span>
-            <span className="font-medium text-foreground">
-              {t("alwaysConfirm")}
-            </span>
-            <span className="block text-muted-foreground mt-0.5">
-              {t("alwaysConfirmHint")}
-            </span>
-          </span>
-        </label>
-      </div>
-
-      <div className="flex items-center justify-end gap-2 pt-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 px-3 text-xs"
-          onClick={() => setDraft(prefs)}
-          disabled={saving}
-        >
-          {t("reset")}
-        </Button>
-        <Button
-          size="sm"
-          className="h-8 px-3 text-xs bg-violet-600 hover:bg-violet-700 text-white"
-          onClick={() => onSave(draft)}
-          disabled={saving}
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              {t("saving")}
-            </>
-          ) : (
-            t("save")
-          )}
-        </Button>
-      </div>
     </div>
   )
 }
