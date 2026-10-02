@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { format, addMonths, isLastDayOfMonth, lastDayOfMonth } from 'date-fns';
 import Stripe from 'stripe';
+import {
+    cancelSupersededPackages,
+    ensureSubscriptionCanceled,
+    hasOtherActivePackage,
+    hasOtherLiveSubscription
+} from '../../../../utils/packageSupersede';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
@@ -104,6 +110,28 @@ async function handleFailedPayment(invoice) {
 
         if (updateError) {
             console.log('Failed to updated pastDueTiming...');
+        }
+
+        // The user re-subscribed to this same package while this subscription was past due
+        // and is paying for it on the new one. Stop retrying this one instead of leaving
+        // Stripe to charge them twice.
+        if (await hasOtherLiveSubscription(stripe, supabase, userId, packageData.packageName, subscriptionId)) {
+            if (await ensureSubscriptionCanceled(stripe, subscriptionId, userId)) {
+                const { error: supersededError } = await supabase
+                    .from('Package')
+                    .update({
+                        status: 'CANCELED',
+                    })
+                    .eq('id', packageData.id);
+
+                if (supersededError) {
+                    console.error('Error updating package status:', supersededError);
+                    throw supersededError;
+                }
+
+                console.log(`Package ${packageData.id} has been marked as CANCELED because the user has another live subscription for ${packageData.packageName}`);
+                return;
+            }
         }
 
         // Check for consecutive failures
@@ -315,7 +343,10 @@ async function handleTokenAllocation(userId, tokenType, subscriptionId) {
             .from('Package')
             .update({
                 expiryDate: newExpiryDate.toISOString(),
-                status: 'ACTIVE'
+                status: 'ACTIVE',
+                // The renewal is paid, so any earlier failures no longer apply.
+                paymentFailureCount: 0,
+                pastDueSince: null
             })
             .eq('id', packageData.id);
 
@@ -745,6 +776,11 @@ async function handleInitialPackagePayment(invoice) {
             // Don't throw - package and tokens were added successfully
         }
 
+        // ========== CANCEL SUPERSEDED PAST_DUE SUBSCRIPTIONS ==========
+        // A user whose renewal failed can buy the same package again. Cancel the old
+        // subscription so Stripe stops retrying it and they are not billed twice.
+        await cancelSupersededPackages(stripe, supabase, userId, tokenType, subscriptionId);
+
         console.log(`✅ Successfully processed initial package purchase for user ${userId}: ${tokenType}`);
 
     } catch (error) {
@@ -903,6 +939,13 @@ async function handleSubscriptionCancellation(subscription) {
 
                 console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
 
+                // Another ACTIVE package still entitles the user to voice minutes (e.g. this
+                // was a past-due subscription they have already replaced).
+                if (await hasOtherActivePackage(supabase, packageData.userId, packageData.id)) {
+                    console.log(`User ${packageData.userId} still has an ACTIVE package. Keeping SubscriptionToken voiceMinutes.`);
+                    return;
+                }
+
                 // Clear voiceMinutes from SubscriptionToken on cancellation
                 const { error: voiceClearError } = await supabase
                     .from('SubscriptionToken')
@@ -944,6 +987,13 @@ async function handleSubscriptionCancellation(subscription) {
         if (updateError) throw updateError;
 
         console.log(`Package ${packageData.id} has been marked as CANCELED due to subscription cancellation`);
+
+        // Another ACTIVE package still entitles the user to voice minutes (e.g. this
+        // was a past-due subscription they have already replaced).
+        if (await hasOtherActivePackage(supabase, userId, packageData.id)) {
+            console.log(`User ${userId} still has an ACTIVE package. Keeping SubscriptionToken voiceMinutes.`);
+            return;
+        }
 
         // Clear voiceMinutes from SubscriptionToken on cancellation
         const { error: voiceClearError } = await supabase
