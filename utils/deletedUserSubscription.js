@@ -56,9 +56,9 @@ async function isDeletedUserSubscription(supabase, subscription) {
 }
 
 // For an invoice event on a subscription whose Anione user has been deleted: cancels
-// the subscription and, if this invoice took a payment, refunds it. Returns true when
-// the event was handled this way, false when the caller should carry on as normal.
-// Never throws.
+// the subscription. A payment this invoice took is not refunded automatically; it is
+// logged so it can be reviewed and refunded by hand. Returns true when the event was
+// handled this way, false when the caller should carry on as normal. Never throws.
 export async function handleDeletedUserSubscription(stripe, supabase, subscription, invoice) {
     try {
         if (!(await isDeletedUserSubscription(supabase, subscription))) {
@@ -77,28 +77,8 @@ export async function handleDeletedUserSubscription(stripe, supabase, subscripti
             }
         }
 
-        const paymentIntentId = typeof invoice.payment_intent === 'string'
-            ? invoice.payment_intent
-            : invoice.payment_intent?.id;
-
-        if (invoice.status === 'paid' && invoice.amount_paid > 0 && paymentIntentId) {
-            try {
-                // The key makes repeated deliveries of this event refund only once.
-                const refund = await stripe.refunds.create(
-                    {
-                        payment_intent: paymentIntentId,
-                        metadata: {
-                            reason: 'anione_account_deleted',
-                            invoice: invoice.id,
-                            subscription: subscription.id,
-                        },
-                    },
-                    { idempotencyKey: `anione-deleted-user-refund-${invoice.id}` }
-                );
-                console.log(`[DELETED_USER_SUBSCRIPTION] Refunded invoice ${invoice.id}: ${refund.id}`);
-            } catch (refundError) {
-                console.error(`[DELETED_USER_SUBSCRIPTION] Failed to refund invoice ${invoice.id}. Refund it manually if it is not already refunded:`, refundError.message);
-            }
+        if (invoice.status === 'paid' && invoice.amount_paid > 0) {
+            console.error(`[DELETED_USER_SUBSCRIPTION] Invoice ${invoice.id} took a payment of ${invoice.amount_paid / 100} ${invoice.currency?.toUpperCase() ?? ''} after the account was deleted. Not refunded automatically; review and refund it by hand.`);
         }
 
         return true;

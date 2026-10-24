@@ -430,8 +430,8 @@ async function handleSuccessfulPayment(invoice) {
             return;
         }
 
-        // If the Anione account was deleted, cancel the subscription and refund this
-        // renewal instead of failing on the missing Package.
+        // If the Anione account was deleted, cancel the subscription and log this
+        // renewal for a manual refund instead of failing on the missing Package.
         if (await handleDeletedUserSubscription(stripe, supabase, subscription, invoice)) {
             return;
         }
