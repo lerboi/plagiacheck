@@ -21,8 +21,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Stripe subscription ID is required" }, { status: 405 })
     }
 
-    // Cancel the subscription immediately
-    const subscription = await stripe.subscriptions.cancel(stripeSubscriptionId);
+    // Cancel the subscription immediately. One that has already ended (e.g. canceled
+    // by Stripe after failed payments) is left as is, so this call is safe to repeat.
+    let subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    if (subscription.status !== "canceled" && subscription.status !== "incomplete_expired") {
+      subscription = await stripe.subscriptions.cancel(stripeSubscriptionId);
+    }
 
     // If a packageId was provided, update the Package table in Supabase
     if (packageId) {

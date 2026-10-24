@@ -8,6 +8,7 @@ import {
     hasOtherActivePackage,
     hasOtherLiveSubscription
 } from '../../../../utils/packageSupersede';
+import { handleDeletedUserSubscription } from '../../../../utils/deletedUserSubscription';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL2;
@@ -89,6 +90,12 @@ async function handleFailedPayment(invoice) {
             .single();
 
         if (!packageData) {
+            // If the Anione account was deleted, cancel the subscription so Stripe
+            // stops retrying the card.
+            if (await handleDeletedUserSubscription(stripe, supabase, subscription, invoice)) {
+                return;
+            }
+
             console.error(`No Package found for userId: ${userId} and subscription: ${subscriptionId}`);
             return;
         }
@@ -420,6 +427,12 @@ async function handleSuccessfulPayment(invoice) {
 
         if (existingRecurring) {
             console.log(`Recurring payment ${recurringPaymentId} already processed. Skipping.`);
+            return;
+        }
+
+        // If the Anione account was deleted, cancel the subscription and refund this
+        // renewal instead of failing on the missing Package.
+        if (await handleDeletedUserSubscription(stripe, supabase, subscription, invoice)) {
             return;
         }
 
